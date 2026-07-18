@@ -14,6 +14,10 @@ module StepRuns
     end
 
     def call
+      # A claim poll is an idle worker's liveness signal — without this, workers
+      # that poll but hold no lease would be swept offline between steps.
+      @worker.update!(last_heartbeat_at: Time.current, status: "online")
+
       return Result.failure(:at_capacity) if at_capacity?
 
       run = nil
