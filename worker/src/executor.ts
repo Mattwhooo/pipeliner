@@ -54,7 +54,7 @@ export class Executor {
       schema_version: "1.0",
       iteration: step_run.iteration,
       resolved_inputs: step.inputs,
-      feedback: [],
+      feedback: step_run.feedback ?? [],
     }, null, 2));
   }
 
@@ -73,6 +73,10 @@ export class Executor {
       `Task: ${pipeline.title}`,
       `Phase: ${phase.kind}`,
       pipeline.initial_prompt ? `The ask:\n${pipeline.initial_prompt}` : "",
+      this.bundle.step_run.feedback?.length
+        ? `\n## Feedback to address (from a critic's review of the previous iteration)\n` +
+          JSON.stringify(this.bundle.step_run.feedback, null, 2)
+        : "",
       ``,
       `## Your working rules`,
       `- Work only inside the current directory (a dedicated git worktree).`,

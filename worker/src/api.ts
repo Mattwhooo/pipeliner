@@ -10,6 +10,8 @@ export interface Bundle {
     shard_key: string | null;
     step_branch: string;
     lease_expires_at: string;
+    /** Routed critic findings when this run is a feedback-driven re-run. */
+    feedback: Array<Record<string, unknown>> | null;
   };
   step: {
     slug: string;
