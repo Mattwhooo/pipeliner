@@ -1,0 +1,7 @@
+# Pipeliner dev environment — source this before working in this repo:
+#   source .devenv
+#
+# Uses Homebrew Ruby (latest stable) and neutralizes RVM's environment,
+# which otherwise pollutes GEM_HOME/GEM_PATH with an old Ruby 3.0 gemset.
+unset GEM_HOME GEM_PATH
+export PATH="/opt/homebrew/opt/ruby/bin:/opt/homebrew/lib/ruby/gems/4.0.0/bin:$PATH"
