@@ -12,7 +12,8 @@ module NavigationHelper
         active: controller_name == "pipelines"),
       NavItem.new(label: "Workers", path: workers_path,
         active: controller_name == "workers"),
-      NavItem.new(label: "Step Library", path: nil, active: false)
+      NavItem.new(label: "Step Library", path: step_templates_path,
+        active: controller_name == "step_templates")
     ]
   end
 end

@@ -17,6 +17,13 @@ Rails.application.routes.draw do
   end
   resources :pipelines, only: [ :index, :show ]
   resources :workers, only: [ :index ]
+  resources :step_templates, path: "step-library"
+  resources :phases, only: [] do
+    resources :steps, only: [ :new, :create ]
+  end
+  resources :steps, only: [] do
+    post :queue_run, on: :member
+  end
 
   namespace :api do
     namespace :v1 do

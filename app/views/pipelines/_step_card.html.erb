@@ -22,4 +22,9 @@
   <% if run&.worker && run.state.in?(%w[claimed running]) %>
     <p class="mt-1 truncate text-xs text-gray-400"><%= run.worker.name || run.worker.public_id %></p>
   <% end %>
+  <% if step.worker_executed? && (run.nil? || run.state.in?(%w[succeeded failed stuck])) %>
+    <%= link_to run.nil? ? "Queue run" : "Re-run",
+          queue_run_step_path(step), data: { turbo_method: :post },
+          class: "mt-2 inline-block text-xs font-medium text-indigo-600 hover:text-indigo-700" %>
+  <% end %>
 </div>
