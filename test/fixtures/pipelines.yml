@@ -1,0 +1,9 @@
+onboarding:
+  project: pipeliner
+  title: Improve onboarding docs
+  public_id: pl_onboarding
+  branch: pipeliner/pl_onboarding
+  status: draft
+  current_phase: define
+  config: {}
+  initial_prompt: Make the onboarding docs clearer.

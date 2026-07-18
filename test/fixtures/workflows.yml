@@ -1,0 +1,7 @@
+define_main:
+  phase: onboarding_define
+  slug: main
+  max_parallel: 4
+  max_iterations: 10
+  status: running
+  shared_paths: []

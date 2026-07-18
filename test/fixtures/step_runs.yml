@@ -1,0 +1,6 @@
+requirements_ready:
+  step: requirements_writer
+  iteration: 1
+  attempt: 1
+  state: ready
+  required_role: requirements

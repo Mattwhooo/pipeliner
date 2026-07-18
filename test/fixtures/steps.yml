@@ -1,0 +1,14 @@
+requirements_writer:
+  workflow: define_main
+  slug: requirements
+  step_type: builder
+  role: requirements
+  system_prompt: Write atomic business requirements.
+  position: 1
+completeness_critic:
+  workflow: define_main
+  slug: completeness
+  step_type: critic
+  role: review
+  system_prompt: Check the requirements for completeness.
+  position: 2

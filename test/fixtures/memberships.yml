@@ -1,0 +1,4 @@
+dev_owns_pipeliner:
+  user: dev
+  project: pipeliner
+  role: owner

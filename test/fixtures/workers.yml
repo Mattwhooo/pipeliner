@@ -1,0 +1,10 @@
+claude_local:
+  public_id: wk_claude_local
+  name: Local Claude worker
+  status: online
+  backend: claude-code
+  model: claude-opus-4-8
+  supported_roles: ["code", "review", "requirements"]
+  concurrency: 2
+  last_heartbeat_at: <%= Time.current %>
+  auth_token_digest: <%= Digest::SHA256.hexdigest("test-worker-token") %>

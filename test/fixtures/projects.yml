@@ -1,0 +1,7 @@
+pipeliner:
+  name: Pipeliner
+  repo_url: https://github.com/example/pipeliner
+  default_branch: main
+  project_type: software
+  env_status: ready
+  settings: {}

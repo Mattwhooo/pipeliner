@@ -1,0 +1,18 @@
+onboarding_define:
+  pipeline: onboarding
+  kind: define
+  position: 1
+  status: running
+  gate_mode: human
+onboarding_plan:
+  pipeline: onboarding
+  kind: plan
+  position: 2
+onboarding_build:
+  pipeline: onboarding
+  kind: build
+  position: 3
+onboarding_review:
+  pipeline: onboarding
+  kind: review
+  position: 4
