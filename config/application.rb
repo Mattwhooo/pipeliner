@@ -23,5 +23,10 @@ module Pipeliner
     #
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
+
+    # Shared secret a Worker presents to self-register and receive its token.
+    # Must be set explicitly in production; defaults for local development/test.
+    config.x.worker_registration_key =
+      ENV.fetch("PIPELINER_REGISTRATION_KEY") { Rails.env.production? ? nil : "dev-registration-key" }
   end
 end

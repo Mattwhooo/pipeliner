@@ -16,4 +16,18 @@ Rails.application.routes.draw do
     resources :pipelines, only: [ :new, :create ]
   end
   resources :pipelines, only: [ :show ]
+
+  namespace :api do
+    namespace :v1 do
+      post "workers/register", to: "registrations#create"
+      resources :claims, only: [ :create ]
+      resources :step_runs, only: [] do
+        member do
+          post :heartbeat
+          post :progress
+          post :complete
+        end
+      end
+    end
+  end
 end
