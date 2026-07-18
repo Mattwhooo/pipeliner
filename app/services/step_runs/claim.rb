@@ -19,14 +19,18 @@ module StepRuns
       run = nil
       ApplicationRecord.transaction do
         run = ClaimableFor.new(@worker).first_with_lock
-        run&.update!(
-          state: "claimed",
-          worker: @worker,
-          epoch: SecureRandom.hex(8),
-          lease_expires_at: LEASE_TTL.from_now,
-          last_heartbeat_at: Time.current,
-          started_at: Time.current
-        )
+        if run
+          epoch = SecureRandom.hex(8)
+          run.update!(
+            state: "claimed",
+            worker: @worker,
+            epoch: epoch,
+            step_branch: step_branch_for(run, epoch),
+            lease_expires_at: LEASE_TTL.from_now,
+            last_heartbeat_at: Time.current,
+            started_at: Time.current
+          )
+        end
       end
 
       return Result.failure(:no_work) unless run
@@ -39,6 +43,13 @@ module StepRuns
 
     def at_capacity?
       @worker.step_runs.leased.count >= @worker.concurrency
+    end
+
+    # Branch-per-step: the one ref this lease may push (docs/architecture.md).
+    def step_branch_for(run, epoch)
+      step = run.step
+      phase = step.workflow.phase
+      "step/#{phase.position.to_s.rjust(2, "0")}-#{phase.kind}/#{step.workflow.slug}/#{step.slug}/#{epoch}"
     end
   end
 end

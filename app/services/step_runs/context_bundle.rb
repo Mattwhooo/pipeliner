@@ -18,6 +18,7 @@ module StepRuns
           iteration: step_run.iteration,
           attempt: step_run.attempt,
           shard_key: step_run.shard_key,
+          step_branch: step_run.step_branch,
           lease_expires_at: step_run.lease_expires_at
         },
         step: {
@@ -32,7 +33,12 @@ module StepRuns
         },
         workflow: { slug: workflow.slug, shared_paths: workflow.shared_paths },
         phase: { kind: phase.kind, position: phase.position },
-        pipeline: { public_id: pipeline.public_id, branch: pipeline.branch },
+        pipeline: {
+          public_id: pipeline.public_id,
+          branch: pipeline.branch,
+          title: pipeline.title,
+          initial_prompt: pipeline.initial_prompt
+        },
         project: {
           repo_url: project.repo_url,
           default_branch: project.default_branch,

@@ -16,6 +16,7 @@ module StepRuns
       assert_equal "claimed", run.state
       assert_equal @worker, run.worker
       assert run.epoch.present?
+      assert_equal "step/01-define/main/requirements/#{run.epoch}", run.step_branch
       assert run.lease_expires_at > 50.seconds.from_now
     end
 
