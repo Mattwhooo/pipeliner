@@ -1,4 +1,10 @@
 class PipelinesController < ApplicationController
+  def index
+    @pipelines = Pipeline.joins(project: :memberships)
+      .where(memberships: { user_id: current_user.id })
+      .includes(:project).order(created_at: :desc)
+  end
+
   def show
     @pipeline = Pipeline.joins(project: :memberships)
       .where(memberships: { user_id: current_user.id })

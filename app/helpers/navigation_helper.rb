@@ -7,9 +7,11 @@ module NavigationHelper
     [
       NavItem.new(label: "Dashboard", path: root_path, active: current_page?(root_path)),
       NavItem.new(label: "Projects", path: projects_path,
-        active: controller_name.in?(%w[projects pipelines])),
-      NavItem.new(label: "Pipelines", path: nil, active: false),
-      NavItem.new(label: "Workers", path: nil, active: false),
+        active: controller_name == "projects"),
+      NavItem.new(label: "Pipelines", path: pipelines_path,
+        active: controller_name == "pipelines"),
+      NavItem.new(label: "Workers", path: workers_path,
+        active: controller_name == "workers"),
       NavItem.new(label: "Step Library", path: nil, active: false)
     ]
   end

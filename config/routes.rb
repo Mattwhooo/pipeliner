@@ -15,7 +15,8 @@ Rails.application.routes.draw do
   resources :projects, only: [ :index, :show, :new, :create ] do
     resources :pipelines, only: [ :new, :create ]
   end
-  resources :pipelines, only: [ :show ]
+  resources :pipelines, only: [ :index, :show ]
+  resources :workers, only: [ :index ]
 
   namespace :api do
     namespace :v1 do
