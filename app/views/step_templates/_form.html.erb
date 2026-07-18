@@ -43,20 +43,26 @@
           class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600" %>
   </div>
 
-  <div class="grid grid-cols-2 gap-4">
-    <div>
-      <%= f.label :default_inputs_json, "Default inputs (JSON)", class: "block text-sm font-medium text-gray-900" %>
-      <%= f.text_area :default_inputs_json, rows: 3, value: template.default_inputs.presence&.to_json,
-            placeholder: '[{"artifact":"business_requirements","from":"../requirements/output"}]',
-            class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 font-mono text-xs text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600" %>
+  <% if template.default_inputs.present? || template.default_outputs.present? %>
+    <div class="rounded-md bg-gray-50 px-4 py-3 text-xs text-gray-600 ring-1 ring-gray-200">
+      <p class="font-medium text-gray-900">Artifacts (fixed contract)</p>
+      <% if template.default_inputs.present? %>
+        <p class="mt-1">Reads:
+          <% template.default_inputs.each do |input| %>
+            <span class="font-mono"><%= input["artifact"] %></span>
+          <% end %>
+        </p>
+      <% end %>
+      <% if template.default_outputs.present? %>
+        <p class="mt-1">Writes:
+          <% template.default_outputs.each do |output| %>
+            <span class="font-mono"><%= output["artifact"] %></span><span class="text-gray-400"> (<%= output["kind"] || "artifact" %>)</span>
+          <% end %>
+        </p>
+      <% end %>
+      <p class="mt-2 text-gray-400">Artifact names/paths are the inter-phase contract (docs/artifact-schema.md) and are not editable here.</p>
     </div>
-    <div>
-      <%= f.label :default_outputs_json, "Default outputs (JSON)", class: "block text-sm font-medium text-gray-900" %>
-      <%= f.text_area :default_outputs_json, rows: 3, value: template.default_outputs.presence&.to_json,
-            placeholder: '[{"artifact":"design","kind":"artifact","path":"output/design.md"}]',
-            class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 font-mono text-xs text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600" %>
-    </div>
-  </div>
+  <% end %>
 
   <div class="flex items-center gap-3 pt-2">
     <%= f.submit class: "rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 cursor-pointer" %>

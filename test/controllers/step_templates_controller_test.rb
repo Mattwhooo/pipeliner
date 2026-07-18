@@ -10,17 +10,15 @@ class StepTemplatesControllerTest < ActionDispatch::IntegrationTest
     assert_select "td", /Implementer/
   end
 
-  test "create with JSON defaults" do
+  test "create sets the editable fields; artifact contract is not form-editable" do
     post step_templates_url, params: { step_template: {
       name: "Design Writer", step_type: "builder", role: "code",
       requirement: "required", system_prompt: "Write the design.",
-      default_outputs_json: '[{"artifact":"technical_design","path":"output/design.md"}]',
-      default_inputs_json: ""
+      default_outputs: [ { "artifact" => "hacked" } ]
     } }
     assert_redirected_to step_templates_url
     template = StepTemplate.find_by!(name: "Design Writer")
-    assert_equal "technical_design", template.default_outputs.first["artifact"]
-    assert_equal [], template.default_inputs
+    assert_equal [], template.default_outputs, "artifact contract must not be settable from the form"
   end
 
   test "invalid create re-renders" do

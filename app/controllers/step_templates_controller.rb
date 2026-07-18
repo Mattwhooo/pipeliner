@@ -40,21 +40,10 @@ class StepTemplatesController < ApplicationController
     @template = StepTemplate.find(params[:id])
   end
 
+  # Artifact inputs/outputs are deliberately NOT editable here: artifact names
+  # and paths are the rigid inter-phase contract (docs/artifact-schema.md).
+  # They come from the template pack / code, not free-typed JSON.
   def template_params
-    parsed = params.expect(step_template: [ :name, :step_type, :role, :system_prompt,
-      :requirement, :default_inputs_json, :default_outputs_json ])
-
-    attrs = parsed.slice(:name, :step_type, :role, :system_prompt, :requirement).to_h
-    attrs[:default_inputs] = parse_json_field(parsed[:default_inputs_json]) if parsed.key?(:default_inputs_json)
-    attrs[:default_outputs] = parse_json_field(parsed[:default_outputs_json]) if parsed.key?(:default_outputs_json)
-    attrs
-  end
-
-  # Inputs/outputs are edited as JSON in the form; blank means [].
-  def parse_json_field(raw)
-    return [] if raw.blank?
-    JSON.parse(raw)
-  rescue JSON::ParserError
-    []
+    params.expect(step_template: [ :name, :step_type, :role, :system_prompt, :requirement ])
   end
 end
