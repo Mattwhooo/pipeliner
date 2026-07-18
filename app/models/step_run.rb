@@ -22,4 +22,15 @@ class StepRun < ApplicationRecord
   def lease_expired?
     lease_expires_at.present? && lease_expires_at.past?
   end
+
+  # The critic's structured verdict value ("pass" | "needs_work" |
+  # "not_applicable"), read from the verdict.json mirror. Nil for non-critics.
+  def verdict_status
+    verdict.is_a?(Hash) ? verdict["verdict"] : nil
+  end
+
+  # Structured findings the critic emitted (routed to a re-run as feedback).
+  def findings
+    verdict.is_a?(Hash) ? Array(verdict["findings"]) : []
+  end
 end

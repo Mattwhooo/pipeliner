@@ -17,6 +17,9 @@ class Phase < ApplicationRecord
     consensus: "consensus",
     approved: "approved",
     reworking: "reworking",
+    # Consensus loop hit its max-iterations cap — parked for human guidance
+    # (docs/execution-model.md "Convergence caps").
+    awaiting_human: "awaiting_human",
     failed: "failed"
   }
 

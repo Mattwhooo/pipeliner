@@ -19,7 +19,11 @@ module StepRuns
           attempt: step_run.attempt,
           shard_key: step_run.shard_key,
           step_branch: step_run.step_branch,
-          lease_expires_at: step_run.lease_expires_at
+          lease_expires_at: step_run.lease_expires_at,
+          # Routed critic findings for this re-run. The worker writes these into
+          # input.json's `feedback` array alongside `resolved_inputs`
+          # (worker/src/executor.ts writeStepContext).
+          feedback: step_run.feedback
         },
         step: {
           slug: step.slug,
