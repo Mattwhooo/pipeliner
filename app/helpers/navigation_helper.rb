@@ -6,7 +6,8 @@ module NavigationHelper
   def nav_items
     [
       NavItem.new(label: "Dashboard", path: root_path, active: current_page?(root_path)),
-      NavItem.new(label: "Projects", path: nil, active: false),
+      NavItem.new(label: "Projects", path: projects_path,
+        active: controller_name.in?(%w[projects pipelines])),
       NavItem.new(label: "Pipelines", path: nil, active: false),
       NavItem.new(label: "Workers", path: nil, active: false),
       NavItem.new(label: "Step Library", path: nil, active: false)

@@ -1,0 +1,46 @@
+<% content_for :title, "#{@pipeline.title} · Pipeliner" %>
+
+<nav class="text-xs text-gray-500">
+  <%= link_to @pipeline.project.name, @pipeline.project, class: "hover:text-gray-900" %>
+  <span class="mx-1">/</span>
+  <span class="text-gray-900"><%= @pipeline.title %></span>
+</nav>
+
+<div class="mt-2 flex items-center justify-between">
+  <div>
+    <div class="flex items-center gap-3">
+      <h1 class="text-2xl font-semibold text-gray-900"><%= @pipeline.title %></h1>
+      <%= status_badge(@pipeline.status) %>
+    </div>
+    <p class="mt-1 font-mono text-xs text-gray-500"><%= @pipeline.branch %></p>
+  </div>
+</div>
+
+<% if @pipeline.initial_prompt.present? %>
+  <div class="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+    <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-400">The ask</h2>
+    <p class="mt-2 whitespace-pre-line text-sm text-gray-700"><%= @pipeline.initial_prompt %></p>
+  </div>
+<% end %>
+
+<div class="mt-8 grid grid-cols-1 gap-4 md:grid-cols-4">
+  <% @phases.each do |phase| %>
+    <div class="rounded-lg border bg-white p-4 shadow-sm
+                <%= phase.kind == @pipeline.current_phase ? "border-indigo-300 ring-1 ring-indigo-100" : "border-gray-200" %>">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-medium text-gray-900">
+          <span class="mr-1 text-xs text-gray-400"><%= phase.position %></span>
+          <%= phase.kind.humanize %>
+        </h3>
+        <%= status_badge(phase.status) %>
+      </div>
+      <div class="mt-3 text-xs text-gray-500">
+        <% if phase.workflows.any? %>
+          <%= pluralize(phase.workflows.size, "workflow") %>
+        <% else %>
+          No workflows yet
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+</div>

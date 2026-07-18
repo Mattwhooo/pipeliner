@@ -1,0 +1,45 @@
+<% content_for :title, "Projects · Pipeliner" %>
+
+<div class="flex items-center justify-between">
+  <h1 class="text-2xl font-semibold text-gray-900">Projects</h1>
+  <%= link_to "New project", new_project_path,
+        class: "rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700" %>
+</div>
+
+<% if @projects.any? %>
+  <div class="mt-8 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+    <table class="min-w-full divide-y divide-gray-100">
+      <thead>
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500">Name</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500">Repository</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500">Type</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500">Environment</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500">Pipelines</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        <% @projects.each do |project| %>
+          <tr class="hover:bg-gray-50">
+            <td class="px-6 py-4 text-sm font-medium text-gray-900">
+              <%= link_to project.name, project, class: "hover:text-indigo-600" %>
+            </td>
+            <td class="px-6 py-4 font-mono text-xs text-gray-500"><%= project.repo_url %></td>
+            <td class="px-6 py-4 text-sm text-gray-500"><%= project.project_type %></td>
+            <td class="px-6 py-4"><%= status_badge(project.env_status) %></td>
+            <td class="px-6 py-4 text-sm text-gray-500"><%= project.pipelines.count %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% else %>
+  <div class="mt-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+    <div class="py-12 text-center">
+      <p class="text-sm font-medium text-gray-900">No projects yet</p>
+      <p class="mt-1 text-xs text-gray-500">A project ties Pipeliner to a git repository.</p>
+      <%= link_to "New project", new_project_path,
+            class: "mt-4 inline-block rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700" %>
+    </div>
+  </div>
+<% end %>
