@@ -3,7 +3,7 @@ class PipelinesController < ApplicationController
     @pipeline = Pipeline.joins(project: :memberships)
       .where(memberships: { user_id: current_user.id })
       .find(params[:id])
-    @phases = @pipeline.phases
+    @phases = @pipeline.phases.includes(workflows: { steps: { step_runs: :worker } })
   end
 
   def new

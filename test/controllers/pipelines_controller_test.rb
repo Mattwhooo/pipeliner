@@ -11,6 +11,16 @@ class PipelinesControllerTest < ActionDispatch::IntegrationTest
     assert_select "h3", /Review/
   end
 
+  test "show renders the live board: stream tag and step cards" do
+    get pipeline_url(pipelines(:onboarding))
+    assert_response :success
+    assert_select "turbo-cable-stream-source", 1
+    assert_select "##{ActionView::RecordIdentifier.dom_id(steps(:requirements_writer), :card)}" do
+      assert_select "span", /Requirements/
+    end
+    assert_select "##{ActionView::RecordIdentifier.dom_id(steps(:completeness_critic), :card)}"
+  end
+
   test "create builds the pipeline and redirects to it" do
     post project_pipelines_url(projects(:pipeliner)), params: { pipeline: {
       title: "New work", initial_prompt: "Do the thing."

@@ -37,6 +37,7 @@ module StepRuns
         finished_at: Time.current,
         lease_expires_at: nil
       )
+      BroadcastCard.call(@step_run)
       Result.success(@step_run)
     end
 

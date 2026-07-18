@@ -23,24 +23,10 @@
   </div>
 <% end %>
 
+<%= turbo_stream_from @pipeline %>
+
 <div class="mt-8 grid grid-cols-1 gap-4 md:grid-cols-4">
   <% @phases.each do |phase| %>
-    <div class="rounded-lg border bg-white p-4 shadow-sm
-                <%= phase.kind == @pipeline.current_phase ? "border-indigo-300 ring-1 ring-indigo-100" : "border-gray-200" %>">
-      <div class="flex items-center justify-between">
-        <h3 class="text-sm font-medium text-gray-900">
-          <span class="mr-1 text-xs text-gray-400"><%= phase.position %></span>
-          <%= phase.kind.humanize %>
-        </h3>
-        <%= status_badge(phase.status) %>
-      </div>
-      <div class="mt-3 text-xs text-gray-500">
-        <% if phase.workflows.any? %>
-          <%= pluralize(phase.workflows.size, "workflow") %>
-        <% else %>
-          No workflows yet
-        <% end %>
-      </div>
-    </div>
+    <%= render "pipelines/phase_column", phase: phase, current_phase_kind: @pipeline.current_phase %>
   <% end %>
 </div>

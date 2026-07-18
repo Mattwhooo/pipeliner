@@ -29,7 +29,10 @@ module StepRuns
         )
       end
 
-      run ? Result.success(run) : Result.failure(:no_work)
+      return Result.failure(:no_work) unless run
+
+      BroadcastCard.call(run)
+      Result.success(run)
     end
 
     private

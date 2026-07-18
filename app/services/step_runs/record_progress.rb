@@ -21,6 +21,7 @@ module StepRuns
         progress: @progress,
         last_heartbeat_at: Time.current
       )
+      BroadcastCard.call(@step_run)
       Result.success(@step_run)
     end
 

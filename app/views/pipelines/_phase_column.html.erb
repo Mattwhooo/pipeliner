@@ -1,0 +1,21 @@
+<div class="rounded-lg border bg-gray-50/60 p-3
+            <%= phase.kind == current_phase_kind ? "border-indigo-300 ring-1 ring-indigo-100" : "border-gray-200" %>">
+  <div class="flex items-center justify-between px-1">
+    <h3 class="text-sm font-medium text-gray-900">
+      <span class="mr-1 text-xs text-gray-400"><%= phase.position %></span>
+      <%= phase.kind.humanize %>
+    </h3>
+    <%= status_badge(phase.status) %>
+  </div>
+
+  <div class="mt-3 space-y-2">
+    <% steps = phase.workflows.flat_map(&:steps) %>
+    <% if steps.any? %>
+      <% steps.each do |step| %>
+        <%= render "pipelines/step_card", step: step %>
+      <% end %>
+    <% else %>
+      <p class="px-1 py-6 text-center text-xs text-gray-400">No steps yet</p>
+    <% end %>
+  </div>
+</div>

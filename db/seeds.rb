@@ -37,4 +37,36 @@ if Rails.env.development?
     raise "Seed failed: #{result.record&.errors&.full_messages}" if result.failure?
     puts "Seeded default pipeline: #{result.value.title}"
   end
+
+  # A starter Define workflow (per docs/phase-playbooks.md) so the board shows
+  # real steps and a locally-registered worker has something to claim.
+  pipeline = project.pipelines.first
+  define_phase = pipeline.phases.find_by!(kind: "define")
+  workflow = define_phase.workflows.find_or_create_by!(slug: "main")
+
+  if workflow.steps.none?
+    requirements = workflow.steps.create!(
+      slug: "requirements", step_type: "builder", role: "requirements", position: 1,
+      system_prompt: "From the initial ask, write detailed, atomic business " \
+        "requirements in the form 'When X happens, Y should happen'. Stay " \
+        "non-technical.",
+      outputs: [ { "artifact" => "business_requirements", "kind" => "artifact",
+                   "path" => "output/requirements.md" } ]
+    )
+    completeness = workflow.steps.create!(
+      slug: "completeness", step_type: "critic", role: "review", position: 2,
+      system_prompt: "Review the business requirements for completeness and " \
+        "atomicity. Emit a structured verdict with findings.",
+      inputs: [ { "artifact" => "business_requirements", "from" => "../requirements/output" } ]
+    )
+    workflow.step_edges.create!(from_step: requirements, to_step: completeness,
+      kind: "depends_on")
+    workflow.step_edges.create!(from_step: completeness, to_step: requirements,
+      kind: "route_to")
+
+    requirements.step_runs.create!(state: "ready", required_role: "requirements")
+    define_phase.update!(status: "running")
+    pipeline.update!(status: "running")
+    puts "Seeded Define workflow with #{workflow.steps.count} steps (1 run ready to claim)"
+  end
 end

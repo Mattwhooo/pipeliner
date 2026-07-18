@@ -26,4 +26,8 @@ class Step < ApplicationRecord
   def worker_executed?
     step_type.in?(WORKER_EXECUTED_TYPES)
   end
+
+  def latest_run
+    step_runs.order(:iteration, :attempt).last
+  end
 end
