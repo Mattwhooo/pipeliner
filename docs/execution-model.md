@@ -234,14 +234,6 @@ Configured routing edges (explicit "C1 fail → re-run A2") remain available as 
 override/fallback and as guardrails the Manager operates within. **[OPEN]** how
 much routing is fixed config vs. left to Manager discretion.
 
-## Routing decision (who re-runs on critic failure)
-
-**Resolved: the Manager is the orchestrator.** It reads critic feedback and
-decides what re-runs — orchestrator-driven routing is the design center.
-Configured routing edges (explicit "C1 fail → re-run A2") remain available as an
-override/fallback and as guardrails the Manager operates within. **[OPEN]** how
-much routing is fixed config vs. left to Manager discretion.
-
 ## Worked example — Phase 1 (Define), non-technical
 
 ```

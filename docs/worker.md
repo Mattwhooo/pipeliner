@@ -195,7 +195,8 @@ is a **duplicate** for an already-merged `(step, iteration)` and is **not merged
 - Agents run **without human escalation**, so isolation is the safety boundary:
   - **Every step runs in a fresh ephemeral container** (decided) — provisioned by
     the Worker per step, with the worktree mounted and the network confined to the
-    control plane's git mirror + callback API. Torn down after the step.
+    GitHub origin + callback API (C1: no self-hosted mirror). Torn down after
+    the step.
   - dedicated **worktree + step branch** (blast radius = that step's subtree /
     declared scope),
   - **short-lived, step-scoped API key** (least privilege: only heartbeat/

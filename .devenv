@@ -4,4 +4,9 @@
 # Uses Homebrew Ruby (latest stable) and neutralizes RVM's environment,
 # which otherwise pollutes GEM_HOME/GEM_PATH with an old Ruby 3.0 gemset.
 unset GEM_HOME GEM_PATH
-export PATH="/opt/homebrew/opt/ruby/bin:/opt/homebrew/lib/ruby/gems/4.0.0/bin:$PATH"
+_ruby_prefix="$(brew --prefix ruby 2>/dev/null || echo /opt/homebrew/opt/ruby)"
+export PATH="${_ruby_prefix}/bin:$PATH"
+# Gem executables (rails, bundler binstubs, etc.) — derive the ABI-versioned
+# bindir from the selected ruby so Ruby upgrades don't silently break this file.
+export PATH="$("${_ruby_prefix}/bin/ruby" -e 'print Gem.bindir'):$PATH"
+unset _ruby_prefix

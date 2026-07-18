@@ -106,7 +106,7 @@ Reusable definitions users manage in the UI; steps are instantiated from these.
 | role | string | **arbitrary** matching label (`code`, `review`, `ui-tests`, …) |
 | system_prompt | text | |
 | default_inputs | jsonb | artifact refs it reads |
-| default_outputs | jsonb | `[{artifact, kind: artifact\|code, path}]` |
+| default_outputs | jsonb | `[{artifact, kind: artifact\|repo, path}]` |
 | requirement | string enum | `required \| conditional` |
 | default_scope | jsonb | nullable |
 
@@ -213,7 +213,7 @@ Cache/pointer; git is authoritative.
 | pipeline_id | bigint FK | |
 | phase_kind, workflow_slug, step_slug | string | locate the producer |
 | name | string | canonical artifact name |
-| kind | string enum | `artifact \| code` |
+| kind | string enum | `artifact \| repo` |
 | path | string | `.pipeliner/...` (null for pure code) |
 | commit_sha | string | version pointer |
 | updated_at | datetime | |

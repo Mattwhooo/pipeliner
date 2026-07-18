@@ -178,16 +178,15 @@ row). It is **not** a worker-claimed step.
 
 ## Open questions
 
-- **[OPEN] Manager placement** (see above) — control-plane logic vs. agent step
-  vs. hybrid.
-- **[OPEN] Transport mechanism.** Pull-based is decided; HTTP long-poll vs. queue
-  service vs. websockets is not.
-- **[OPEN] Worker trust/security.** Workers run agents with repo + tool access
-  and no human escalation; auth/permission boundary + optional sandboxing (see
-  [worker.md](./worker.md)).
-- **[OPEN] Git credentials for workers** — short-lived token in the context
-  bundle?
+- **[OPEN]** Residual merge-conflict auto-resolve when a scope partition proves
+  imperfect (see branch-per-step section).
+- **[OPEN]** Progress payload shape (log lines? % complete? token counts?).
 
 *Resolved since first draft:* work matching → role-based ([worker.md](./worker.md));
 same-pipeline concurrency → branch-per-step (above); implementation conflicts →
-disjoint Planner-assigned scopes ([execution-model.md](./execution-model.md)).
+disjoint Planner-assigned scopes + Integrator ([execution-model.md](./execution-model.md));
+Manager placement → hybrid (M5, above); transport → HTTPS long-poll + POST
+([worker.md](./worker.md)); worker trust → per-step containers + rulesets +
+pre-merge scope check (*Git topology* above, [worker.md](./worker.md)); git
+credentials → short-lived GitHub App token in the context bundle (*Git topology*
+above).

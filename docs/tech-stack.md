@@ -14,8 +14,8 @@
 
 | Concern            | Choice                                        | Notes                                              |
 |--------------------|-----------------------------------------------|----------------------------------------------------|
-| Language           | **Ruby** (latest stable; confirm at scaffold) | e.g. 3.4+/3.5 — pin the newest stable at `rails new`|
-| Framework          | **Rails 8.x** (latest stable)                 | Lean on the modern default stack below             |
+| Language           | **Ruby 4.0.6** (pinned at scaffold)           | Homebrew ruby; RVM neutralized via `.devenv`        |
+| Framework          | **Rails 8.1.3** (pinned at scaffold)          | Lean on the modern default stack below             |
 | Database           | **PostgreSQL**                                | Chosen over SQLite for concurrent workers/queue    |
 | Real-time UI       | **Hotwire — Turbo + Stimulus**                | Built-in; no SPA framework                          |
 | Live updates       | **Turbo Streams broadcast** over **Solid Cable** | DB-backed Action Cable, no Redis                 |
@@ -85,7 +85,6 @@ queue to outside workers.** Keeping these separate is important to the design.
 
 ## Open questions
 
-- **[OPEN]** Exact Ruby & Rails versions — pin the newest stable at scaffold.
 - **[OPEN]** Cloud host / Kamal deployment target — deferred (local-first for now).
 - **[OPEN]** Per-step container base image + workspace provisioning (deps/DB/
   services/browser) — see pressure-test finding C2.

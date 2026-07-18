@@ -54,9 +54,10 @@ phases, all on a dedicated git branch.
 - **Inter-phase rework routing:** a later phase (esp. Review) can send work back
   to an earlier phase with feedback — **automated** (info was just missed) or
   **human-in-the-loop** (needs more context); capped to avoid infinite cycles.
-- **Branch write rules are infra-enforced:** a step can commit only to its own
-  step branch (ref-scoped token + server-side `pre-receive` hook, not agent trust);
-  only the control plane merges; only a human merges to master.
+- **Branch write rules are infra-enforced:** a step worker can push only `step/**`
+  branches (scoped GitHub App token + GitHub rulesets, not agent trust); the
+  control plane's **pre-merge scope check** rejects out-of-scope diffs; only the
+  control plane merges; only a human merges to master.
 - **Phase-boundary squashing:** each phase's commits collapse to one phase commit;
   clean ~4-commit history before the final PR.
 - **Finalization:** at the end of Review, `.pipeliner/` is **zipped to S3** for
@@ -110,11 +111,14 @@ findings are now resolved** — decisions below are recorded in the normative do
 roles, branch-per-step, scope, rework, finalization all held; only naming/defaults
 were code-biased (fixed via M17/M18).
 
-**Still genuinely open (small):** exact Ruby/Rails versions; routing latitude
+**Still genuinely open (small):** routing latitude
 (config vs. Manager discretion); per-artifact content schemas; container base-image
 specifics; S3/hosting (deferred, local-first).
 
 ## Status
 
-Requirements/design exploration — **no code yet.** Docs are living drafts;
-`[OPEN]` markers throughout flag unresolved points.
+**Implementation underway** (since 2026-07-18): Rails 8.1.3 / Ruby 4.0.6 app
+scaffolded at the repo root with Devise auth and the app shell. See
+[developer-guide.md](./developer-guide.md) for setup and day-to-day development,
+and `guides/` for the mandatory coding standards. Docs remain living drafts;
+`[OPEN]` markers flag unresolved points.
