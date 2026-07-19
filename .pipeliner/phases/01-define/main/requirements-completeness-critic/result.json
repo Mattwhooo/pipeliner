@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "requirements-completeness-critic",
+  "status": "failed",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_opus",
+    "backend": "claude-code"
+  },
+  "summary": "claude exited 1: Let me explore the phase directory to find the requirements artifact."
+}
