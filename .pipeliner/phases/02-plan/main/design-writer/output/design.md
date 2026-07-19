@@ -16,21 +16,35 @@ points that already refresh the board. It reuses the existing
 `StatusHelper`, and the `broadcast_replace_later_to` pattern already used by
 `StepRuns::BroadcastCard`.
 
-No upstream requirements/approach artifact was wired into this step's
-`input.json` (`resolved_inputs: []`). Requirement IDs below are therefore
-derived directly from the pipeline ask so each component can be cited; they
-restate the ask, they do not invent scope.
+### Requirements source
 
-### Derived requirements
+The business requirements for this task exist at
+`.pipeliner/phases/01-define/main/requirements-writer/output/requirements.md`
+(**R1–R18**). This step's `input.json` did not wire them in as a
+`resolved_input` (`resolved_inputs: []`), but they are the authoritative,
+in-repo requirements for this pipeline, so every component below cites them by
+their real IDs rather than restating the ask. The mapping used throughout:
 
-| ID | Requirement (from the ask) |
-|----|----------------------------|
-| **R1** | One single status per pipeline that summarizes current activity in plain language. |
-| **R2** | Prominent on the pipeline board (the `pipelines#show` view). |
-| **R3** | Updates live via Turbo Streams as runs progress — no manual refresh. |
-| **R4** | Always reflects true current state on page load; streams are enhancement, never required for correctness. |
-| **R5** | Expresses the meaningful states: active step + role + iteration, waiting on human at a gate, escalated/parked, stuck, completed, not-started, idle. |
-| **R6** | Appearance follows `guides/ui-style-guide.md`; logic placement follows `guides/backend-guide.md`. |
+| ID | Requirement (abridged) |
+|----|------------------------|
+| **R1** | Full summary above the per-step cards, in the detail page header — first status on the page. |
+| **R2** | Compact summary on each row of the pipeline list; both surfaces live, neither stale/static. |
+| **R3** | One step working → name phase, step, and what it's doing ("Define: requirements-writer is drafting requirements"). |
+| **R4** | State the attempt number **only on the 2nd+ attempt** ("iteration 3"); **hide it on the first attempt**. |
+| **R5** | Two steps working → **name both**. |
+| **R6** | Three or more steps working → state **phase + count** ("Build: 4 steps are running"), not each name. |
+| **R7** | Waiting on a person to approve/reject → say it's waiting on human approval **and where**. |
+| **R8** | All work finished successfully → say the pipeline is complete. |
+| **R9** | Stopped by an error, can't continue on its own → say it **failed** and **name the phase/step** where it stopped. |
+| **R10** | Exists but no work started → say it hasn't started. |
+| **R11** | Deliberately paused/canceled by a person → say so plainly ("Paused" / "Canceled"). |
+| **R12** | Any other/uncovered/future state → still a defined, truthful sentence; **never blank, missing, or wrong**. |
+| **R13** | Everyday language; no internal codes, IDs, or jargon. |
+| **R14** | Any event changing activity pushes the new state to every open page within seconds, without viewer action. |
+| **R15** | On load/reload, the summary already reflects true current state even if no event ever arrives. |
+| **R16** | Out-of-order / rapid events settle on the actual latest state; a newer state is never overwritten by an older one. |
+| **R17** | Status recognizable by its **words**, not color alone. |
+| **R18** | Compact form conveys the **same** state as the full form; the two never disagree. |
 
 ---
 
@@ -47,42 +61,50 @@ restate the ask, they do not invent scope.
   `StepRuns::Complete`** — the three worker-driven run transitions.
 - `Phases::ManagerTick` (recurring every 10s via `Phases::TickAll`) is the only
   writer of phase/pipeline **status** transitions: dispatch, route, consensus,
-  gate (`approved`/advance), and `escalate` → `awaiting_human`.
+  gate (`approved`/advance), and `escalate` → `awaiting_human`. Its `call`
+  finishes with `broadcast_affected` (per-card) + `BroadcastColumn` (per-phase).
 - `StatusHelper::STATUS_TONES` / `TONE_CLASSES` already map status strings to the
   guide's semantic colors (info/success/attention/danger/muted) and
   `status_badge` renders the color-plus-word badge.
-- `StepRun#progress` is a JSONB column holding the worker's latest incremental
-  message (`progress["message"]`); `StepRun#iteration` is the iteration counter.
+- `StepRun` has `state`, `iteration`, `attempt`, `progress` (JSONB, worker's
+  latest `progress["message"]`), and `worker` (current claimant while leased).
+- **Pipeline status enum** (canonical, `app/models/pipeline.rb`): `draft`,
+  `running`, `awaiting_human`, `blocked`, `stuck`, `completed`, `aborted`.
+  `aborted` is the deliberate cooperative-cancel signal (see
+  `StepRuns::Heartbeat#pipeline_aborted?`). **Phase status enum** includes
+  `failed` — the schema's representation of an error stop. There is **no
+  `paused` status** today (see §3.1 note on R11).
 
 **Missing (the gap this design fills):**
 
-1. No object turns whole-pipeline state into a sentence (R1, R5).
+1. No object turns whole-pipeline state into a sentence (R3–R12).
 2. Nothing broadcasts a **pipeline-level** summary; only individual step cards
-   broadcast, and phase/pipeline status transitions in `ManagerTick`
-   (consensus, gate wait, escalate, advance) broadcast **nothing** — so a
-   gate-wait or escalation is invisible until reload (R3).
-3. The board has no prominent single-line status element (R2); the index list
-   shows a bare status badge, not what's happening (R1).
+   and phase columns broadcast. Phase/pipeline status transitions in
+   `ManagerTick` (consensus, gate wait, escalate) do not refresh any
+   pipeline-wide summary — so a gate-wait or escalation would be invisible until
+   reload (R14).
+3. The board has no prominent single-line status element (R1); the index list
+   shows a bare status badge, not what's happening (R2).
 
 ---
 
 ## 3. Component design
 
 ```
-Controller (thin: preload + render)                     [R2, R4]
+Controller (thin: preload + render)                        [R1, R2, R15]
   pipelines#show / #index
       └─ renders _status_summary (on load, true state)
-             └─ Pipelines::StatusSummary.for(pipeline)  → Summary value  [R1, R5]
+             └─ Pipelines::StatusSummary.for(pipeline)  → Summary value  [R3–R13]
 
-Turbo stream (per pipeline, already subscribed on show)  [R3]
-  Pipelines::BroadcastStatus.call(pipeline)              [R3]
+Turbo stream (per pipeline, already subscribed on show)     [R14, R16]
+  Pipelines::BroadcastStatus.call(pipeline)
       └─ broadcast_replace_later_to(pipeline, dom_id(pipeline,:summary), _status_summary)
    called after commit from:
       StepRuns::Claim / RecordProgress / Complete   (run transitions)
       Phases::ManagerTick                           (phase/gate/pipeline transitions)
 ```
 
-### 3.1 `Pipelines::StatusSummary` — domain PORO (R1, R5, R6)
+### 3.1 `Pipelines::StatusSummary` — domain PORO (R3–R13)
 
 Location: **`app/lib/pipelines/status_summary.rb`**. This is a pure *derivation
 / state-logic* PORO (backend-guide §"Business logic lives in reusable POROs" —
@@ -101,7 +123,8 @@ module Pipelines
     # Immutable value the view renders. `tone` is a StatusHelper tone symbol
     # (:info/:success/:attention/:danger/:muted) so color stays semantic and
     # centralized (ui-style-guide "Status colors are semantic and reserved").
-    Summary = Data.define(:text, :tone, :phase_label, :as_of) do
+    # `text` is a complete plain-language sentence (R13) and is NEVER blank (R12).
+    Summary = Data.define(:text, :tone, :phase_label) do
       def to_s = text
     end
 
@@ -110,50 +133,113 @@ module Pipelines
     def initialize(pipeline) = @pipeline = pipeline
 
     def build
-      # returns a Summary; see resolution order below
+      # returns a Summary; see resolution order below.
+      # The final branch is an unconditional catch-all, so `build` always
+      # returns a non-blank Summary for any status (R12).
     end
   end
 end
 ```
 
-**Resolution order** (first match wins — most operationally salient first) (R5):
+**Resolution order** (first match wins — most operationally salient first). The
+order is defined so that every reachable pipeline/phase/run state resolves to
+exactly one branch, and the last branch is an unconditional default (R12).
 
-1. **Terminal pipeline** — `completed` → `"Completed"` (success);
-   `aborted` → `"Aborted"` (danger).
-2. **Awaiting human** (`pipeline.awaiting_human?`):
-   - A phase in `consensus`/`approved` with `gate_human?` and no `Approval`
-     yet → `"Waiting on human approval at the <Phase> gate"` (attention).
-   - A phase in `awaiting_human` (escalation from `ManagerTick#escalate`) →
-     `"Paused at <Phase>: needs human guidance (reached max iterations)"`
-     (attention).
-3. **Stuck / blocked** (`pipeline.stuck?`/`blocked?`, or any latest run
-   `stuck`) → `"Blocked at <Phase>: <role> has no available worker"` (danger).
-4. **Running** — locate the current phase (`pipeline.current_phase`), pick the
-   **most salient active run** in it (priority `running > claimed > ready`, tie
-   broken by most-recent `updated_at`) and phrase it:
-   - `running` with `progress["message"]`:
-     `"<Phase>: <role> is <message>, iteration <n>"` →
-     *"Define: requirements-writer is drafting requirements, iteration 3"*.
-   - `running` without a message: fall back to a type verb
-     (`planner→planning`, `builder→building`, `critic→reviewing`):
-     `"<Phase>: <role> is <verb>, iteration <n>"`.
-   - `claimed` (leased, not yet reporting):
-     `"<Phase>: <role> starting on <worker>"`.
-   - `ready`/queued only: `"<Phase>: waiting for <role> to start"`.
-   - When >1 run is active, append `" (+N more running)"` so the line stays
-     single-sentence but honest (never silently hides concurrency).
-   - Tone `:info` (blue) throughout.
-5. **Idle/not-started** — `draft`/`pending`, no runs → `"Not started"` (muted).
+1. **Completed** — `pipeline.completed?` → `"Completed"` (success). *(R8)*
 
-`role` uses `step.role` (the worker-matching label, e.g. `requirements-writer`);
-`<Phase>` uses `phase.kind.humanize`. All branches read only preloaded
-associations, so on `show` (which preloads the full tree) it adds **zero**
-queries.
+2. **Failed (error stop)** — an error has stopped the pipeline and it cannot
+   continue on its own. Detected by a **`failed` phase** (`phases.any?(&:failed?)`)
+   or a run left in `failed`/`stuck` that halts progress. Names where it stopped:
+   - Prefer the failed step: `"Failed in <Phase>: <role> could not complete"`.
+   - No identifiable step, only a failed phase:
+     `"Failed in <Phase>"`.
+   - Tone `:danger`. This branch **always names the phase (and step when known)**
+     and uses failure wording, distinct from deliberate cancellation below. *(R9)*
 
-`as_of` is `Time.current` at build time, surfaced as a relative timestamp in the
-partial (ui-style-guide "Timestamps: relative with absolute on hover").
+3. **Canceled / Paused (deliberate)** — a person stopped it, not an error.
+   - `pipeline.aborted?` → `"Canceled"` (the cooperative-cancel state; see
+     `StepRuns::Heartbeat`).
+   - If a `paused` state is later added to the enum, it maps here to
+     `"Paused"`. *(No `paused` status exists in the schema today; only
+     `aborted`→"Canceled" is reachable now. This branch is written state-driven
+     so the "Paused" wording activates automatically if/when that state lands,
+     and until then R12's default — branch 8 — covers any interim value. Called
+     out so the schema gap is explicit, not hidden.)*
+   - Tone `:muted`. *(R11)*
 
-### 3.2 `Pipelines::BroadcastStatus` — service (R3, R6)
+4. **Awaiting human** — `pipeline.awaiting_human?`:
+   - A gate awaiting a person's approval (phase in `consensus`/`approved` with
+     `gate_human?` and no recorded `Approval`) →
+     `"Waiting on human approval at the <Phase> gate"`. *(R7)*
+   - An escalation (phase parked at `awaiting_human` from
+     `ManagerTick#escalate`, max iterations reached) →
+     `"Paused at <Phase>: needs human guidance"`.
+   - Tone `:attention`.
+
+5. **Blocked / stuck (recoverable, no worker)** — `pipeline.blocked?` /
+   `pipeline.stuck?`, or a current run in `stuck` while the pipeline is otherwise
+   live → `"Blocked at <Phase>: <role> has no available worker"` (danger). This
+   is distinct from R9: it is a recoverable wait for capacity, not an error the
+   pipeline failed on; it is a real state given a truthful sentence per R12. *(R12)*
+
+6. **Running — actively working steps.** When `pipeline.running?`, compute the
+   **active set** = runs in the current phase whose `state` is `running` or
+   `claimed` (leased = a worker is actually on it). Let `active` be that set,
+   ordered by salience (`running` before `claimed`, tie broken by most-recent
+   `updated_at`). Branch on `active.size`:
+
+   - **1 active** → `"<Phase>: <role> is <doing>[, iteration <n>]"` *(R3, R4)*.
+     - `<doing>` = the run's `progress["message"]` when present; otherwise a
+       type verb (`planner→planning`, `builder→building`, `critic→reviewing`,
+       `manager→coordinating`, `gate→awaiting review`).
+     - **`, iteration <n>` is appended only when `run.iteration > 1`.** On the
+       first attempt (`iteration == 1`) no number is shown, keeping the common
+       first pass short (R4). Example first pass: *"Define: requirements-writer
+       is drafting requirements"*; second pass: *"…, iteration 2"*.
+
+   - **2 active** → **name both** *(R5)*:
+     `"<Phase>: <roleA> is <doingA>[, iteration <nA>] and <roleB> is <doingB>[, iteration <nB>]"`.
+     Each clause uses the same `<doing>` rule and the same `n > 1` iteration
+     suffix as the 1-active branch (R4 applies per step). Both `roleA` and
+     `roleB` are named; neither is hidden behind a count.
+
+   - **≥3 active** → **phase + count only** *(R6)*:
+     `"<Phase>: <N> steps are running"` (e.g. *"Build: 4 steps are running"*).
+     No individual step is named at this threshold.
+
+   - Tone `:info` (blue) for all three sub-branches.
+
+   - **`pipeline.running?` but the active set is empty** (a momentary lull
+     between transitions) → fall through to branch 8 so a truthful sentence is
+     still produced (never blank). See R12 note there.
+
+7. **Not started** — `pipeline.draft?` (or a `pending` phase) with no runs →
+   `"Not started"` (muted). *(R10)*
+
+8. **Default catch-all (R12) — unconditional.** For any status not matched above
+   (including a `running` pipeline with a momentarily empty active set, and any
+   status added to the enum in the future), return a truthful generic sentence
+   built from the real state, never blank:
+   `"<Pipeline status, humanized>"` scoped to the current phase when known —
+   e.g. `"Working in <Phase>"` for a running-but-idle moment, or
+   `"<status.humanize>"` as the final fallback (tone from
+   `StatusHelper::STATUS_TONES.fetch(status, :muted)`). Because this branch has
+   no guard, `build` is **total**: every pipeline resolves to a non-blank
+   `Summary.text`. *(R12)*
+
+**Wording / plain language (R13):** `<Phase>` is `phase.kind.humanize`
+("Define"/"Plan"/"Build"/"Review"); `<role>` is `step.role` (the human-readable
+worker-matching label, e.g. `requirements-writer`, as used in the ask's own
+examples). No raw enum codes, IDs, or `dom_id`s appear in `text`.
+
+**Displayed attempt number (R4):** the number shown is `step_run.iteration` (the
+consensus-loop counter, matching the ask's "iteration 3" example and the
+existing card), rendered only when `iteration > 1`.
+
+All branches read only preloaded associations, so on `show` (which preloads the
+full tree via `.with_board`, §3.5) the derivation adds **zero** queries.
+
+### 3.2 `Pipelines::BroadcastStatus` — service (R14, R16)
 
 Location: **`app/services/pipelines/broadcast_status.rb`**. Mirrors
 `StepRuns::BroadcastCard`: a thin broadcast service (backend-guide "Broadcasts
@@ -176,24 +262,34 @@ end
 ```
 
 `broadcast_replace_later_to` renders the partial **in a job**, reloading the
-pipeline by GlobalID — so the broadcast always paints freshly-derived state and
-a lost/racing broadcast is cosmetic, never wrong (R4). The re-render is for a
-single pipeline, so the summarizer's lazy association loads are a few queries —
-acceptable; the partial does not need eager loading in the broadcast path.
+pipeline by GlobalID — so the broadcast always paints freshly-derived state from
+the database at render time. Two consequences:
+
+- A lost or racing broadcast is cosmetic, never wrong: the page also renders
+  true state on load (R15).
+- Because each broadcast re-derives from current DB state (not from a snapshot
+  captured when the event fired), a late-arriving broadcast still renders the
+  *actual latest* state, so a newer state is not overwritten by an older event
+  (R16). Turbo replaces the whole `dom_id(pipeline,:summary)` node each time, so
+  the last render to land shows current truth.
+
+The re-render is for a single pipeline, so the summarizer's lazy association
+loads are a few queries in the broadcast path — acceptable; the partial does not
+need eager loading there.
 
 **Call sites** (each fires **once per committed business action**, after the
-write, per backend-guide side-effect ordering — R3):
+write, per backend-guide side-effect ordering — R14):
 
 | Seam (existing file) | Why | Edit |
 |---|---|---|
 | `StepRuns::Claim#call` | run `ready→claimed` (a step starts) | one line after `BroadcastCard.call(run)` |
 | `StepRuns::RecordProgress#call` | new `progress`/iteration (the high-frequency "…drafting, iteration 3" update) | one line after `BroadcastCard.call` |
 | `StepRuns::Complete#call` | run `succeeded/failed` | one line after `BroadcastCard.call` |
-| `Phases::ManagerTick#call` | phase/gate/pipeline transitions: consensus, gate-wait, escalate→`awaiting_human`, advance/`completed` — none of which touch a run's card | one line at end of `call` (after the transaction commits, alongside `broadcast_affected`) |
+| `Phases::ManagerTick#call` | phase/gate/pipeline transitions: consensus, gate-wait, escalate→`awaiting_human`, advance/`completed` — none of which touch a run's card | one line at end of `call`, after `broadcast_affected` (post-commit) |
 
 The `ManagerTick` seam is essential: gate-wait and escalation change **only**
 phase/pipeline status, so without it "Waiting on human approval at the Plan
-gate" would never appear live (R5). `BroadcastCard` is intentionally left
+gate" would never appear live (R7, R14). `BroadcastCard` is intentionally left
 single-purpose (one card); the summary is a separate DOM unit with its own
 service, so a tick that touches N cards still refreshes the summary exactly once
 rather than N times.
@@ -203,10 +299,12 @@ rather than N times.
 > `ManagerTick` (≤10s) or reload rather than instantly. Acceptable; adding a
 > sweep-side broadcast is a follow-up, noted so it isn't mistaken for covered.
 
-### 3.3 Views (R2, R4, R6)
+### 3.3 Views (R1, R2, R15, R17, R18)
 
 **`app/views/pipelines/_status_summary.html.erb`** — one source of truth for the
-element, in two variants via a `compact:` local.
+element, in two variants via a `compact:` local. Both variants call the **same**
+`Pipelines::StatusSummary.for(pipeline)`, so the full and compact surfaces can
+never disagree about the state (R18).
 
 - Root: `<div id="<%= dom_id(pipeline, :summary) %>" aria-live="polite">` — the
   stable stream target and the accessibility live region
@@ -214,20 +312,20 @@ element, in two variants via a `compact:` local.
 - Computes `summary = Pipelines::StatusSummary.for(pipeline)`.
 - **Full variant (show):** a `Card` surface
   (`rounded-lg border border-gray-200 bg-white p-6 shadow-sm`) with a small
-  status dot (semantic tone, paired with the phase word — never color alone,
-  a11y), the sentence in `text-sm`, an eyebrow phase label
-  (`text-xs uppercase tracking-wide text-gray-400`), and the relative `as_of`
-  timestamp (`text-xs text-gray-500`). Type scale, spacing steps
+  status dot (semantic tone) **always paired with the summary sentence and an
+  eyebrow phase label — status is conveyed by the words, never color alone**
+  (R17); the sentence in `text-sm`; the eyebrow phase label in
+  `text-xs uppercase tracking-wide text-gray-400`. Type scale, spacing steps
   (`p-6`, `gap-4`), and neutrals are all from the guide.
 - **Compact variant (index cell):** single line — dot + `summary.text` truncated
-  (`truncate text-sm text-gray-700`).
+  (`truncate text-sm text-gray-700`). The dot repeats the tone but the word
+  carries the meaning (R17).
 - Tone → dot color via a tiny helper (see 3.4) reusing `TONE_CLASSES`, so no new
   color literals are introduced.
 
 **`app/views/pipelines/show.html.erb`** — render the full summary **prominently
-at the top of the board**, directly under the header block and above the phase
-grid (and above/near "The ask"). Keeps the existing `turbo_stream_from
-@pipeline`. (R2)
+in the header area, above the per-step cards / phase grid** so it is the first
+status on the page (R1). Keeps the existing `turbo_stream_from @pipeline`.
 
 ```erb
 <%= render "pipelines/status_summary", pipeline: @pipeline, compact: false %>
@@ -236,16 +334,16 @@ grid (and above/near "The ask"). Keeps the existing `turbo_stream_from
 **`app/views/pipelines/index.html.erb`** — replace the plain "Status" badge cell
 (or add a cell) with the compact summary so each row says what's happening, and
 add a per-row `<%= turbo_stream_from pipeline %>` so the list updates live too
-(the index has no subscription today). (R1, R3)
+(the index has no subscription today) (R2, R14).
 
-### 3.4 Helper (R6)
+### 3.4 Helper (R17)
 
 Add **`app/helpers/pipelines_helper.rb`** (file exists, empty) with
 `summary_dot_class(tone)` returning the dot's Tailwind classes derived from
 `StatusHelper::TONE_CLASSES` — keeps semantic color in one place. No change to
 `StatusHelper` itself.
 
-### 3.5 Model (R4)
+### 3.5 Model (R15)
 
 Add a preloading scope to **`app/models/pipeline.rb`** so both controllers avoid
 N+1 without duplicating the include tree (a persistence concern — allowed in the
@@ -257,10 +355,11 @@ scope :with_board, -> {
 }
 ```
 
-### 3.6 Controllers (R2, R4)
+### 3.6 Controllers (R1, R2, R15)
 
 - `PipelinesController#show`: swap the ad-hoc `includes(...)` for `.with_board`
-  (behavior-preserving); no other change — the summary renders inline on load.
+  (behavior-preserving); no other change — the summary renders inline on load
+  (R15).
 - `PipelinesController#index`: add `.with_board` to the query so the compact
   summary derives without N+1.
 
@@ -273,17 +372,26 @@ Both stay ≤10 lines, one primary ivar, no business branching (backend-guide
 
 **No migration.** The summary is a *derivation* of existing columns; adding a
 denormalized column would create a second source of truth that could drift from
-the run/phase state the guide treats as canonical. Inputs consumed, all
+the run/phase state the guide treats as canonical (and would risk R12's "never
+describe a state the pipeline is not actually in"). Inputs consumed, all
 existing:
 
 - `pipelines.status`, `pipelines.current_phase`
-- `phases.kind`, `phases.status`, `phases.gate_mode`, and `approvals` (gate wait
-  vs. approved)
+- `phases.kind`, `phases.status` (incl. `failed`, `awaiting_human`),
+  `phases.gate_mode`, and `approvals` (gate wait vs. approved)
 - `steps.role`, `steps.step_type`
 - `step_runs.state`, `step_runs.iteration`, `step_runs.progress` (JSONB
   `message`), `step_runs.worker_id`, `step_runs.updated_at`
 
 The `Summary` `Data` value is the only new "type," and it is in-memory only.
+
+**Note on R11 / schema gap:** distinguishing a deliberate stop (R11) from an
+error stop (R9) currently rests on `aborted` (cancel) vs. a `failed` phase
+(error). There is no `paused` pipeline status, so "Paused" wording is designed
+but not yet reachable (§3.1 branch 3). If product wants a real pause, a `paused`
+enum value + the branch's existing mapping is the follow-up; until then R12
+guarantees any interim value still renders truthfully. This is a conscious,
+called-out limitation, not silent under-coverage.
 
 ---
 
@@ -293,41 +401,41 @@ The `Summary` `Data` value is the only new "type," and it is in-memory only.
 
 | File | Purpose | Reqs |
 |---|---|---|
-| `app/lib/pipelines/status_summary.rb` | Derive the plain-language `Summary` value from pipeline state. | R1, R5 |
-| `app/services/pipelines/broadcast_status.rb` | After-commit Turbo broadcast of the summary partial to the pipeline stream. | R3 |
-| `app/views/pipelines/_status_summary.html.erb` | Summary element (full + compact), `dom_id(pipeline,:summary)`, `aria-live`. | R2, R4, R6 |
+| `app/lib/pipelines/status_summary.rb` | Derive the plain-language `Summary` value from pipeline state (total function; catch-all default). | R3–R13 |
+| `app/services/pipelines/broadcast_status.rb` | After-commit Turbo broadcast of the summary partial to the pipeline stream. | R14, R16 |
+| `app/views/pipelines/_status_summary.html.erb` | Summary element (full + compact), `dom_id(pipeline,:summary)`, `aria-live`, dot+word. | R1, R2, R15, R17, R18 |
 
 **Edited**
 
 | File | Change | Reqs |
 |---|---|---|
-| `app/models/pipeline.rb` | Add `scope :with_board`. | R4 |
-| `app/controllers/pipelines_controller.rb` | `#show`/`#index` use `.with_board`. | R2, R4 |
-| `app/views/pipelines/show.html.erb` | Render full summary prominently atop the board. | R2 |
-| `app/views/pipelines/index.html.erb` | Render compact summary per row + `turbo_stream_from pipeline`. | R1, R3 |
-| `app/helpers/pipelines_helper.rb` | `summary_dot_class(tone)` reusing `TONE_CLASSES`. | R6 |
-| `app/services/step_runs/claim.rb` | `Pipelines::BroadcastStatus.call(pipeline)` after card broadcast. | R3 |
-| `app/services/step_runs/record_progress.rb` | Same, after card broadcast. | R3 |
-| `app/services/step_runs/complete.rb` | Same, after card broadcast. | R3 |
-| `app/services/phases/manager_tick.rb` | `Pipelines::BroadcastStatus.call(@phase.pipeline)` at end of `call`. | R3, R5 |
+| `app/models/pipeline.rb` | Add `scope :with_board`. | R15 |
+| `app/controllers/pipelines_controller.rb` | `#show`/`#index` use `.with_board`. | R1, R2, R15 |
+| `app/views/pipelines/show.html.erb` | Render full summary prominently in the header, above the cards. | R1 |
+| `app/views/pipelines/index.html.erb` | Render compact summary per row + `turbo_stream_from pipeline`. | R2, R14 |
+| `app/helpers/pipelines_helper.rb` | `summary_dot_class(tone)` reusing `TONE_CLASSES`. | R17 |
+| `app/services/step_runs/claim.rb` | `Pipelines::BroadcastStatus.call(pipeline)` after card broadcast. | R14 |
+| `app/services/step_runs/record_progress.rb` | Same, after card broadcast. | R14 |
+| `app/services/step_runs/complete.rb` | Same, after card broadcast. | R14 |
+| `app/services/phases/manager_tick.rb` | `Pipelines::BroadcastStatus.call(@phase.pipeline)` at end of `call`. | R14, R7 |
 
 **Tests** (Minitest; backend-guide "Test services as the primary unit… system
 tests cover the critical flows… the pipeline board")
 
 | File | Coverage | Reqs |
 |---|---|---|
-| `test/lib/pipelines/status_summary_test.rb` | State table → expected `text`/`tone`: running+progress+iteration, running-no-message fallback, claimed, ready/queued, human gate-wait, escalation, stuck, completed/aborted, not-started, `+N more running`. | R1, R5 |
-| `test/services/pipelines/broadcast_status_test.rb` | Asserts one `turbo_stream` replace enqueued to the pipeline targeting `dom_id(pipeline,:summary)`. | R3 |
-| `test/services/phases/manager_tick_test.rb` (extend) | A gate-wait / escalate tick broadcasts the summary. | R3, R5 |
-| `test/services/step_runs/{claim,record_progress,complete}_test.rb` (extend) | Each transition also broadcasts the summary. | R3 |
-| `test/system/pipeline_status_summary_test.rb` | Board shows the summary on load (R4) and it updates in place after a run/gate transition (R3). | R2, R3, R4 |
+| `test/lib/pipelines/status_summary_test.rb` | State table → expected `text`/`tone`: one step working (**iteration hidden when 1, shown when >1** — R4); two steps → **both named** (R5); three+ steps → **"<Phase>: N steps are running"** (R6); gate human-wait (R7); escalation; completed (R8); **failed → names phase/step + failure wording** (R9); not started (R10); **aborted → "Canceled"** (R11); running-but-idle and an unknown/synthetic status → **non-blank default** (R12); plain-language/no-codes assertion (R13). | R3–R13 |
+| `test/services/pipelines/broadcast_status_test.rb` | Asserts one `turbo_stream` replace enqueued to the pipeline targeting `dom_id(pipeline,:summary)`; re-render reflects current DB state (R16). | R14, R16 |
+| `test/services/phases/manager_tick_test.rb` (extend) | A gate-wait / escalate tick broadcasts the summary. | R14, R7 |
+| `test/services/step_runs/{claim,record_progress,complete}_test.rb` (extend) | Each transition also broadcasts the summary. | R14 |
+| `test/system/pipeline_status_summary_test.rb` | Board shows the summary on load (R15) and it updates in place after a run/gate transition (R14); compact row matches detail text (R18). | R1, R14, R15, R18 |
 
 ---
 
 ## 6. Interfaces (signatures)
 
 ```ruby
-Pipelines::StatusSummary.for(pipeline) # => Summary(text:, tone:, phase_label:, as_of:)
+Pipelines::StatusSummary.for(pipeline) # => Summary(text:, tone:, phase_label:)
 Pipelines::BroadcastStatus.call(pipeline)              # => broadcast enqueued
 Pipeline.with_board                                    # => preloaded relation
 # helper
@@ -344,22 +452,54 @@ query-by reads more honestly and won't be mistaken for a mutation.
 
 ## 7. Design decisions & alternatives
 
-- **Derivation PORO, not a DB column (R4).** A stored summary would be a second
-  source of truth that drifts from run/phase state and needs its own backfill +
-  invalidation. Deriving on render/broadcast is always correct and cheap on a
-  preloaded tree.
+- **Derivation PORO, not a DB column (R15, R12).** A stored summary would be a
+  second source of truth that drifts from run/phase state and needs its own
+  backfill + invalidation. Deriving on render/broadcast is always correct and
+  cheap on a preloaded tree.
+- **Total function with an unconditional catch-all (R12).** The resolution
+  order's final branch has no guard, so `build` returns a non-blank sentence for
+  every current or future status — the summary can never be blank or describe a
+  state the pipeline isn't in.
+- **Threshold-based collapse for concurrency (R3/R5/R6).** 1 → full sentence;
+  2 → both steps named; 3+ → phase + count. The count form replaces (does not
+  append to) a named step, matching R6's "rather than naming each."
+- **Failure vs. cancellation are separate branches (R9 vs. R11).** Error stops
+  are detected via a `failed` phase / failed run and always name where they
+  stopped with failure wording; deliberate stops map from `aborted`→"Canceled"
+  (and a future `paused`→"Paused"). They are never conflated.
 - **Separate `BroadcastStatus` service rather than folding into
   `BroadcastCard`.** Gate-wait and escalation change no card, so a card-only
-  hook would miss them (R5); and a tick touching N cards should refresh the
+  hook would miss them (R7/R14); and a tick touching N cards should refresh the
   summary once, not N times. Distinct DOM unit → distinct broadcast service,
   matching the guide's "smallest DOM unit" rule for both.
+- **Broadcast re-derives from fresh DB state (R16).** `broadcast_replace_later_to`
+  reloads the pipeline in a job before rendering, so the last render to land
+  reflects the actual latest state; older events cannot repaint a stale summary.
 - **Reuse the existing `@pipeline` stream + `StatusHelper` tones.** No new
   channel, no new color vocabulary — the summary is an enhancement layered on
-  established plumbing (R3, R6).
-- **Priority-ordered resolution** keeps the output a single, unambiguous
-  sentence (R1) while still exposing concurrency honestly via `+N more running`
-  (never a silent cap).
+  established plumbing (R14, R17).
+- **No relative timestamp on the summary (F7 / scope).** An earlier iteration
+  carried an `as_of` "updated N seconds ago" field on the Summary value. No
+  requirement (R1–R18) asks for it, so it has been **removed** to keep the design
+  to the stated scope; the live-update requirement (R14) is satisfied by the
+  broadcast itself, not by a rendered timestamp. Recorded here as a conscious
+  decision rather than a silent change.
 - **Known follow-ups (explicitly out of scope):** broadcasting from
-  `StepRuns::Sweep` for instant stuck flips; live-refreshing the pipeline header
+  `StepRuns::Sweep` for instant stuck flips; a real `paused` pipeline status to
+  make R11's "Paused" wording reachable; live-refreshing the pipeline header
   badge and phase-column badges (today static-on-load — the summary now covers
   the "what's happening" need those didn't).
+
+---
+
+## 8. Feedback resolution (iteration 1 → 2)
+
+| ID | Fix |
+|----|-----|
+| **F1 (R4)** | §3.1 branch 6: the `, iteration <n>` suffix is appended **only when `iteration > 1`**, in both the 1-active and 2-active branches; first attempt shows no number. |
+| **F2 (R5)** | §3.1 branch 6, "2 active": the summary **names both steps** ("<roleA> is … and <roleB> is …"); the `+N more` count form is gone. |
+| **F3 (R6)** | §3.1 branch 6, "≥3 active": collapses to **"<Phase>: N steps are running"**, naming no individual step — replacing the old appended-count phrasing. |
+| **F4 (R9)** | New §3.1 branch 2 "Failed (error stop)": failure wording **and** the phase (plus step when known), detected via a `failed` phase / failed run; no longer a bare "Aborted". |
+| **F5 (R11)** | New §3.1 branch 3 "Canceled / Paused": `aborted`→"Canceled" (deliberate), `paused`→"Paused" when that state exists; distinct from failure. Schema gap called out (§4). |
+| **F6 (R12)** | §3.1 branch 8 is an **unconditional catch-all**, making `build` total — every status (incl. running-but-idle and future states) yields a non-blank truthful sentence. |
+| **F7 (scope)** | The `as_of` timestamp is **removed** and the decision is recorded in §7; the Summary value no longer carries it. |
