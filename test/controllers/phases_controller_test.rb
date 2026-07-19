@@ -98,6 +98,83 @@ class PhasesControllerTest < ActionDispatch::IntegrationTest
     assert_equal 1, @requirements.step_runs.count
   end
 
+  test "pause flags a pause request while a step is in flight" do
+    @define.update!(status: "running")
+    # requirements_ready fixture is in state ready → the loop is busy.
+    post pause_phase_url(@define)
+
+    assert_redirected_to pipeline_url(@pipeline)
+    assert_equal "running", @define.reload.status
+    assert @define.pause_requested?
+  end
+
+  test "pause takes effect immediately when nothing is in flight" do
+    @define.update!(status: "running")
+    step_runs(:requirements_ready).update!(state: "succeeded")
+
+    post pause_phase_url(@define)
+
+    assert_redirected_to pipeline_url(@pipeline)
+    assert_equal "paused", @define.reload.status
+  end
+
+  test "pause is rejected outside running" do
+    @define.update!(status: "consensus")
+    post pause_phase_url(@define)
+    assert_redirected_to pipeline_url(@pipeline)
+    assert_equal "consensus", @define.reload.status
+  end
+
+  test "rerun_step queues a fresh run for the requested artifact" do
+    @requirements.update!(outputs: [ { "artifact" => "business_requirements", "kind" => "artifact",
+                                        "path" => "output/requirements.md" } ])
+    explorer = workflows(:define_main).steps.create!(slug: "explore", step_type: "builder",
+      role: "code", position: 0,
+      outputs: [ { "artifact" => "discovery_notes", "kind" => "artifact",
+                   "path" => "output/discovery_notes.md" } ])
+    step_runs(:requirements_ready).update!(state: "succeeded")
+    @define.update!(status: "paused")
+
+    post rerun_step_phase_url(@define), params: { artifact: "discovery_notes" }
+
+    assert_redirected_to pipeline_url(@pipeline)
+    assert_equal "paused", @define.reload.status
+    assert_equal 1, explorer.step_runs.where(state: "ready").count
+  end
+
+  test "rerun_step is rejected while the phase is busy" do
+    @define.update!(status: "paused")
+    # requirements_ready fixture is in state ready → the loop is busy.
+    post rerun_step_phase_url(@define), params: { artifact: "open_questions" }
+
+    assert_redirected_to pipeline_url(@pipeline)
+  end
+
+  test "restart queues a fresh run on the first worker step and flips to running" do
+    step_runs(:requirements_ready).update!(state: "succeeded")
+    @define.update!(status: "paused")
+
+    post restart_phase_url(@define)
+
+    assert_redirected_to pipeline_url(@pipeline)
+    @define.reload
+    assert @define.running?
+    assert @define.restart_in_progress?
+  end
+
+  test "restart is rejected when the phase isn't paused" do
+    @define.update!(status: "running")
+    post restart_phase_url(@define)
+    assert_redirected_to pipeline_url(@pipeline)
+    assert_equal "running", @define.reload.status
+    assert_not @define.restart_in_progress?
+  end
+
+  test "cannot pause phases of other users' pipelines" do
+    post pause_phase_url(foreign_phase)
+    assert_response :not_found
+  end
+
   test "cannot answer questions on other users' pipelines" do
     post answers_phase_url(foreign_phase), params: { answers: "x" }
     assert_response :not_found

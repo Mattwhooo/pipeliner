@@ -29,6 +29,9 @@ Rails.application.routes.draw do
     member do
       post :send_back
       post :answers
+      post :pause
+      post :rerun_step
+      post :restart
     end
   end
   resources :steps, only: [] do

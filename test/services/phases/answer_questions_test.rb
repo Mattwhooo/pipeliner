@@ -39,6 +39,15 @@ module Phases
       assert_equal "running", @workflow.reload.status
     end
 
+    test "answers a paused phase and leaves it paused" do
+      @define.update!(status: "paused")
+
+      result = AnswerQuestions.call(phase: @define, user: users(:dev), answers: "1. Use OAuth.")
+
+      assert result.success?
+      assert_equal "paused", @define.reload.status
+    end
+
     test "leaves a running phase and pipeline as they are" do
       @define.update!(status: "running")
       @pipeline.update!(status: "running")

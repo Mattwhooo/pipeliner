@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_18_230011) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_18_230012) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -78,8 +78,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_18_230011) do
     t.datetime "created_at", null: false
     t.string "gate_mode", default: "human", null: false
     t.string "kind", null: false
+    t.boolean "pause_requested", default: false, null: false
+    t.datetime "pause_requested_at"
     t.bigint "pipeline_id", null: false
     t.integer "position", null: false
+    t.jsonb "restart_feedback", default: [], null: false
+    t.boolean "restart_in_progress", default: false, null: false
     t.integer "rework_count", default: 0, null: false
     t.string "status", default: "pending", null: false
     t.datetime "updated_at", null: false
