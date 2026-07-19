@@ -2,10 +2,10 @@
   "schema_version": "1.0",
   "step": "test-critic",
   "status": "succeeded",
-  "iteration": 5,
+  "iteration": 6,
   "worker": {
     "id": "wk_sonnet",
     "backend": "claude-code"
   },
-  "summary": "I'll wait for the background test task to complete naturally rather than continue polling — the harness will notify me when it finishes."
+  "summary": "Running the full test suite now — I'll report back once results are in."
 }
