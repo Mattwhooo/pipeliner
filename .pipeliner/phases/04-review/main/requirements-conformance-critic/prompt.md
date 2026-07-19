@@ -1,1 +1,0 @@
-Compare what was built (the diff) against the business requirements from Define. For each requirement: satisfied or not, with evidence. Emit a structured verdict.

@@ -1,7 +1,0 @@
-{
-  "schema_version": "1.0",
-  "step": "test-critic",
-  "verdict": "pass",
-  "summary": "Ran the full Minitest suite (bin/rails test, PARALLEL_WORKERS=1 — the default fork-based parallel runner crashes on this host's Ruby build independent of any app code) and bin/rubocop. All 213 model/controller/service/query tests pass (738 assertions, 0 failures/errors) and rubocop reports no offenses across 152 files, covering the new dashboard queries (Dashboard::ActivePipelines, Dashboard::FleetHealth, Dashboard::RecentActivity), Dashboard::Broadcast service, and their view partials. The two new system-test files (test/system/dashboard_test.rb, test/system/answer_questions_modal_test.rb) could not be executed: this machine's /opt/homebrew/bin/chromedriver is v122 while the installed Google Chrome is v150, an unrelated local tooling mismatch (Selenium's SessionNotCreatedError, not an app defect). No database-mutating or fixture/reset commands were run; the test suite uses the isolated pipeliner_test database.",
-  "findings": []
-}
