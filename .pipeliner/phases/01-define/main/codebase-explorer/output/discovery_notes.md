@@ -1,10 +1,11 @@
 # Discovery Notes — Human-in-the-Loop Pause (Define phase)
 
-*Iteration 2 — re-explored to ground the requirements-completeness critic's
-feedback (F1–F5) in concrete code facts. Iteration-1 findings below were
-re-verified against the current code and stand; a new section adds the facts
-needed to resolve F1–F4. (F5 is a requirements-drafting atomicity issue, not a
-new code fact — no additional exploration was needed for it.)*
+*Iteration 3 — re-explored to ground the requirements-completeness critic's
+new feedback (F1: resume vs. Done ambiguity; F2: in-flight display for a
+single-step menu re-run) in concrete code facts. Iteration-1 and iteration-2
+findings below were re-verified against the current code and stand; a new
+section at the end ("Facts sharpening the iteration-3 critic feedback") adds
+what's needed for F1/F2.*
 
 ## The ask (restated)
 
@@ -224,6 +225,81 @@ R12/R13 (F2) and R14/R23 (F4, plus the existing, still-accurate `Approve`/
 
 ---
 
+## Facts sharpening the iteration-3 critic feedback
+
+### F1 — Does any "resume without finishing" concept exist anywhere in the code today?
+No. A repo-wide search (`grep -rniE "resume|paused|in_progress" app`) turns up
+exactly two hits, both comments, neither a real affordance:
+- `app/services/step_runs/complete.rb:11` — "backoff instead of failing, so
+  pipelines pause through an outage and **resume**" — describes the *transient
+  failure retry* mechanism (see iteration-2 F3), not a human action.
+- `app/services/phases/send_back.rb:11` — "resumes the consensus loop" —
+  describes `SendBack` dropping the phase back to `running` after a gate
+  rejection, which is today's *only* code path that takes a settled/held phase
+  and puts it back into the automatic loop. It has no "resume" verb, route, or
+  controller action; it's just what re-queuing a run at the gate does.
+- **There is no `paused` value on `Phase.status` or `Pipeline.status`** (enums
+  confirmed current: `app/models/phase.rb` — `pending, running, consensus,
+  approved, reworking, awaiting_human, failed`; `app/models/pipeline.rb` —
+  `draft, running, awaiting_human, blocked, stuck, completed, aborted`), so
+  there is no existing state a "resume" action would need to transition out of.
+- **The only two ways a held phase re-enters the automatic loop today are
+  gate-level and both are "do the next unit of work," not "go back to purely
+  automatic":** `Approve` moves the phase to `approved` and starts the *next*
+  phase; `SendBack` moves the phase to `running` but simultaneously queues a
+  specific re-run with feedback attached (never "just go back to running and
+  let the Manager decide what's next" with no attached action). There is **no
+  existing precedent for a bare "un-pause, resume ticking automatically, no
+  action attached" primitive** — every existing status transition out of a
+  held state is bundled with a triggering action (approve, send-back-with-run,
+  answer-questions-with-run).
+- Net: whatever "resume" ends up meaning, it is not implemented anywhere today
+  and has no naming/routing precedent to reuse verbatim — R5/R26's "until the
+  person resumes or finishes" and the assumptions section's "pause, resume, and
+  use the menu" are the *only* places the word appears in the requirements/ask
+  chain, and nothing in the code disambiguates them from "finishes" (Done). This
+  is consistent with — and sharpens — iteration-2 open question 8 below ("does
+  pause suspend the loop entirely until resumed, or can the human step through
+  iterations manually while auto-ticking is off") and open question 6 ("is
+  'done' the only exit").
+
+### F2 — What UI precedent exists for "control hidden/disabled while its own action is in flight"?
+Two distinct existing patterns, neither built for a paused menu but both directly
+reusable as a model:
+- **Step-card level (`app/views/pipelines/_step_card.html.erb:25-29`):** the
+  "Queue run"/"Re-run" link is rendered **only when** `run.nil? || run.state.in?(%w[succeeded
+  failed stuck])` — i.e. it is *absent entirely* (not merely disabled) for the
+  whole `ready/claimed/running` lifetime of a run, and reappears automatically
+  once the run reaches a terminal state, because `StepRuns::BroadcastCard`
+  (`app/services/step_runs/broadcast_card.rb`) re-renders that same card via
+  Turbo Stream (`broadcast_replace_later_to`) on every state change (fired from
+  `StepRuns::Claim`, `RecordProgress`, `Complete`, `Queue` — see iteration-2's
+  Manager-loop section). While `running`, the same card instead shows a live
+  `run.progress["message"]` line with `aria-live="polite"` (`_step_card.html.erb:17-21`).
+  So the codebase's one existing "is this specific thing currently re-running"
+  affordance is: **hide the trigger control, show a live status line, driven by
+  broadcasts keyed off `StepRun.state`** — not a generic disabled/spinner
+  overlay.
+- **Form-submission level (`_define_panel.html.erb:81-83`):** the "Send
+  answers" submit button uses `data: { turbo_submits_with: "Sending…" }` —
+  Turbo's built-in UJS swaps the button label for the duration of the HTTP
+  round-trip only. This covers the synchronous request (e.g. "answers were
+  received"), not the asynchronous work that request kicks off (per
+  iteration-2 F2/F3, the triggered step run itself claims/executes/completes
+  across separate Manager ticks, well after the form's own submission
+  resolves) — so this pattern alone would under-represent an Explore or
+  Clarifying-Questions re-run's true in-flight duration if used by itself.
+- Neither pattern is currently applied to a *menu of several alternative
+  actions* (only ever one control per card/form). Building "the whole paused
+  menu is unavailable/replaced while any one of its items is re-running" would
+  compose from, but not directly reuse, the step-card pattern — R15 already
+  asks for exactly this shape ("restart in progress" state replacing the menu)
+  for the multi-step Repeat-from-the-Beginning case; the step-card precedent is
+  the closest existing analogue for the single-step case (Explore, Clarifying
+  Questions) that R8/R10 leave unspecified.
+
+---
+
 ## What the ask touches
 
 - **New "pause" concept** — no `paused` status exists on Phase or Pipeline, and
@@ -303,7 +379,13 @@ R12/R13 (F2) and R14/R23 (F4, plus the existing, still-accurate `Approve`/
    conflates "cap hit" with "human paused on purpose" and (per F4) happens to make
    `Approve` work for free; a distinct state reads clearer in the UI but requires
    extending `Approve`'s `APPROVABLE_STATUSES` (and possibly `SendBack`'s
-   `SENDABLE_STATUSES`) to include it.
+   `SENDABLE_STATUSES`) to include it. Directly bears on iteration-3 F1: whichever
+   choice is made, "resume" needs an explicit definition — e.g. if pause is a
+   distinct status, is resume "flip back to `running` with no action attached" (a
+   primitive that doesn't exist anywhere in the code today — see iteration-3 F1),
+   and is it a different requirement from Done, or is "resume" actually just loose
+   phrasing for "trigger any menu item, which re-enters the loop for that one
+   step"?
 3. **The menu's exact items & their effects** — confirm the mapping: Explore =
    re-run Codebase Explorer; Clarifying = re-run Clarifying Questions Writer; Ask
    human = surface questions + capture answers as feedback; Repeat from beginning =
@@ -320,25 +402,44 @@ R12/R13 (F2) and R14/R23 (F4, plus the existing, still-accurate `Approve`/
    attached?
 6. **"Until done" exit** — is "done" exactly the existing `Approve` (ratify the
    human gate — only valid from `consensus`/`awaiting_human` per F4), or a
-   separate "end Define" action for a still-un-converged pause?
+   separate "end Define" action for a still-un-converged pause? Per iteration-3
+   F1, no code today distinguishes an exit that finishes the phase (Done) from
+   one that merely hands control back to the automatic loop without finishing
+   (a hypothetical Resume) — if both are meant to exist as separate person-facing
+   actions, this is where that distinction would need to be drawn.
 7. **Interaction with the tick** — when paused, should `TickAll` skip the phase
    (natural if paused ⇒ not `running`), and how do we prevent a resume from racing
    the next scheduled tick? What happens to a run that is mid-flight when pause is
    requested — let it finish (recommended, given leases) or mark it for discard?
 8. **Auto-vs-manual coexistence** — does pause suspend the automatic consensus
    loop entirely until resumed, or can the human step through iterations manually
-   from the menu while auto-ticking is off?
-9. **Surfacing fresh output (F1)** — for each menu action that produces new
-   content (Explore's `discovery_notes`, Clarifying Questions' `open_questions`,
-   Repeat-from-Beginning's replaced artifacts), is the person shown the content
-   inline in the paused panel (extending the `define_open_questions` pattern), or
-   linked to a separate view? Should stale/prior content stay visible while a
-   re-run is in flight, or be cleared/marked-stale immediately?
-10. **Failure visibility for menu re-runs (F3)** — when a menu-triggered re-run
-    ends in `failed`/`stuck`, or is mid-retry (transient backoff), what does the
-    paused view show, and does the person automatically land back on the menu, or
-    do they have to notice the badge and act? Should the phase remain paused
-    (rather than silently retrying) whenever a menu-triggered run fails?
+   from the menu while auto-ticking is off? Iteration-3 F1 found zero code
+   precedent for "suspended but resumable without finishing" — if that's the
+   intended semantics, it needs a first-class definition (state + control +
+   effect), not an implied one.
+9. **Surfacing fresh output (iteration-2 F1)** — for each menu action that
+   produces new content (Explore's `discovery_notes`, Clarifying Questions'
+   `open_questions`, Repeat-from-Beginning's replaced artifacts), is the person
+   shown the content inline in the paused panel (extending the
+   `define_open_questions` pattern), or linked to a separate view? Should
+   stale/prior content stay visible while a re-run is in flight, or be
+   cleared/marked-stale immediately?
+10. **Failure visibility for menu re-runs (iteration-2 F3)** — when a
+    menu-triggered re-run ends in `failed`/`stuck`, or is mid-retry (transient
+    backoff), what does the paused view show, and does the person automatically
+    land back on the menu, or do they have to notice the badge and act? Should
+    the phase remain paused (rather than silently retrying) whenever a
+    menu-triggered run fails?
+11. **In-flight display for a single-step re-run (iteration-3 F2)** — while
+    Explore or Clarifying Questions is re-running, is the paused menu hidden
+    entirely (mirroring R15's explicit "restart in progress" treatment for
+    Repeat-from-the-Beginning, and the step-card precedent of hiding the
+    trigger control for the run's whole `ready/claimed/running` lifetime — see
+    iteration-3 F2), shown but disabled, or left active with a separate
+    in-progress indicator alongside it? Should the person see a live progress
+    line the way the step card does (`run.progress["message"]`, `aria-live`),
+    given that (per iteration-2 F2/F3) the re-run's true duration spans several
+    asynchronous ticks past the moment the menu choice is submitted?
 
 ---
 
@@ -361,6 +462,7 @@ R12/R13 (F2) and R14/R23 (F4, plus the existing, still-accurate `Approve`/
 - UI: `app/views/pipelines/_define_panel.html.erb`, `_phase_column.html.erb`,
   `_step_card.html.erb`, `pipelines/show.html.erb`;
   `app/helpers/define_helper.rb`, `app/helpers/status_helper.rb`;
-  `app/services/phases/broadcast_column.rb`
+  `app/services/phases/broadcast_column.rb`, `app/services/step_runs/broadcast_card.rb`
+  (in-flight/live-update precedent — see iteration-3 F2)
 - Design docs: `docs/execution-model.md` (Gates & HITL, Convergence caps),
   `docs/phase-playbooks.md` (Phase 1 worked example), `docs/README.md`
