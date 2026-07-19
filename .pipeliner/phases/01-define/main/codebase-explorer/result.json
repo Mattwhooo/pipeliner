@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "codebase-explorer",
+  "status": "succeeded",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_personal-macbook-local",
+    "backend": "claude-code"
+  },
+  "summary": "I explored the Pipeliner Rails 8 codebase to scope the \"Human-in-the-Loop Pause\" ask for the Define phase, and wrote factual discovery notes to `.pipeliner/phases/01-define/main/codebase-explorer/output/discovery_notes.md`. Key findings: the app already has substantial *gate-based* human-in-the-loop machinery — `awaiting_human` phase/pipeline states plus `Phases::AnswerQuestions`, `Approve`, and `SendBack` services, and a Define panel UI — but all of it only activates once the Manager loop *settles* at `consensus` or the `max_iterations` cap; `AnswerQuestions` actively refuses mid-flight (`define_busy?`), and nothing lets a human interrupt a `running` phase on demand. There is **no** `paused` status on Phase or Pipeline, no menu-loop concept, and no primitive to re-run a specific Define step (Codebase Explorer / Clarifying Questions Writer) except `SendBack`'s gate-only `target_step_id`. The notes map the four menu items (\"Explore, Clarifying questions, ask human, repeat from the beginning\") onto existing pieces, list the relevant files (Manager tick loop, HITL services, composition, models, dispatch, and the Define panel view), and capture the constraints (mandatory guides, 60s leases meaning true mid-run freezing isn't possible, at-most-one-merge fencing, non-technical Define) plus eight open questions for the requirements/design steps to resolve."
+}
