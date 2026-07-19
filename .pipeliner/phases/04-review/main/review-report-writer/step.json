@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "slug": "review-report-writer",
+  "type": "builder",
+  "role": "review",
+  "prompt": "prompt.md",
+  "inputs": [],
+  "outputs": [
+    {
+      "kind": "artifact",
+      "path": "output/review_report.md",
+      "artifact": "review_report"
+    }
+  ],
+  "scope": null,
+  "fan_out": null
+}
