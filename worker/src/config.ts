@@ -19,6 +19,8 @@ export interface Config {
   pollIntervalSeconds: number;
   /** `claude` CLI binary. */
   claudeBin: string;
+  /** Model passed via --model. Defaults to Opus 4.8; empty string = use the claude CLI's own default. */
+  claudeModel: string;
   /** Hard wall-clock cap for one step execution. */
   stepTimeoutSeconds: number;
 }
@@ -35,6 +37,7 @@ export function loadConfig(): Config {
     reposDir: resolve(env.PIPELINER_REPOS_DIR ?? `${env.HOME}/.pipeliner-worker/repos`),
     pollIntervalSeconds: Number(env.PIPELINER_POLL_INTERVAL ?? 5),
     claudeBin: env.PIPELINER_CLAUDE_BIN ?? "claude",
+    claudeModel: env.PIPELINER_CLAUDE_MODEL ?? "claude-opus-4-8",
     stepTimeoutSeconds: Number(env.PIPELINER_STEP_TIMEOUT ?? 900),
   };
 }

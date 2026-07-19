@@ -51,6 +51,7 @@ export class Api {
           public_id: this.config.workerId,
           name: this.config.workerName,
           backend: "claude-code",
+          model: this.config.claudeModel || "claude-cli-default",
           roles: this.config.roles,
           concurrency: this.config.concurrency,
         },

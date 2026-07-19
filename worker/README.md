@@ -28,6 +28,7 @@ Requires: Node 20+, `git`, and an authenticated `claude` CLI on PATH.
 | `PIPELINER_REPOS_DIR` | `~/.pipeliner-worker/repos` | Clone + worktree location |
 | `PIPELINER_POLL_INTERVAL` | `5` | Seconds between claim polls when idle |
 | `PIPELINER_CLAUDE_BIN` | `claude` | Claude Code binary |
+| `PIPELINER_CLAUDE_MODEL` | `claude-opus-4-8` | Model for step execution (passed as `--model`; set empty to use the CLI default) |
 | `PIPELINER_STEP_TIMEOUT` | `900` | Per-step wall-clock cap (seconds) |
 
 ## v0 scope (deliberate simplifications)

@@ -101,6 +101,7 @@ export class Executor {
       "--verbose",
       "--dangerously-skip-permissions",
     ];
+    if (this.config.claudeModel) args.push("--model", this.config.claudeModel);
 
     const child = spawn(this.config.claudeBin, args, {
       cwd: this.worktreeDir,
