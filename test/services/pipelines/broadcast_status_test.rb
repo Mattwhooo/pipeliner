@@ -13,11 +13,13 @@ module Pipelines
   # Contract:
   #   Pipelines::BroadcastStatus.call(pipeline)  # replaces dom_id(pipeline, :summary)
   #
-  # Expected to fail until Build adds Pipelines::BroadcastStatus and wires the
-  # step-run services to it.
+  # Assertions inspect the enqueued Turbo::Streams::ActionBroadcastJob directly
+  # (the app's established pattern — see StepRuns::BroadcastCardTest) rather than
+  # via Turbo::Broadcastable::TestHelper, which this app cannot load: it's only
+  # wired up by turbo-rails behind an :action_cable on_load hook that never fires
+  # without an app/channels mount, so referencing it aborts the whole suite.
   class BroadcastStatusTest < ActiveSupport::TestCase
     include ActiveJob::TestHelper
-    include Turbo::Broadcastable::TestHelper
 
     setup do
       @pipeline = pipelines(:onboarding)
@@ -25,9 +27,12 @@ module Pipelines
       @summary_target = ActionView::RecordIdentifier.dom_id(@pipeline, :summary)
     end
 
-    # Targets of every turbo-stream message broadcast to the pipeline's stream.
-    def broadcast_targets
-      capture_turbo_stream_broadcasts(@pipeline).map { |el| el["target"] }
+    # Asserts that, among whatever jobs the block enqueues, at least one Turbo
+    # broadcast targets the pipeline's summary dom id.
+    def assert_summary_broadcast(&block)
+      assert_enqueued_with(job: Turbo::Streams::ActionBroadcastJob,
+        args: ->(job_args) { job_args.any? { |arg| arg.is_a?(Hash) && arg[:target] == @summary_target } },
+        &block)
     end
 
     test "enqueues a turbo broadcast rather than rendering inline" do
@@ -37,15 +42,11 @@ module Pipelines
     end
 
     test "broadcast replaces the stable summary dom id on the pipeline stream" do
-      perform_enqueued_jobs { BroadcastStatus.call(@pipeline) }
-
-      assert_includes broadcast_targets, @summary_target
+      assert_summary_broadcast { BroadcastStatus.call(@pipeline) }
     end
 
     test "claiming a run refreshes the live summary" do
-      perform_enqueued_jobs { StepRuns::Claim.call(worker: @worker) }
-
-      assert_includes broadcast_targets, @summary_target
+      assert_summary_broadcast { StepRuns::Claim.call(worker: @worker) }
     end
 
     test "recording progress refreshes the live summary" do
@@ -53,12 +54,10 @@ module Pipelines
       run.update!(state: "claimed", worker: @worker, epoch: "e1",
         lease_expires_at: 1.minute.from_now)
 
-      perform_enqueued_jobs do
+      assert_summary_broadcast do
         StepRuns::RecordProgress.call(step_run: run, worker: @worker, epoch: "e1",
           progress: { "message" => "working" })
       end
-
-      assert_includes broadcast_targets, @summary_target
     end
 
     test "completing a run refreshes the live summary" do
@@ -66,12 +65,10 @@ module Pipelines
       run.update!(state: "running", worker: @worker, epoch: "e2",
         lease_expires_at: 1.minute.from_now)
 
-      perform_enqueued_jobs do
+      assert_summary_broadcast do
         StepRuns::Complete.call(step_run: run, worker: @worker, epoch: "e2",
           status: "succeeded")
       end
-
-      assert_includes broadcast_targets, @summary_target
     end
   end
 end

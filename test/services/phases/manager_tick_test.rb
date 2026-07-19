@@ -3,20 +3,27 @@ require "test_helper"
 module Phases
   class ManagerTickTest < ActiveSupport::TestCase
     include ActiveJob::TestHelper
-    include Turbo::Broadcastable::TestHelper
 
     setup do
       @pipeline = pipelines(:onboarding)
       @phase = phases(:onboarding_plan) # no workflows in fixtures — clean slate
     end
 
-    # Turbo-stream replace targets broadcast to the pipeline's own stream.
-    def pipeline_broadcast_targets
-      capture_turbo_stream_broadcasts(@pipeline).map { |el| el["target"] }
-    end
-
     def summary_target
       ActionView::RecordIdentifier.dom_id(@pipeline, :summary)
+    end
+
+    # Asserts that, among whatever jobs the block enqueues, at least one Turbo
+    # broadcast targets the pipeline's summary dom id. Inspects the enqueued
+    # Turbo::Streams::ActionBroadcastJob directly (the app's established pattern
+    # — see StepRuns::BroadcastCardTest) rather than via
+    # Turbo::Broadcastable::TestHelper, which this app cannot load: it's only
+    # wired up by turbo-rails behind an :action_cable on_load hook that never
+    # fires without an app/channels mount, so referencing it aborts the suite.
+    def assert_summary_broadcast(&block)
+      assert_enqueued_with(job: Turbo::Streams::ActionBroadcastJob,
+        args: ->(job_args) { job_args.any? { |arg| arg.is_a?(Hash) && arg[:target] == summary_target } },
+        &block)
     end
 
     # Builds a builder -> critic consensus loop under the phase:
@@ -176,10 +183,9 @@ module Phases
       succeed(builder, iteration: 1)
       succeed(critic, iteration: 1, verdict: { "verdict" => "pass" })
 
-      perform_enqueued_jobs { run! }
+      assert_summary_broadcast { run! }
 
       assert @pipeline.reload.awaiting_human?
-      assert_includes pipeline_broadcast_targets, summary_target
     end
 
     test "an escalation tick refreshes the live status summary" do
@@ -188,10 +194,9 @@ module Phases
       succeed(builder, iteration: 1)
       succeed(critic, iteration: 1, verdict: { "verdict" => "needs_work", "findings" => [] })
 
-      perform_enqueued_jobs { run! }
+      assert_summary_broadcast { run! }
 
       assert_equal "awaiting_human", @phase.reload.status
-      assert_includes pipeline_broadcast_targets, summary_target
     end
 
     test "auto gate on the review phase completes the pipeline" do
