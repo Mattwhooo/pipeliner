@@ -2,14 +2,19 @@
 
 ## Overall verdict
 
-**Ship-ready with one note.** Two independent review critics examined the
-change: the **requirements-conformance-critic** returned **pass** (all 13
-business requirements satisfied), and the **code-quality-critic** returned
-**needs_work** for a single *minor* finding (F1). On inspection of the merged
-branch, the code already contains the exact remediation F1 recommends — see
-[Open findings](#open-findings) — so no further code change is required to land
-this. The build-phase test suite is green (185 runs, 0 failures) and RuboCop is
-clean.
+**Landable — one minor open finding recommended before merge.** Two independent
+review critics examined the change: the **requirements-conformance-critic**
+returned **pass** (all 13 business requirements satisfied), and the
+**code-quality-critic** returned **needs_work** for a single *minor* finding
+(F1), which the merged branch already remediates. A subsequent
+guide-alignment pass surfaced one further *minor*, still-open finding (F2): the
+theme-toggle button's focus indicator uses the `outline` pattern instead of the
+`ring` pattern mandated by `ui-style-guide.md` §Accessibility baseline and used
+by every other interactive element in the app. F2 is a cosmetic guide-consistency
+deviation, **not** an accessibility regression (a visible focus indicator is
+present), so it does not block landing — but a one-line class change is
+recommended to conform. See [Open findings](#open-findings). The build-phase test
+suite is green (185 runs, 0 failures) and RuboCop is clean.
 
 ---
 
@@ -111,7 +116,7 @@ CSP is enabled later, the inline script must switch to a nonce'd
 ## Open findings
 
 **F1 — OS-preference listener teardown after a manual toggle** · severity: minor
-· source: code-quality-critic (`needs_work`)
+· source: code-quality-critic (`needs_work`) · status: **already remediated**
 
 > *As reported:* `connect()` attaches a `matchMedia` `change` listener when no
 > cookie exists; the critic flagged that `toggle()` writes the cookie but never
@@ -133,13 +138,47 @@ the current code:
 The requirements-conformance-critic independently confirmed R11 as satisfied on
 the same code. The finding reads as a stale/false-positive against an earlier
 iteration (the controller's `stopWatchingSystemTheme` teardown landed in
-implementer iteration 4). **No code change required to land this PR**; recommend
-resolving F1 as already-addressed.
+implementer iteration 4). **No code change required for F1.**
+
+---
+
+**F2 — Toggle focus indicator deviates from the app-wide `ring` convention**
+· severity: minor · source: guide-alignment (ui-style-guide.md §Accessibility
+baseline, §Buttons) · status: **open**
+
+> *As reported:* `app/views/shared/_theme_toggle.html.erb` styles the button's
+> keyboard focus state with
+> `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600`.
+> `ui-style-guide.md` §Accessibility baseline mandates a visible focus ring
+> (`focus-visible:ring-2 ring-indigo-600`), and every other interactive element
+> in the app uses that ring pattern — the sign-in button
+> (`focus-visible:ring-2 focus-visible:ring-indigo-600`) and all form inputs
+> (`focus:ring-2 focus:ring-indigo-600`). The toggle is the lone element using
+> `outline`.
+
+**Status on the merged branch: open (unremediated).** The toggle's `class`
+attribute still carries the `outline` utilities. This is **not** an accessibility
+regression — a visible focus indicator *is* rendered on keyboard focus — so it
+does not block landing. It is a guide-conformance and visual-consistency
+deviation.
+
+- **Impact:** cosmetic only; the focus affordance works, but its shape (outline
+  vs. ring) differs from every other focusable control, so keyboard focus on the
+  toggle looks subtly inconsistent with the rest of the UI.
+- **Recommended fix (one-line class change, for a follow-up builder step):**
+  replace
+  `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600`
+  with `focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-600`
+  to match §Accessibility baseline and the app-wide pattern. (The report writer
+  does not own view files, so this is flagged rather than applied.)
 
 ## Requirements traceability summary
 
 - **13 / 13 requirements** satisfied (requirements-conformance-critic: pass, 0 findings).
 - **Code quality:** 1 minor finding (F1), already remediated on the branch.
+- **Guide alignment:** 1 minor finding (F2), **open** — toggle focus indicator
+  should switch from `outline` to the mandated `ring` pattern. Cosmetic
+  consistency, not an a11y regression; non-blocking, one-line fix recommended.
 - **Tests & lint:** green.
 - Out of scope by design (D4): mailers, PWA `theme_color`, service worker.
   Cross-device sync (D1) intentionally deferred; the cookie→column seam is
