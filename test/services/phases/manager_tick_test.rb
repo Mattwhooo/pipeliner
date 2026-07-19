@@ -2,9 +2,21 @@ require "test_helper"
 
 module Phases
   class ManagerTickTest < ActiveSupport::TestCase
+    include ActiveJob::TestHelper
+    include Turbo::Broadcastable::TestHelper
+
     setup do
       @pipeline = pipelines(:onboarding)
       @phase = phases(:onboarding_plan) # no workflows in fixtures — clean slate
+    end
+
+    # Turbo-stream replace targets broadcast to the pipeline's own stream.
+    def pipeline_broadcast_targets
+      capture_turbo_stream_broadcasts(@pipeline).map { |el| el["target"] }
+    end
+
+    def summary_target
+      ActionView::RecordIdentifier.dom_id(@pipeline, :summary)
     end
 
     # Builds a builder -> critic consensus loop under the phase:
@@ -153,6 +165,33 @@ module Phases
       escalation = @phase.manager_decisions.escalate_decision.last
       assert escalation, "an escalate ManagerDecision is recorded"
       assert_equal 2, escalation.iteration
+    end
+
+    # A gate-wait changes only phase/pipeline status — no run card moves — so
+    # without a summary broadcast here the live "Waiting on human approval…" line
+    # would never appear until reload (R7/R14). This is the essential seam.
+    test "a human gate tick refreshes the live status summary" do
+      @phase.update!(status: "running", gate_mode: "human")
+      _workflow, builder, critic = build_loop(@phase)
+      succeed(builder, iteration: 1)
+      succeed(critic, iteration: 1, verdict: { "verdict" => "pass" })
+
+      perform_enqueued_jobs { run! }
+
+      assert @pipeline.reload.awaiting_human?
+      assert_includes pipeline_broadcast_targets, summary_target
+    end
+
+    test "an escalation tick refreshes the live status summary" do
+      @phase.update!(status: "running")
+      _workflow, builder, critic = build_loop(@phase, max_iterations: 1)
+      succeed(builder, iteration: 1)
+      succeed(critic, iteration: 1, verdict: { "verdict" => "needs_work", "findings" => [] })
+
+      perform_enqueued_jobs { run! }
+
+      assert_equal "awaiting_human", @phase.reload.status
+      assert_includes pipeline_broadcast_targets, summary_target
     end
 
     test "auto gate on the review phase completes the pipeline" do
