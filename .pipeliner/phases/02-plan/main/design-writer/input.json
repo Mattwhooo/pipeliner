@@ -1,6 +1,37 @@
 {
   "schema_version": "1.0",
-  "iteration": 1,
+  "iteration": 2,
   "resolved_inputs": [],
-  "feedback": []
+  "feedback": [
+    {
+      "id": "F1",
+      "issue": "HomeController#safely is `rescue StandardError => e`, a direct violation of guides/backend-guide.md ('Errors & results': \"Never rescue StandardError blindly; rescue what you can handle\"; \"Domain failures are data (Result objects), not exceptions\"). The design acknowledges it as 'the one sanctioned blind StandardError rescue' but, unlike the two other deviations in this design, does NOT propose a guide amendment for it — CLAUDE.md is explicit that 'PRs that deviate are wrong unless the guide itself is explicitly updated' and that a silent guide gap should be closed 'in the same PR'. Resolve one of two ways: (a) the guide-aligned path — have the Dashboard::* query objects return Result objects (errors-as-data) and let the controller branch on `result.success?` to render the section-error partial, no blind rescue needed; or (b) if the presentation-boundary rescue is kept, add the corresponding amendment to guides/backend-guide.md documenting it as a narrow, sanctioned exception, exactly as §8 does for the per-user-stream pattern.",
+      "severity": "major",
+      "target_artifact": "design.md §4 (HomeController#safely)"
+    },
+    {
+      "id": "F2",
+      "issue": "`@active_pipelines = safely { Dashboard::ActivePipelines.new(current_user) }` stores the un-executed query object; the actual reads (`.call`, `.total_count`, `.attention_count`) are then invoked from the view (_summary/_active_pipelines). Two guide problems: (1) data/query execution runs in the view layer, contrary to the backend guide's layered architecture (controllers 'call one service, respond'; POROs/queries own reads) — the controller should obtain finished data and hand plain values to the view. (2) Because `.new` can never raise and the queries execute in the view, the `safely` rescue does not actually cover the failure point it exists for; a query error thrown during view rendering escapes `safely` and 500s the whole page, defeating the per-panel isolation the design intends. Recommend the controller call the queries (inside the rescue/Result boundary) and pass materialized data — e.g. rows + counts, or a small presenter struct — to the view.",
+      "severity": "major",
+      "target_artifact": "design.md §4/§5 (HomeController#index + index.html.erb)"
+    },
+    {
+      "id": "F3",
+      "issue": "The §8 plan adds the `activity: true` Dashboard::Broadcast in approve.rb 'after `@phase.approvals.create!(...)`'. In the actual service that create! sits inside `ApplicationRecord.transaction do ... end` (app/services/phases/approve.rb:29-32), so a broadcast anchored there fires (and `broadcast_*_later_to` enqueues its render job) before the transaction commits — violating guides/backend-guide.md side-effect ordering ('persist -> enqueue jobs -> broadcast'; 'Broadcasts/jobs happen only after the write commits'). It also departs from the surrounding code's own convention: existing broadcasts (approve.rb's seed_next_phase, complete.rb) are deliberately placed after the transaction closes. Specify that each activity broadcast is emitted after commit (outside the transaction block / via after-commit semantics), and audit the other activity call sites (manager_tick#record_decision, rework_to_phase#record_rework_event) for the same in-transaction hazard.",
+      "severity": "minor",
+      "target_artifact": "design.md §8.3 (approve.rb activity broadcast)"
+    },
+    {
+      "id": "F4",
+      "issue": "The modal's validation/error region uses an amber banner (`bg-amber-50 text-amber-800`) for R45/R47 messages. guides/ui-style-guide.md's Forms rule prescribes form errors 'inline in red-600 attached to the field (not only a flash),' and amber is the reserved semantic color for 'needs attention / awaiting human,' not validation errors. `text-amber-800` is also off the semantic soft palette (the guide specifies `text-{color}-700`). Align the error styling with the red-600 field-error convention (or, if a softer 'nudge' treatment is intentional, propose it as a guide addition), and use in-scale palette shades.",
+      "severity": "minor",
+      "target_artifact": "design.md §7.1 (answer_questions modal error banner)"
+    },
+    {
+      "id": "F5",
+      "issue": "The modal inputs use `mt-1`, which is off the mandated spacing scale in guides/ui-style-guide.md ('stick to Tailwind steps 2, 4, 6, 8, 12 ... Avoid one-off values'). The `...` elisions elsewhere suggest final class strings aren't fixed, so this is a reminder for the Implementer to keep all spacing on the 2/4/6/8/12 scale in the final markup.",
+      "severity": "minor",
+      "target_artifact": "design.md §7.1 (modal input classes)"
+    }
+  ]
 }
