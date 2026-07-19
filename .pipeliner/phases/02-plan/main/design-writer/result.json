@@ -1,11 +1,11 @@
 {
   "schema_version": "1.0",
   "step": "design-writer",
-  "status": "succeeded",
-  "iteration": 1,
+  "status": "failed",
+  "iteration": 2,
   "worker": {
     "id": "wk_personal-macbook-local",
     "backend": "claude-code"
   },
-  "summary": "I wrote the technical design to `.pipeliner/phases/02-plan/main/design-writer/output/design.md`.\n\nBecause this step's `input.json` had no resolved upstream artifacts (`resolved_inputs: []`), I grounded the design directly in the live codebase and the two mandatory guides, and derived six requirement IDs (R1–R6) from the ask so every component is citable. The design places the plain-language derivation in a reusable domain PORO (`Pipelines::StatusSummary.for(pipeline)` → an immutable `Summary` value with `text`/`tone`/`phase_label`/`as_of`), keeps controllers thin (a new `Pipeline.with_board` preload scope + inline render for true-state-on-load), and broadcasts live via a thin `Pipelines::BroadcastStatus` service that reuses the existing `turbo_stream_from @pipeline` channel and `broadcast_replace_later_to` pattern — wired into the four seams that actually change pipeline-visible state (`StepRuns::Claim`/`RecordProgress`/`Complete` and, critically, `Phases::ManagerTick` so gate-wait and escalation surface live). Appearance reuses `StatusHelper`'s semantic tones with an `aria-live` region per the UI guide (status word never carried by color alone). It requires no migration (the summary is a pure derivation, avoiding a second source of truth), and includes a full file-level change plan — 3 new files, 9 edits, and a Minitest/system-test matrix — plus an explicit list of out-of-scope follow-ups (sweep-driven stuck broadcasts, live header/phase badges)."
+  "summary": "claude exited 1: Let me look at the existing design output and the requirements it references."
 }
