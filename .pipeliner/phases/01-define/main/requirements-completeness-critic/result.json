@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "requirements-completeness-critic",
+  "status": "failed",
+  "iteration": 4,
+  "worker": {
+    "id": "wk_personal-macbook-local",
+    "backend": "claude-code"
+  },
+  "summary": "claude exited 1: I'll start by reading the step input to find the artifacts under review."
+}
