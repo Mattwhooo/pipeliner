@@ -29,7 +29,7 @@ Requires: Node 20+, `git`, and an authenticated `claude` CLI on PATH.
 | `PIPELINER_POLL_INTERVAL` | `5` | Seconds between claim polls when idle |
 | `PIPELINER_CLAUDE_BIN` | `claude` | Claude Code binary |
 | `PIPELINER_CLAUDE_MODEL` | `claude-opus-4-8` | Model for step execution (passed as `--model`; set empty to use the CLI default) |
-| `PIPELINER_STEP_TIMEOUT` | `900` | Per-step wall-clock cap (seconds) |
+| `PIPELINER_STEP_TIMEOUT` | `900` | Base per-step wall-clock cap (seconds). Timeouts auto-retry after ~1 minute with an escalated cap (base × attempt, max 3×) |
 
 ## v0 scope (deliberate simplifications)
 

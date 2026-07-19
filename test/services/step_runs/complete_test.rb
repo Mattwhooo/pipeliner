@@ -74,6 +74,18 @@ module StepRuns
       assert_match(/session limit/, @run.result["summary"])
     end
 
+    test "a timeout re-queues quickly (short window, not outage backoff)" do
+      result = Complete.call(step_run: @run, worker: @worker, epoch: "abc123",
+        status: "transient",
+        result: { "summary" => "step timed out after 30m (attempt 1)", "kind" => "timeout" })
+
+      assert result.success?
+      @run.reload
+      assert_equal "ready", @run.state
+      assert_equal 2, @run.attempt
+      assert @run.available_at <= 90.seconds.from_now
+    end
+
     test "transient backoff grows with attempts and caps at 30 minutes" do
       @run.update!(attempt: 7)
       Complete.call(step_run: @run, worker: @worker, epoch: "abc123", status: "transient")

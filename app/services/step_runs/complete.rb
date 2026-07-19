@@ -18,6 +18,7 @@ module StepRuns
     # still surfaces to a human.
     TRANSIENT_BACKOFF_STEP = 5.minutes
     TRANSIENT_BACKOFF_CAP = 30.minutes
+    TIMEOUT_RETRY_WINDOW = 1.minute
     MAX_TRANSIENT_ATTEMPTS = 8
 
     def self.call(step_run:, worker:, epoch:, status:, result: nil, verdict: nil, commit_sha: nil)
@@ -91,7 +92,14 @@ module StepRuns
         return Result.success(@step_run)
       end
 
-      backoff = [ TRANSIENT_BACKOFF_STEP * @step_run.attempt, TRANSIENT_BACKOFF_CAP ].min
+      # Timeout kills retry quickly (the worker escalates the step's time limit
+      # per attempt); real outages back off progressively.
+      backoff =
+        if @result&.dig("kind") == "timeout"
+          TIMEOUT_RETRY_WINDOW
+        else
+          [ TRANSIENT_BACKOFF_STEP * @step_run.attempt, TRANSIENT_BACKOFF_CAP ].min
+        end
       @step_run.update!(
         state: "ready",
         attempt: @step_run.attempt + 1,

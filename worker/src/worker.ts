@@ -121,15 +121,20 @@ export class WorkerLoop {
       await this.api.progress(runId, epoch, "Running Claude Code");
       const outcome = await executor.run(abort.signal);
 
-      // Infrastructure outage (session/rate limit, API overload): discard the
-      // partial work, hand the run back for a backoff retry, and stop claiming
-      // for a while — every step would hit the same wall.
-      if (!outcome.ok && outcome.transient) {
+      // Infrastructure outage (session/rate limit, API overload) or wall-clock
+      // timeout: discard the partial work and hand the run back for retry.
+      // Outages also pause claiming (every step would hit the same wall);
+      // timeouts don't — they're specific to the step, and its retry gets an
+      // escalated time limit plus a short requeue window.
+      if (!outcome.ok && (outcome.transient || outcome.timeout)) {
         await this.api.complete(runId, epoch, {
           status: "transient",
-          result: { summary: outcome.summary },
+          result: {
+            summary: outcome.summary,
+            ...(outcome.timeout ? { kind: "timeout" } : {}),
+          },
         });
-        this.enterCooldown(outcome.summary);
+        if (outcome.transient) this.enterCooldown(outcome.summary);
         await workspace.cleanup(true);
         return;
       }
