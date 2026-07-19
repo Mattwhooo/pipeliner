@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "test-critic",
+  "status": "failed",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_sonnet",
+    "backend": "claude-code"
+  },
+  "summary": "critic finished without writing verdict.json. Waiting for the background test run (task b98amrpyy) to finish; I'll pick this back up automatically when it completes."
+}
