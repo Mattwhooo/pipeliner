@@ -33,6 +33,8 @@ module Phases
     def initialize(phase:)
       @phase = phase
       @affected_runs = []
+      @affected_phases = []
+      @pending_rework = nil
     end
 
     def call
@@ -48,6 +50,11 @@ module Phases
         end
       end
 
+      # Inter-phase rework runs as its own top-level action AFTER this tick's
+      # transaction commits — it owns its own transaction and broadcasts, and it
+      # mutates this phase's status (or escalates on cap), so it must not be
+      # entangled with the tick's transaction.
+      perform_pending_rework
       broadcast_affected
       Result.success(@phase)
     end
@@ -87,10 +94,61 @@ module Phases
 
         # LLM-judgment seam: target selection is edge-driven here. The hybrid
         # Manager would instead choose the responsible step from the findings.
-        critic.route_targets.each do |target|
-          route_to_target(workflow, critic, run, target)
+        targets = critic.route_targets
+        if targets.any?
+          targets.each { |target| route_to_target(workflow, critic, run, target) }
+        else
+          # No in-phase route: the problem is rooted in an earlier phase. Route
+          # the whole loop back (docs/execution-model.md — inter-phase rework).
+          queue_inter_phase_rework(critic, run)
         end
       end
+    end
+
+    # A critic that returned needs_work with no route_to edge means the fix lives
+    # in an earlier phase (a requirement unimplemented, a wrong plan). Route back
+    # to the NEAREST earlier phase that has a builder to correct it. Deferred to
+    # after the transaction (see perform_pending_rework); throw :halt so the rest
+    # of this tick doesn't run against a phase this is about to reset.
+    def queue_inter_phase_rework(critic, critic_run)
+      target = nearest_earlier_builder_phase
+      return if target.nil?
+      # Re-trigger guard: the tick runs every ~10s while the critic's verdict
+      # stands. Rework exactly once per critic verdict — skip if we already routed
+      # a rework from this phase after this critic run finished (a later critic
+      # re-run has a newer finished_at, so a genuine new verdict re-triggers).
+      return if reworked_since?(critic_run)
+
+      @pending_rework = {
+        from_phase: @phase,
+        target_phase: target,
+        findings: critic_run.findings,
+        reason: "Critic #{critic.slug} needs_work with no in-phase route",
+        mode: "automated",
+        raised_by: "agent"
+      }
+      throw :halt
+    end
+
+    def perform_pending_rework
+      return unless @pending_rework
+
+      ReworkToPhase.call(**@pending_rework)
+    end
+
+    def nearest_earlier_builder_phase
+      @phase.pipeline.phases
+        .where("position < ?", @phase.position)
+        .reorder(position: :desc)
+        .detect { |phase| phase.workflows.any? { |w| w.steps.any?(&:type_builder?) } }
+    end
+
+    def reworked_since?(critic_run)
+      since = critic_run.finished_at || critic_run.created_at
+      @phase.pipeline.rework_events
+        .where(from_phase: @phase)
+        .where("rework_events.created_at > ?", since)
+        .exists?
     end
 
     def route_to_target(workflow, critic, critic_run, target)
@@ -118,7 +176,7 @@ module Phases
     def escalate(workflow, critic, critic_run, attempted_iteration)
       @phase.update!(status: "awaiting_human")
       @phase.pipeline.update!(status: "awaiting_human")
-      BroadcastColumn.call(@phase)
+      @affected_phases << @phase
       record_decision(
         decision: "escalate",
         iteration: attempted_iteration,
@@ -177,7 +235,7 @@ module Phases
       else
         # Human gate: park for approval (surfaced by the board's gate banner).
         @phase.pipeline.update!(status: "awaiting_human")
-        BroadcastColumn.call(@phase)
+        @affected_phases << @phase
       end
     end
 
@@ -217,6 +275,7 @@ module Phases
 
     def broadcast_affected
       @affected_runs.each { |run| StepRuns::BroadcastCard.call(run) }
+      @affected_phases.each { |phase| BroadcastColumn.call(phase) }
     end
   end
 end

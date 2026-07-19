@@ -2,6 +2,7 @@ require "test_helper"
 
 module Phases
   class ApproveTest < ActiveSupport::TestCase
+    include ActiveJob::TestHelper
     setup do
       @pipeline = pipelines(:onboarding)
       @define = phases(:onboarding_define)
@@ -31,12 +32,16 @@ module Phases
       assert_equal "approved", @define.reload.status
     end
 
-    test "approving review completes the pipeline" do
+    test "approving review enqueues finalization (completed comes after archive/strip)" do
       review = phases(:onboarding_review)
       review.update!(status: "consensus")
-      result = Approve.call(phase: review, user: users(:dev))
+      result = nil
+      assert_enqueued_with(job: Pipelines::FinalizeJob, args: [ @pipeline ]) do
+        result = Approve.call(phase: review, user: users(:dev))
+      end
       assert result.success?
-      assert_equal "completed", @pipeline.reload.status
+      assert_equal "approved", review.reload.status
+      assert_not @pipeline.reload.completed?
     end
 
     test "refuses phases that are not at a gate" do

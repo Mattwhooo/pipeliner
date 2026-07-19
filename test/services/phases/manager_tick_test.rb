@@ -2,9 +2,29 @@ require "test_helper"
 
 module Phases
   class ManagerTickTest < ActiveSupport::TestCase
+    include ActiveJob::TestHelper
+
     setup do
       @pipeline = pipelines(:onboarding)
       @phase = phases(:onboarding_plan) # no workflows in fixtures — clean slate
+    end
+
+    # A phase with a lone builder step — a valid inter-phase rework target.
+    def add_builder(phase)
+      workflow = phase.workflows.create!(slug: "impl-#{SecureRandom.hex(4)}",
+        max_iterations: 10, status: "converged")
+      workflow.steps.create!(slug: "impl", step_type: "builder", role: "code", position: 1)
+    end
+
+    # A phase whose only worker step is a critic with NO route_to edge, already
+    # returning the given verdict — the routeless needs_work case.
+    def add_lone_critic(phase, verdict:)
+      workflow = phase.workflows.create!(slug: "crit-#{SecureRandom.hex(4)}",
+        max_iterations: 10, status: "running")
+      critic = workflow.steps.create!(slug: "review-check", step_type: "critic",
+        role: "review", position: 1)
+      succeed(critic, iteration: 1, verdict: verdict)
+      [ workflow, critic ]
     end
 
     # Builds a builder -> critic consensus loop under the phase:
@@ -180,10 +200,87 @@ module Phases
       succeed(builder, iteration: 1)
       succeed(critic, iteration: 1, verdict: { "verdict" => "pass" })
 
-      run!(review)
+      assert_enqueued_with(job: Pipelines::FinalizeJob, args: [ @pipeline ]) do
+        run!(review)
+      end
 
       assert_equal "approved", review.reload.status
-      assert @pipeline.reload.completed?
+      # Completed is set by Finalize after archive/strip, not inline (finalization).
+      assert_not @pipeline.reload.completed?
+    end
+
+    # --- Inter-phase rework (automated trigger) -----------------------------
+
+    test "a routeless needs_work critic routes back to the nearest earlier builder phase, once across two ticks" do
+      review = phases(:onboarding_review)
+      build = phases(:onboarding_build)
+      @pipeline.update!(status: "running", current_phase: "review")
+      impl = add_builder(build)
+      review.update!(status: "running")
+      finds = [ { "id" => "F9", "issue" => "R-7 export unimplemented", "severity" => "blocker" } ]
+      add_lone_critic(review, verdict: { "verdict" => "needs_work", "findings" => finds })
+
+      run!(review)
+
+      assert_equal 1, @pipeline.rework_events.count, "one rework routed back"
+      event = @pipeline.rework_events.last
+      assert_equal review, event.from_phase
+      assert_equal build, event.target_phase
+      assert event.automated_mode?
+      assert event.raised_by_agent?
+
+      assert_equal "running", build.reload.status, "target re-opened"
+      assert_equal "pending", review.reload.status, "deciding phase reset (forward-only)"
+
+      feedback_run = impl.step_runs.order(:iteration).last
+      assert_equal "ready", feedback_run.state
+      assert_equal "rework:review", feedback_run.feedback.first["from"]
+
+      # Re-trigger guard: even if the phase is re-activated while the same critic
+      # verdict still stands, the tick must not raise a duplicate rework.
+      review.update!(status: "running")
+      run!(review)
+      assert_equal 1, @pipeline.rework_events.count, "guard prevents a duplicate rework"
+    end
+
+    test "a critic with a route_to edge routes in-phase and raises no inter-phase rework" do
+      @pipeline.update!(status: "running")
+      @phase.update!(status: "running")
+      _workflow, builder, critic = build_loop(@phase)
+      succeed(builder, iteration: 1)
+      succeed(critic, iteration: 1, verdict: { "verdict" => "needs_work", "findings" => [] })
+
+      run!
+
+      assert_equal 0, @pipeline.rework_events.count, "in-phase route, no bounce backward"
+      assert_equal 2, builder.reload.latest_run.iteration
+    end
+
+    test "a routeless needs_work critic with no earlier builder phase does nothing" do
+      # onboarding_plan (position 2) has no earlier phase with a builder in
+      # fixtures except define — remove define's builder so there is no target.
+      phases(:onboarding_define).workflows.destroy_all
+      @pipeline.update!(status: "running", current_phase: "plan")
+      @phase.update!(status: "running")
+      add_lone_critic(@phase, verdict: { "verdict" => "needs_work", "findings" => [] })
+
+      run!
+
+      assert_equal 0, @pipeline.rework_events.count
+    end
+
+    test "escalation flushes the phase-column broadcast after the transaction commits" do
+      @phase.update!(status: "running")
+      _workflow, builder, critic = build_loop(@phase, max_iterations: 1)
+      succeed(builder, iteration: 1)
+      succeed(critic, iteration: 1, verdict: { "verdict" => "needs_work", "findings" => [] })
+
+      # The escalate path collects the phase and broadcasts it only after commit;
+      # no run is created, so exactly one column broadcast is enqueued.
+      assert_enqueued_jobs 1, only: Turbo::Streams::ActionBroadcastJob do
+        run!
+      end
+      assert_equal "awaiting_human", @phase.reload.status
     end
   end
 end
