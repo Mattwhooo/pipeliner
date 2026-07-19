@@ -1,6 +1,28 @@
 {
   "schema_version": "1.0",
-  "iteration": 1,
+  "iteration": 2,
   "resolved_inputs": [],
-  "feedback": []
+  "feedback": [
+    {
+      "id": "F1",
+      "from": "rework:review",
+      "issue": "Phases::Advance performs two writes on the advance path (next_phase.update!(status: \"running\") then pipeline.update!(current_phase:, status:)) with no ApplicationRecord.transaction wrapper. backend-guide.md ('Services') states: 'Services own transactions (ApplicationRecord.transaction) — a business action is atomic or it isn't done.' Because Phases::Approve calls Advance AFTER its own transaction commits, a failure of the second update from the human-approval path leaves the next phase running while the pipeline still points at the prior phase — a partially-advanced, inconsistent board state the guide's atomicity rule exists to prevent. Wrap the advance writes in a transaction (from the ManagerTick path they are already inside the outer tick transaction, but Advance must guarantee its own atomicity for its other caller).",
+      "severity": "major",
+      "target_artifact": "app/services/phases/advance.rb"
+    },
+    {
+      "id": "F2",
+      "from": "rework:review",
+      "issue": "BroadcastColumn.call is invoked inside ManagerTick's open ApplicationRecord.transaction (escalate at ~line 122; apply_gate human branch at ~line 179; and Advance's broadcasts via settle_convergence -> reach_consensus -> advance_pipeline -> Advance.call, all still inside the transaction block at lines 41-49). backend-guide.md ('Services' / 'Real-time (Turbo) conventions') is explicit: 'Broadcasts/jobs happen only after the write commits (after_commit semantics — use ActiveRecord.after_all_transactions_commit or enqueue inside the service after the transaction block).' broadcast_replace_later_to enqueues a Solid Queue job that commits to the separate queue DB independently of the main transaction, so it can run before (or despite a rollback of) the tick transaction and repaint stale phase state — the very 'invisible until reload' failure the feature is meant to fix. Note the tick's own broadcast_affected and Pipelines::BroadcastStatus are already correctly placed AFTER the transaction block, so the in-transaction BroadcastColumn calls are an internal inconsistency; move them (and Advance's broadcasts) to after commit.",
+      "severity": "major",
+      "target_artifact": "app/services/phases/manager_tick.rb"
+    },
+    {
+      "id": "F3",
+      "from": "rework:review",
+      "issue": "The gate approve button and note input are styled ad hoc rather than from the defined shared components. ui-style-guide.md ('Core components' / 'Buttons') defines the primary button as 'bg-indigo-600 text-white hover:bg-indigo-700 rounded-md px-3 py-2 text-sm font-semibold', but the gate button uses px-2 py-1.5 text-xs; the guide's form input spec is 'rounded-md ring-1 ring-gray-300 focus:ring-2 focus:ring-indigo-600', but the note field uses ring-amber-600/30. The guide's 'one source of truth per component' principle wants these built as the shared button/input (or an explicitly-approved compact variant) rather than inline overrides, even in the dense banner context.",
+      "severity": "minor",
+      "target_artifact": "app/views/pipelines/_phase_column.html.erb"
+    }
+  ]
 }
