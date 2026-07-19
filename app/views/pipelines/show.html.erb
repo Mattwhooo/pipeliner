@@ -25,8 +25,17 @@
 
 <%= turbo_stream_from @pipeline %>
 
-<div class="mt-8 grid grid-cols-1 gap-4 md:grid-cols-4">
-  <% @phases.each do |phase| %>
+<% define_phase = @phases.find(&:define_phase?) %>
+<% downstream_phases = @phases.reject(&:define_phase?) %>
+
+<% if define_phase %>
+  <div class="mt-8">
+    <%= render "pipelines/define_panel", phase: define_phase, current_phase_kind: @pipeline.current_phase %>
+  </div>
+<% end %>
+
+<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+  <% downstream_phases.each do |phase| %>
     <%= render "pipelines/phase_column", phase: phase, current_phase_kind: @pipeline.current_phase %>
   <% end %>
 </div>

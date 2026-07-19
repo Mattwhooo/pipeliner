@@ -62,6 +62,47 @@ class PhasesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "consensus", @define.reload.status
   end
 
+  test "answers queues a new requirements run and re-opens a consensus define" do
+    @define.update!(status: "consensus")
+    @pipeline.update!(status: "awaiting_human")
+    step_runs(:requirements_ready).update!(state: "succeeded")
+
+    post answers_phase_url(@define), params: { answers: "1. Use OAuth." }
+
+    assert_redirected_to pipeline_url(@pipeline)
+    assert_equal "running", @define.reload.status
+    assert_equal "running", @pipeline.reload.status
+    run = @requirements.step_runs.where(state: "ready").order(:iteration).last
+    assert_equal 2, run.iteration
+    assert_equal "1. Use OAuth.", run.feedback.first["issue"]
+    assert_equal "human", run.feedback.first["from"]
+  end
+
+  test "answers is rejected while a define run is in flight" do
+    @define.update!(status: "consensus")
+    # requirements_ready fixture is in state ready → the loop is busy.
+    post answers_phase_url(@define), params: { answers: "answers" }
+
+    assert_redirected_to pipeline_url(@pipeline)
+    assert_equal "consensus", @define.reload.status
+    assert_equal 1, @requirements.step_runs.count
+  end
+
+  test "answers with blank text is rejected" do
+    @define.update!(status: "running")
+    step_runs(:requirements_ready).update!(state: "succeeded")
+
+    post answers_phase_url(@define), params: { answers: "   " }
+
+    assert_redirected_to pipeline_url(@pipeline)
+    assert_equal 1, @requirements.step_runs.count
+  end
+
+  test "cannot answer questions on other users' pipelines" do
+    post answers_phase_url(foreign_phase), params: { answers: "x" }
+    assert_response :not_found
+  end
+
   test "cannot view phases of other users' pipelines" do
     get phase_url(foreign_phase)
     assert_response :not_found

@@ -37,6 +37,25 @@
     </div>
   </div>
 
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <%= f.label :phase, class: "block text-sm font-medium text-gray-900" %>
+      <%= f.select :phase,
+            Phase::KINDS_IN_ORDER.map { |k| [ k.humanize, k ] },
+            { include_blank: "Any phase" },
+            class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600" %>
+      <p class="mt-1 text-xs text-gray-500">Which phase this step belongs to.</p>
+    </div>
+    <div>
+      <%= f.label :project_id, "Scope", class: "block text-sm font-medium text-gray-900" %>
+      <%= f.select :project_id,
+            current_user.projects.order(:name).map { |p| [ p.name, p.id ] },
+            { include_blank: "Global (all projects)" },
+            class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600" %>
+      <p class="mt-1 text-xs text-gray-500">Global, or limited to one project.</p>
+    </div>
+  </div>
+
   <div>
     <%= f.label :system_prompt, class: "block text-sm font-medium text-gray-900" %>
     <%= f.text_area :system_prompt, rows: 5,

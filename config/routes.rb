@@ -23,6 +23,7 @@ Rails.application.routes.draw do
     resource :approval, only: [ :create ]
     member do
       post :send_back
+      post :answers
     end
   end
   resources :steps, only: [] do

@@ -9,6 +9,23 @@ class StepsControllerTest < ActionDispatch::IntegrationTest
     assert_select "h1", /Add step to Plan/
   end
 
+  test "new only offers templates for the phase and project scope" do
+    StepTemplate.create!(name: "Plan Helper", step_type: "planner", role: "plan", phase: "plan")
+    StepTemplate.create!(name: "Build Helper", step_type: "builder", role: "code", phase: "build")
+
+    get new_phase_step_url(phases(:onboarding_plan))
+
+    assert_response :success
+    assert_select "option", text: "Plan Helper", count: 1
+    assert_select "option", text: "Build Helper", count: 0
+  end
+
+  test "new shows the custom-define-steps note on the define phase" do
+    get new_phase_step_url(phases(:onboarding_define))
+    assert_response :success
+    assert_match "custom Define steps run late", @response.body
+  end
+
   test "create adds a step from a template" do
     template = StepTemplate.create!(name: "Design Writer", step_type: "builder",
       role: "code", system_prompt: "Write the design.")

@@ -1,7 +1,8 @@
 class StepsController < ApplicationController
   def new
     @phase = authorized_phase(params[:phase_id])
-    @templates = StepTemplate.order(:name)
+    @templates = StepTemplate.available_to(@phase.pipeline.project)
+      .for_phase(@phase.kind).order(:name)
     @existing_steps = @phase.workflows.flat_map(&:steps)
   end
 

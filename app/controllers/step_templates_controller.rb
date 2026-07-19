@@ -2,7 +2,9 @@ class StepTemplatesController < ApplicationController
   before_action :set_template, only: [ :edit, :update, :destroy ]
 
   def index
-    @templates = StepTemplate.order(:name)
+    # Global templates plus those scoped to the current user's projects.
+    @templates = StepTemplate.where(project_id: [ nil, *current_user.project_ids ])
+      .includes(:project).order(:name)
   end
 
   def new
@@ -44,6 +46,6 @@ class StepTemplatesController < ApplicationController
   # and paths are the rigid inter-phase contract (docs/artifact-schema.md).
   # They come from the template pack / code, not free-typed JSON.
   def template_params
-    params.expect(step_template: [ :name, :step_type, :role, :system_prompt, :requirement ])
+    params.expect(step_template: [ :name, :step_type, :role, :system_prompt, :requirement, :phase, :project_id ])
   end
 end

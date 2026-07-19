@@ -21,6 +21,22 @@ class PhasesController < ApplicationController
     end
   end
 
+  def answers
+    phase = membership_scoped_phase
+    result = Phases::AnswerQuestions.call(
+      phase: phase,
+      user: current_user,
+      answers: params[:answers].to_s.strip
+    )
+
+    if result.success?
+      redirect_to pipeline_path(phase.pipeline),
+        notice: "Answers sent — Define is iterating on the requirements."
+    else
+      redirect_to pipeline_path(phase.pipeline), alert: answers_alert(result.error)
+    end
+  end
+
   private
 
   def send_back_alert(error)
@@ -28,6 +44,14 @@ class PhasesController < ApplicationController
     when :blank_feedback then "Feedback is required to send a phase back."
     when :no_target      then "Pick a step to send this phase back to."
     else "This phase is not awaiting approval."
+    end
+  end
+
+  def answers_alert(error)
+    case error
+    when :blank_answers then "Add your answers before sending."
+    when :busy          then "Define is still running — wait for the current pass to finish."
+    else "This phase can't take answers right now."
     end
   end
 
