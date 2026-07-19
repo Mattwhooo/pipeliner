@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_18_230009) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_18_230010) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -199,12 +199,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_18_230009) do
     t.jsonb "default_outputs", default: [], null: false
     t.jsonb "default_scope"
     t.string "name", null: false
+    t.string "phase"
     t.bigint "project_id"
     t.string "requirement", default: "conditional", null: false
     t.string "role"
     t.string "step_type", null: false
     t.text "system_prompt"
     t.datetime "updated_at", null: false
+    t.index ["phase"], name: "index_step_templates_on_phase"
     t.index ["project_id", "name"], name: "index_step_templates_on_project_id_and_name", unique: true
     t.index ["project_id"], name: "index_step_templates_on_project_id"
   end

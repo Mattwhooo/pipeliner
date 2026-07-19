@@ -24,6 +24,8 @@ export interface Bundle {
     fan_out: Record<string, unknown> | null;
   };
   workflow: { slug: string; shared_paths: string[] };
+  /** Step Library summary, present for planner steps (workflow composition). */
+  library?: Array<{ name: string; type: string; role: string | null; requirement: string }>;
   phase: { kind: string; position: number };
   pipeline: { public_id: string; branch: string; title: string; initial_prompt: string | null };
   project: { repo_url: string; default_branch: string; project_type: string };

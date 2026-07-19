@@ -11,7 +11,7 @@ module StepRuns
       pipeline = phase.pipeline
       project = pipeline.project
 
-      {
+      bundle = {
         step_run: {
           id: step_run.id,
           epoch: step_run.epoch,
@@ -49,6 +49,17 @@ module StepRuns
           project_type: project.project_type
         }
       }
+
+      # Planner steps receive the Step Library so they can compose workflows
+      # (which steps this task needs, and in what order).
+      if step.type_planner?
+        bundle[:library] = StepTemplate.available_to(project).order(:name).map do |t|
+          { name: t.name, type: t.step_type, role: t.role,
+            requirement: t.requirement, phase: t.phase }
+        end
+      end
+
+      bundle
     end
   end
 end

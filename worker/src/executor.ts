@@ -61,6 +61,8 @@ export class Executor {
       iteration: step_run.iteration,
       resolved_inputs: step.inputs,
       feedback: step_run.feedback ?? [],
+      // Planner steps receive the step library so they can compose workflows.
+      library: this.bundle.library ?? undefined,
     }, null, 2));
   }
 
@@ -178,6 +180,28 @@ export class Executor {
     }
 
     return { ok: true, summary };
+  }
+
+  /**
+   * Reads back the step's declared file artifacts (capped) so the control
+   * plane can store them in the run's result — the UI and services need
+   * artifact content (open questions, workflow plans) without a git checkout.
+   */
+  async collectArtifacts(): Promise<Record<string, string>> {
+    const MAX_BYTES = 64_000;
+    const artifacts: Record<string, string> = {};
+    for (const output of this.bundle.step.outputs) {
+      const path = output.path;
+      if (!path) continue;
+      try {
+        const content = await readFile(join(this.worktreeDir, this.stepDir, path), "utf8");
+        artifacts[output.artifact ?? path] =
+          content.length > MAX_BYTES ? `${content.slice(0, MAX_BYTES)}\n…[truncated]` : content;
+      } catch {
+        /* output not written — the critic/manager judges that, not us */
+      }
+    }
+    return artifacts;
   }
 
   /** Writes result.json into the step subtree before the final commit. */

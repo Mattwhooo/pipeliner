@@ -12,7 +12,10 @@ class StepTemplate < ApplicationRecord
   enum :requirement, { required: "required", conditional: "conditional" }, suffix: true
 
   validates :name, presence: true, uniqueness: { scope: :project_id }
+  validates :phase, inclusion: { in: Phase::KINDS_IN_ORDER }, allow_nil: true
 
   scope :global, -> { where(project_id: nil) }
   scope :available_to, ->(project) { where(project_id: [ nil, project.id ]) }
+  # Templates usable in a given phase: tagged for it, or untagged (any phase).
+  scope :for_phase, ->(kind) { where(phase: [ kind.to_s, nil ]) }
 end

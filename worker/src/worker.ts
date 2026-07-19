@@ -130,10 +130,16 @@ export class WorkerLoop {
       );
       const pushed = sha ? await workspace.push() : false;
 
+      const artifacts = outcome.ok ? await executor.collectArtifacts() : {};
       const accepted = await this.api.complete(runId, epoch, {
         status,
         commit_sha: sha ?? undefined,
-        result: { summary: outcome.summary, pushed, step_branch: bundle.step_run.step_branch },
+        result: {
+          summary: outcome.summary,
+          pushed,
+          step_branch: bundle.step_run.step_branch,
+          ...(Object.keys(artifacts).length ? { artifacts } : {}),
+        },
         verdict: outcome.verdict,
       });
 
