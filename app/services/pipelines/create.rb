@@ -6,9 +6,12 @@ module Pipelines
   class Create
     PHASE_KINDS = Phase::KINDS_IN_ORDER
 
-    # Gate at each phase boundary: Define/Plan/Review pause for a human; Build
-    # auto-advances on convergence (docs/execution-model.md — "Gates").
-    GATE_MODES = { "define" => "human", "plan" => "human", "build" => "auto",
+    # Gate at each phase boundary: Define and Review pause for a human; Plan and
+    # Build auto-advance on convergence (docs/execution-model.md — "Gates").
+    # Plan's critics (guide alignment, design coverage) are the quality bar
+    # between Plan and Build; the human checkpoints are the ask (Define) and
+    # the result (Review).
+    GATE_MODES = { "define" => "human", "plan" => "auto", "build" => "auto",
       "review" => "human" }.freeze
 
     # Fallback (no pipeline_template): the standard core of every Define phase,

@@ -43,12 +43,12 @@ module Pipelines
       end
     end
 
-    test "sets gate modes: human for define/plan/review, auto for build" do
+    test "sets gate modes: human for define/review, auto for plan/build" do
       pipeline = Pipelines::Create.call(project: projects(:pipeliner), title: "Gates").value
       modes = pipeline.phases.index_by(&:kind).transform_values(&:gate_mode)
 
       assert_equal "human", modes["define"]
-      assert_equal "human", modes["plan"]
+      assert_equal "auto", modes["plan"]
       assert_equal "auto", modes["build"]
       assert_equal "human", modes["review"]
     end
