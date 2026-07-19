@@ -30,7 +30,7 @@ module Phases
     end
 
     test "carries prior human-tagged feedback onto the seeded run" do
-      @requirements.step_runs.create!(state: "succeeded", iteration: 1, required_role: "requirements",
+      @requirements.step_runs.create!(state: "succeeded", iteration: 1, attempt: 2, required_role: "requirements",
         finished_at: Time.current, merged_at: Time.current,
         feedback: [ { "from" => "human", "issue" => "Use OAuth.", "severity" => "major" } ])
 
@@ -44,7 +44,7 @@ module Phases
     end
 
     test "does not carry non-human feedback" do
-      @requirements.step_runs.create!(state: "succeeded", iteration: 1, required_role: "requirements",
+      @requirements.step_runs.create!(state: "succeeded", iteration: 1, attempt: 2, required_role: "requirements",
         finished_at: Time.current, merged_at: Time.current,
         feedback: [ { "from" => "critic", "issue" => "Not atomic.", "severity" => "major" } ])
 
@@ -62,7 +62,7 @@ module Phases
     end
 
     test "refuses to restart while a step is active" do
-      @requirements.step_runs.create!(state: "ready", iteration: 1, required_role: "requirements")
+      @requirements.step_runs.create!(state: "ready", iteration: 1, attempt: 2, required_role: "requirements")
       result = RestartDefine.call(phase: @define, user: users(:dev))
       assert result.failure?
       assert_equal :busy, result.error
