@@ -1,0 +1,1 @@
+From the ask and discovery notes, write detailed, atomic business requirements in the form 'When X happens, Y should happen'. Non-technical language only. Number them (R1, R2...).
