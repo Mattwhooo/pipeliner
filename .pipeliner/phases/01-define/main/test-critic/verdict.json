@@ -1,0 +1,7 @@
+{
+  "schema_version": "1.0",
+  "step": "test-critic",
+  "verdict": "not_applicable",
+  "summary": "The define phase for 'Human in the Loop Pause' produced only documentation artifacts under .pipeliner/ (requirements.md, open_questions.md, discovery_notes.md, and step metadata) — no source code, migrations, or other runnable/testable changes. The define-phase commits (bf5dab4..HEAD) touch exclusively .pipeliner/** files, so there is nothing to build, test, or lint. Additionally, the target repository is the live control plane orchestrating this run and its development database is shared, so the Rails test suite must not be invoked here per the step's safety rule. No test command was run.",
+  "findings": []
+}
