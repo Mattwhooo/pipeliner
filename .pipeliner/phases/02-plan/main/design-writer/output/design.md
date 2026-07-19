@@ -128,6 +128,16 @@ module Pipelines
       def to_s = text
     end
 
+    # Tone is NEVER a per-branch literal. Every branch resolves its `tone` by
+    # looking the governing status string up in `StatusHelper::STATUS_TONES`
+    # (the same table `status_badge` uses), so the summary dot and the
+    # pipeline's status badge can never show different colors for the same
+    # state (ui-style-guide "one source of truth per component"; "status colors
+    # are semantic and reserved"). Status-driven branches key on
+    # `pipeline.status`; the failed branch keys on the failed phase's status
+    # ("failed"). See the F1 resolution in §8 for the one table change this
+    # requires (aborted → :muted): see §3.4 and §8b.
+
     def self.for(pipeline) = new(pipeline).build
 
     def initialize(pipeline) = @pipeline = pipeline
@@ -153,8 +163,11 @@ exactly one branch, and the last branch is an unconditional default (R12).
    - Prefer the failed step: `"Failed in <Phase>: <role> could not complete"`.
    - No identifiable step, only a failed phase:
      `"Failed in <Phase>"`.
-   - Tone `:danger`. This branch **always names the phase (and step when known)**
-     and uses failure wording, distinct from deliberate cancellation below. *(R9)*
+   - Tone: `STATUS_TONES.fetch("failed", :danger)` → **`:danger`** (keyed on the
+     failed phase's status, since the pipeline row may still read `running`/`stuck`).
+     This branch **always names the phase (and step when known)** and uses failure
+     wording, distinct from the deliberate cancellation below — an error stop stays
+     red; a deliberate cancel is muted. *(R9)*
 
 3. **Canceled / Paused (deliberate)** — a person stopped it, not an error.
    - `pipeline.aborted?` → `"Canceled"` (the cooperative-cancel state; see
@@ -165,7 +178,14 @@ exactly one branch, and the last branch is an unconditional default (R12).
      so the "Paused" wording activates automatically if/when that state lands,
      and until then R12's default — branch 8 — covers any interim value. Called
      out so the schema gap is explicit, not hidden.)*
-   - Tone `:muted`. *(R11)*
+   - Tone: `STATUS_TONES.fetch("aborted", :muted)` → **`:muted`**. This requires
+     the one-line F1 reconciliation (§3.4, §8b): `StatusHelper::STATUS_TONES` maps
+     `"aborted"` to `:danger` today, which would make the summary dot (gray) and
+     the pipeline `status_badge` (red) disagree for the *same* aborted pipeline.
+     Because a deliberate cancel is a neutral terminal state — not the error stop
+     that red is reserved for (R9 / branch 2) — we retone `"aborted" => :muted`
+     at the single source and propose the matching guide row, so **both** the
+     badge and the summary now read gray. *(R11, and see §8/§5.)*
 
 4. **Awaiting human** — `pipeline.awaiting_human?`:
    - A gate awaiting a person's approval (phase in `consensus`/`approved` with
@@ -336,12 +356,25 @@ status on the page (R1). Keeps the existing `turbo_stream_from @pipeline`.
 add a per-row `<%= turbo_stream_from pipeline %>` so the list updates live too
 (the index has no subscription today) (R2, R14).
 
-### 3.4 Helper (R17)
+### 3.4 Helper + tone reconciliation (R17, F1)
 
 Add **`app/helpers/pipelines_helper.rb`** (file exists, empty) with
 `summary_dot_class(tone)` returning the dot's Tailwind classes derived from
-`StatusHelper::TONE_CLASSES` — keeps semantic color in one place. No change to
-`StatusHelper` itself.
+`StatusHelper::TONE_CLASSES` — keeps semantic color in one place.
+
+**`app/helpers/status_helper.rb` — one-line retone (F1).** Change
+`STATUS_TONES["aborted"]` from `:danger` to `:muted`. This is the single fix
+that makes the aborted state consistent everywhere: the summary dot sources its
+tone from `STATUS_TONES` (§3.1), and so does the pipeline `status_badge`
+(`status_badge(@pipeline.status)` in `show.html.erb`/`index.html.erb`) — so
+retoning at this one table is sufficient for both to read gray. It also encodes
+the design's own R9-vs-R11 distinction in the shared table: red (`:danger`)
+stays reserved for `stuck`/`failed`/`blocked` (error stops needing
+intervention), while a deliberate `aborted` cancel becomes `:muted` (a neutral
+terminal state, like `draft`/`pending`). Because the ui-style-guide color table
+has no "deliberately canceled" row today, we **propose that guide addition in the
+same PR** per CLAUDE.md ("if the guide is silent, follow its principles, then
+propose a guide addition") — see §5.
 
 ### 3.5 Model (R15)
 
@@ -387,11 +420,15 @@ The `Summary` `Data` value is the only new "type," and it is in-memory only.
 
 **Note on R11 / schema gap:** distinguishing a deliberate stop (R11) from an
 error stop (R9) currently rests on `aborted` (cancel) vs. a `failed` phase
-(error). There is no `paused` pipeline status, so "Paused" wording is designed
-but not yet reachable (§3.1 branch 3). If product wants a real pause, a `paused`
-enum value + the branch's existing mapping is the follow-up; until then R12
-guarantees any interim value still renders truthfully. This is a conscious,
-called-out limitation, not silent under-coverage.
+(error). This distinction is now also reflected in **color**: the F1 retone
+(§3.4) moves `aborted` from `:danger` to `:muted` in the shared
+`STATUS_TONES` table, so a deliberate cancel reads gray (neutral terminal state)
+while error stops keep the reserved red — and the summary dot and pipeline badge
+agree because both read that one table. There is no `paused` pipeline status, so
+"Paused" wording is designed but not yet reachable (§3.1 branch 3). If product
+wants a real pause, a `paused` enum value + the branch's existing mapping is the
+follow-up; until then R12 guarantees any interim value still renders truthfully.
+This is a conscious, called-out limitation, not silent under-coverage.
 
 ---
 
@@ -414,6 +451,8 @@ called-out limitation, not silent under-coverage.
 | `app/views/pipelines/show.html.erb` | Render full summary prominently in the header, above the cards. | R1 |
 | `app/views/pipelines/index.html.erb` | Render compact summary per row + `turbo_stream_from pipeline`. | R2, R14 |
 | `app/helpers/pipelines_helper.rb` | `summary_dot_class(tone)` reusing `TONE_CLASSES`. | R17 |
+| `app/helpers/status_helper.rb` | Retone `STATUS_TONES["aborted"]` `:danger`→`:muted` so the summary dot and the pipeline `status_badge` agree on the aborted state (single source of truth). | R17, F1 |
+| `guides/ui-style-guide.md` | Add a "deliberately canceled / aborted → gray (muted)" row to the Color status table, distinguishing a deliberate cancel from the red-reserved `stuck`/`failed`/`blocked` error stops (guide addition in the same PR, per CLAUDE.md). | R17, F1 |
 | `app/services/step_runs/claim.rb` | `Pipelines::BroadcastStatus.call(pipeline)` after card broadcast. | R14 |
 | `app/services/step_runs/record_progress.rb` | Same, after card broadcast. | R14 |
 | `app/services/step_runs/complete.rb` | Same, after card broadcast. | R14 |
@@ -424,11 +463,26 @@ tests cover the critical flows… the pipeline board")
 
 | File | Coverage | Reqs |
 |---|---|---|
-| `test/lib/pipelines/status_summary_test.rb` | State table → expected `text`/`tone`: one step working (**iteration hidden when 1, shown when >1** — R4); two steps → **both named** (R5); three+ steps → **"<Phase>: N steps are running"** (R6); gate human-wait (R7); escalation; completed (R8); **failed → names phase/step + failure wording** (R9); not started (R10); **aborted → "Canceled"** (R11); running-but-idle and an unknown/synthetic status → **non-blank default** (R12); plain-language/no-codes assertion (R13). | R3–R13 |
+| `test/lib/pipelines/status_summary_test.rb` | State table → expected `text`/`tone`: one step working (**iteration hidden when 1, shown when >1** — R4); two steps → **both named** (R5); three+ steps → **"<Phase>: N steps are running"** (R6); gate human-wait (R7); escalation; completed (R8); **failed → names phase/step + failure wording, tone `:danger`** (R9); not started (R10); **aborted → "Canceled", tone `:muted`** (R11); running-but-idle and an unknown/synthetic status → **non-blank default** (R12); plain-language/no-codes assertion (R13). **Tone-source consistency (F1):** for each state assert `summary.tone == StatusHelper::STATUS_TONES.fetch(<governing status>)`, and specifically that an aborted pipeline's `summary.tone` equals the tone `status_badge` would use for `pipeline.status` — both `:muted`, never one gray and one red. | R3–R13, F1 |
 | `test/services/pipelines/broadcast_status_test.rb` | Asserts one `turbo_stream` replace enqueued to the pipeline targeting `dom_id(pipeline,:summary)`; re-render reflects current DB state (R16). | R14, R16 |
 | `test/services/phases/manager_tick_test.rb` (extend) | A gate-wait / escalate tick broadcasts the summary. | R14, R7 |
 | `test/services/step_runs/{claim,record_progress,complete}_test.rb` (extend) | Each transition also broadcasts the summary. | R14 |
-| `test/system/pipeline_status_summary_test.rb` | Board shows the summary on load (R15) and it updates in place after a run/gate transition (R14); compact row matches detail text (R18). | R1, R14, R15, R18 |
+| `test/integration/pipeline_live_status_test.rb` (`ActionDispatch::IntegrationTest`) | Board renders one `dom_id(pipeline,:summary)` region with true current state on load (R15), names phase/step/iteration (R3–R4), the region is `aria-live="polite"` (R17), a `turbo-cable-stream-source` subscription is present (R14 wiring), gate-wait wording appears (R7), and the index row carries the same compact summary (R2, R18). | R1, R2, R7, R14, R15, R17, R18 |
+
+**Testing-strategy note (F2 — explicit deviation).** backend-guide "Testing" names
+*system tests* for the critical board flow, but **the repo has no system-test base
+class** (`test/system/` and `application_system_test_case.rb` do not exist; there is
+no Capybara/driver setup). The board's live-summary flow is therefore covered by the
+full-stack **request spec** `test/integration/pipeline_live_status_test.rb` (the
+spec-writer's output), which does exercise the load-time true state (R15), the
+`aria-live` region (R17), the stream-source subscription, and the compact/full
+agreement (R18) — everything except the in-browser *in-place* repaint after a live
+broadcast, which a request spec cannot drive. This is a **pragmatic substitution,
+not a coverage gap**, and it is called out so the deviation from the named
+expectation is visible. **Follow-up for Build (out of scope here):** add an
+`ApplicationSystemTestCase` base class + `test/system/pipeline_status_summary_test.rb`
+to verify the end-to-end in-place live update in a real browser; the request spec
+stands in until then.
 
 ---
 
@@ -467,6 +521,13 @@ query-by reads more honestly and won't be mistaken for a mutation.
   are detected via a `failed` phase / failed run and always name where they
   stopped with failure wording; deliberate stops map from `aborted`→"Canceled"
   (and a future `paused`→"Paused"). They are never conflated.
+- **One tone source, not per-branch literals (F1).** Every branch resolves its
+  `tone` from `StatusHelper::STATUS_TONES`, the same table `status_badge` reads,
+  so the summary dot and the pipeline badge can never disagree for a state.
+  Reconciling required exactly one table change — `aborted` `:danger`→`:muted`
+  — which also encodes the R9/R11 semantic in color (red reserved for error
+  stops, gray for a deliberate cancel) and is proposed as a ui-style-guide row
+  in the same PR.
 - **Separate `BroadcastStatus` service rather than folding into
   `BroadcastCard`.** Gate-wait and escalation change no card, so a card-only
   hook would miss them (R7/R14); and a tick touching N cards should refresh the
@@ -488,7 +549,10 @@ query-by reads more honestly and won't be mistaken for a mutation.
   `StepRuns::Sweep` for instant stuck flips; a real `paused` pipeline status to
   make R11's "Paused" wording reachable; live-refreshing the pipeline header
   badge and phase-column badges (today static-on-load — the summary now covers
-  the "what's happening" need those didn't).
+  the "what's happening" need those didn't); and adding an
+  `ApplicationSystemTestCase` base class + a browser system test for the board's
+  in-place live repaint (F2 — the request spec covers everything a non-browser
+  test can until then).
 
 ---
 
@@ -503,3 +567,10 @@ query-by reads more honestly and won't be mistaken for a mutation.
 | **F5 (R11)** | New §3.1 branch 3 "Canceled / Paused": `aborted`→"Canceled" (deliberate), `paused`→"Paused" when that state exists; distinct from failure. Schema gap called out (§4). |
 | **F6 (R12)** | §3.1 branch 8 is an **unconditional catch-all**, making `build` total — every status (incl. running-but-idle and future states) yields a non-blank truthful sentence. |
 | **F7 (scope)** | The `as_of` timestamp is **removed** and the decision is recorded in §7; the Summary value no longer carries it. |
+
+## 8b. Feedback resolution (iteration 2 → 3)
+
+| ID | Fix |
+|----|-----|
+| **F1 (tone source)** | Tone is no longer a per-branch literal: every branch reads `StatusHelper::STATUS_TONES` (§3.1 comment; branches 2, 3, 8), the same table `status_badge` uses. Reconciling the one real conflict — a gray summary dot vs. a red badge for the *same* aborted pipeline — takes a single table change, `STATUS_TONES["aborted"]` `:danger`→`:muted` (§3.4), which also encodes R9-vs-R11 in color (red = error stop; gray = deliberate cancel). The matching ui-style-guide color-table row is **proposed in the same PR** (§5), per CLAUDE.md. `status_summary_test.rb` now asserts `summary.tone` matches `STATUS_TONES` for each state and specifically that aborted's summary tone equals its badge tone (§5 tests). |
+| **F2 (test strategy)** | The board flow is covered by the full-stack request spec `test/integration/pipeline_live_status_test.rb` rather than a system test, because **the repo has no system-test base class** (verified: no `test/system/`, no `ApplicationSystemTestCase`). The design's test plan now names that integration spec directly and adds an explicit **testing-strategy note** (§5) marking this as a pragmatic substitution — the request spec exercises load-time true state (R15), the `aria-live` region (R17), the stream subscription, and full/compact agreement (R18); only the in-browser in-place repaint is out of its reach. Adding a system-test base class + browser test is recorded as a Build follow-up (§5, §7). |
