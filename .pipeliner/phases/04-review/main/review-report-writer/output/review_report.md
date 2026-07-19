@@ -12,10 +12,10 @@ without a manual reload.
 50 requirements; the Build phase's tests and lint are green. The code-quality
 critic's `needs_work` verdict was driven purely by performance/consistency findings
 (no correctness or security defects) — **all four have since been fixed and were
-re-verified against the current code for this report.** What remains open are **five
+re-verified against the current code for this report.** What remains open are **six
 minor UI/style-guide conformance items** (palette drift, badge-helper reuse, a
-helper-vs-PORO placement, empty-state actions, and one deliberate polling
-deviation) — none change behavior, none block merge.
+helper-vs-PORO placement, empty-state actions, off-scale spacing values, and one
+deliberate polling deviation) — none change behavior, none block merge.
 
 ---
 
@@ -122,7 +122,7 @@ from services after commit and target the smallest DOM unit; the shared
 Minitest covers queries/service/controller/system flows; and the two genuinely new
 patterns (presentation-boundary rescue, per-user cross-pipeline stream) were added
 to the guides in the same PR as CLAUDE.md requires. The `needs_work` verdict rests
-entirely on five **minor** conformance items (see Open findings) — no blockers or
+entirely on six **minor** conformance items (see Open findings) — no blockers or
 majors.
 
 ### Code quality & security — **NEEDS_WORK on record; all findings verified RESOLVED** (`code-quality-critic`)
@@ -151,7 +151,7 @@ findings below).
 
 ## Open findings (UI/style-guide conformance — all minor, non-blocking)
 
-These are the five conformance items raised by `guide-alignment-critic` against
+These are the six conformance items raised by `guide-alignment-critic` against
 `guides/ui-style-guide.md` / `guides/backend-guide.md`. All are **minor**, none
 affect behavior, and all were re-confirmed still present in the current build.
 
@@ -162,6 +162,7 @@ affect behavior, and all were re-confirmed still present in the current build.
 | **UI-3** | minor | `app/helpers/define_helper.rb:14,40` | Business logic in a view helper: `define_open_questions_structured` / `latest_structured_questions_run` select the authoritative `StepRun` across phases/workflows (`flat_map` + `max_by` on iteration/attempt/id) and JSON-parse the payload — and duplicate the near-identical run-selection in `latest_open_questions_run`. Per backend-guide, this belongs in a reusable PORO callable from controllers/jobs/console/tests. | Extract the run-selection + parse into a query/domain object; have both helpers delegate to it. |
 | **UI-4** | minor | `_active_pipelines.html.erb`, `_recent_activity.html.erb`, `_fleet_health_content.html.erb` | Empty states omit the primary action the guide requires ("icon + one sentence + primary action; never a bare empty table"). "No projects yet" in `index.html.erb` includes an action, but "No active pipelines", "No recent activity", and "No workers connected" are text-only — an inconsistency within the same PR. | Add a primary action (or an intentional, guide-consistent rationale) to each of the three bare empty states. |
 | **UI-5** | minor | `app/views/home/_fleet_health.html.erb` | The worker-fleet panel stays current via fixed-interval client polling (`turbo_frame_tag src:` + `poll_frame_controller.js`, 30s) rather than Turbo Stream broadcasts, a departure from the stream-first "Live by default" principle. **Deliberate, documented deviation:** worker heartbeats don't broadcast to the dashboard and per-heartbeat fan-out would storm; it still avoids a manual refresh. Unlike the two sanctioned new patterns, neither guide was amended to allow the poll fallback. | Borderline — a **manager decision** on whether to keep the documented polling or move worker-state to stream-driven updates (with a one-line guide note either way). |
+| **UI-6** | minor | `_pipeline_row.html.erb:25,29,46`, `_activity_item.html.erb:4`, `_fleet_health_content.html.erb:36` | Off-scale spacing values. The guide's Layout rule is "stick to Tailwind steps 2, 4, 6, 8, 12 … avoid one-off values." The dashboard partials use sub-scale steps outside that set: `mt-0.5` (`pipeline_row:25`, `activity_item:4`, `fleet_health_content:36`) and `py-1.5`/`h-1.5` (`pipeline_row:29,46`). The badge `py-0.5` is separately sanctioned by the StatusBadge spec, but these are not; the small button at `pipeline_row:46` also uses `py-1.5` where the guide's button spec is `px-3 py-2`. | Move the flagged values onto the sanctioned scale (e.g. `mt-1`, `h-2`, button `px-3 py-2`), or, where the density is deliberate, propose the sub-scale steps as an explicit guide addition. |
 
 ---
 
@@ -172,10 +173,10 @@ suite and lint are green, and the four performance/consistency findings that dro
 the code-quality `needs_work` verdict have been fixed and independently re-verified
 in the current code (no correctness or security defects at any point).
 
-The five remaining items are all **minor UI/style-guide conformance** cleanups that
-don't affect behavior. UI-1 (palette) and UI-2 (badge helper) are quick, low-risk
-edits worth folding in; UI-3 (helper→PORO) is a small refactor; UI-4 (empty-state
-actions) is a consistency pass across three partials; **UI-5 (fleet polling vs
-streams) needs a manager decision** — it is a deliberate, documented deviation, not
-an oversight. Confirm the two system tests execute in CI (the local
-chromedriver/Chrome mismatch was environmental).
+The six remaining items are all **minor UI/style-guide conformance** cleanups that
+don't affect behavior. UI-1 (palette), UI-2 (badge helper), and UI-6 (off-scale
+spacing) are quick, low-risk edits worth folding in; UI-3 (helper→PORO) is a small
+refactor; UI-4 (empty-state actions) is a consistency pass across three partials;
+**UI-5 (fleet polling vs streams) needs a manager decision** — it is a deliberate,
+documented deviation, not an oversight. Confirm the two system tests execute in CI
+(the local chromedriver/Chrome mismatch was environmental).
