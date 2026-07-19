@@ -4,6 +4,13 @@ Source: `docs/README.md` architecture; `guides/backend-guide.md`;
 `guides/ui-style-guide.md`; `output/requirements.md` (R1–R50); Define-phase
 `discovery_notes.md`; `open_questions.md` (confirmed defaults + Q11–Q14).
 
+**Iteration 2 — critic feedback addressed:** F1/F2 (§3, §4, §5, §8) — reads
+now execute in the controller, materialize into plain data handed to views,
+and the `safely` boundary is documented as a sanctioned guide exception
+instead of a silent deviation; F3 (§8) — activity broadcasts audited for
+in-transaction firing, three call sites corrected; F4/F5 (§7.1) — modal error
+styling and spacing brought onto the guide's palette/scale.
+
 ## 0. Framing
 
 The dashboard route, layout, nav entry, and auth already exist as a stub
@@ -105,16 +112,27 @@ module Dashboard
     Row = Struct.new(:pipeline, :attention, :attention_reason,
                       :last_active_at, keyword_init: true)
 
+    # What #call materializes: the capped, sorted rows for the panel PLUS the
+    # headline counts (R6), computed together off one `base_scope` pass so the
+    # controller gets everything the summary + panel need from one call — no
+    # follow-up reads left for the view to trigger (see §4/§5, F2).
+    Data = Struct.new(:rows, :total_count, :attention_count, keyword_init: true)
+
     def initialize(user) = @user = user
 
-    # Attention-first, then most-recently-active, capped. R18.
+    # Attention-first, then most-recently-active, capped (R18), alongside the
+    # R6 headline counts. This is the query's one entry point — everything a
+    # caller needs comes back materialized, nothing is left lazy for a view or
+    # any caller to trigger later.
     def call
-      rows = base_scope.map { |p| build_row(p) }
-      rows.sort_by { |r| [r.attention ? 0 : 1, -r.last_active_at.to_i] }.first(LIMIT)
+      all_rows = base_scope.map { |p| build_row(p) }
+      sorted = all_rows.sort_by { |r| [r.attention ? 0 : 1, -r.last_active_at.to_i] }
+      Data.new(
+        rows: sorted.first(LIMIT),
+        total_count: all_rows.size,
+        attention_count: all_rows.count(&:attention)
+      )
     end
-
-    def total_count = base_scope.count            # R6 headline
-    def attention_count = base_scope.count { |p| build_row(p).attention }  # R6
 
     # One row, recomputed — used by Dashboard::Broadcast for a targeted
     # partial replace. Returns nil if the pipeline is no longer active/visible
@@ -145,6 +163,12 @@ module Dashboard
   end
 end
 ```
+
+`total_count`/`attention_count` are no longer separate public methods that
+re-scan `base_scope` — folding them into `Data` fixes the read-in-the-view
+problem at the source (F2): there is nothing left on this object worth
+calling from a view, only `#call` (one query-time read) and `#row_for`
+(the service-side single-row helper used by `Dashboard::Broadcast`, §8).
 
 `attention_reason` distinguishes `:awaiting_human` from `:stuck` (not just a
 boolean) because R13 and R14 are two different visual treatments — "needs a
@@ -254,9 +278,9 @@ Global (no membership scoping) per the confirmed default.
 ```ruby
 class HomeController < ApplicationController
   def index
-    @active_pipelines = safely { Dashboard::ActivePipelines.new(current_user) }
-    @recent_activity  = safely { Dashboard::RecentActivity.new(current_user).call }
-    @fleet            = safely { Dashboard::FleetHealth.new.call }
+    @active   = safely { Dashboard::ActivePipelines.new(current_user).call }  # Data (rows/counts) or nil
+    @activity = safely { Dashboard::RecentActivity.new(current_user).call }   # Array<Event> or nil
+    @fleet    = safely { Dashboard::FleetHealth.new.call }                    # Hash or nil
   end
 
   # Own action so the fleet panel is independently pollable (see §5) without
@@ -267,12 +291,11 @@ class HomeController < ApplicationController
 
   private
 
-  # R33: a failed section must not fail the page. This is the one sanctioned
-  # blind StandardError rescue in the codebase (guides/backend-guide.md says
-  # "never rescue StandardError blindly; rescue what you can handle") — it's
-  # a presentation-boundary requirement (R33), not business-logic flow
-  # control, and it's narrowly scoped to one query call at a time so one
-  # panel's failure can't mask another's.
+  # R33: a failed section must not fail the page. Each block below is the
+  # query's ONE read (`.call`) — `safely` now genuinely brackets the failure
+  # point (F2 fix: no reads happen later, in the view). See the guide
+  # amendment below for why this stays a StandardError rescue rather than a
+  # Result-returning query object.
   def safely
     yield
   rescue StandardError => e
@@ -287,9 +310,38 @@ three-panel aggregate view, called out as an explicit, narrow exception to
 "one primary ivar per action" (the guide's own qualifier is "where
 possible").
 
-`@active_pipelines` holds the query object (not `.call`'s result) so the view
-can call `.call`, `.total_count`, and `.attention_count` without three
-separate controller round-trips through `safely`.
+Each ivar holds **materialized data**, not a query object: `@active` is the
+`Dashboard::ActivePipelines::Data` struct (rows + both headline counts,
+computed together — see §3), `@activity` is the already-sorted `Event` array,
+`@fleet` is the counts/workers hash. The view never calls `.call` or any
+other query method — it only reads plain attributes off what the controller
+handed it (fixes F2's first problem: query execution belongs in the
+controller layer, not the view).
+
+**Guide amendment (proposed) — `guides/backend-guide.md`, "Errors & results".**
+F1 flagged that `safely`'s blind `rescue StandardError` deviates from "never
+rescue StandardError blindly" with no guide update to license it, which
+CLAUDE.md requires. Query objects still aren't given a `Result` interface
+here: they do exactly one thing (`SELECT`s, no writes, no domain validation),
+so there's no meaningful `error` symbol to return — the only way a
+`Dashboard::*` query fails is an infrastructure-level, genuinely-exceptional
+condition (a bad join, a DB hiccup), which is precisely the guide's own
+carve-out ("Define a small error taxonomy... for the genuinely exceptional").
+`safely` is that boundary, made explicit rather than ad hoc. Propose
+appending:
+
+> *Presentation-boundary rescue (sanctioned exception): a multi-panel
+> aggregate view (e.g. the dashboard) may wrap each independent panel's
+> single read in a narrow `rescue StandardError`, logged and converted to
+> `nil`, so one panel's infrastructure failure doesn't 500 the whole page.
+> Scope it to exactly one call per rescue (never a block of business logic),
+> and only for read-only query objects — a service with side effects must
+> still return a `Result`, never rely on this.*
+
+This mirrors how §8 licenses the per-user-stream broadcast pattern and §6
+licenses the structured-artifact addition — the same "propose a guide
+addition in the same PR" move CLAUDE.md asks for, applied to the one
+remaining unlicensed deviation.
 
 Route addition (`config/routes.rb`):
 ```ruby
@@ -327,12 +379,12 @@ app/views/home/
   <%# R4: no-projects empty state, page-level %>
 <% else %>
   <div id="dashboard-summary" class="mt-6 ...">
-    <%= @active_pipelines ? render("home/summary", active: @active_pipelines, fleet: @fleet) : render("home/section_error") %>
+    <%= @active && @fleet ? render("home/summary", active: @active, fleet: @fleet) : render("home/section_error") %>
   </div>
 
   <div class="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">  <%# R34 %>
     <div class="lg:col-span-2">
-      <%= @active_pipelines ? render("home/active_pipelines", active: @active_pipelines) : render("home/section_error", title: "Active pipelines") %>
+      <%= @active ? render("home/active_pipelines", active: @active) : render("home/section_error", title: "Active pipelines") %>
     </div>
     <div>
       <%= @fleet ? render("home/fleet_health", fleet: @fleet) : render("home/section_error", title: "Worker fleet") %>
@@ -340,10 +392,17 @@ app/views/home/
   </div>
 
   <div class="mt-6">
-    <%= @recent_activity ? render("home/recent_activity", events: @recent_activity) : render("home/section_error", title: "Recent activity") %>
+    <%= @activity ? render("home/recent_activity", events: @activity) : render("home/section_error", title: "Recent activity") %>
   </div>
 <% end %>
 ```
+
+`@active` is now the `Dashboard::ActivePipelines::Data` struct (§3), so
+`_summary.html.erb` reads `active.total_count` / `active.attention_count` and
+`_active_pipelines.html.erb` iterates `active.rows` — no `.call` in either
+partial (F2). The summary panel is gated on both `@active && @fleet` since it
+shows counts from both; if either failed, the summary itself renders the
+shared error state rather than half-populating.
 
 Layout choice: active pipelines is the primary, denser panel (2/3 width on
 large screens per the ui guide's "density where it earns it"); fleet health
@@ -529,7 +588,7 @@ JS; nothing extra needed for R46's keyboard-dismiss.
     <span class="text-xs text-gray-500"><%= phase.pipeline.project.name %></span>
   </h2>
 
-  <div data-answer-questions-form-target="error" class="hidden mt-3 rounded-md bg-amber-50 p-3 text-sm text-amber-800"></div>  <%# R45/R47 %>
+  <div data-answer-questions-form-target="error" class="hidden mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700 ring-1 ring-red-600/20"></div>  <%# R45/R47 %>
 
   <%= form_with url: answers_phase_path(phase), data: { answer_questions_form_target: "form", turbo_stream: true } do |f| %>
     <div class="mt-4 space-y-4">
@@ -538,7 +597,7 @@ JS; nothing extra needed for R46's keyboard-dismiss.
           <label class="block text-sm font-medium text-gray-900"><%= q["question"] %></label>  <%# R39 %>
           <input type="text" data-answer-questions-form-target="answer" data-question="<%= q["question"] %>"
                  placeholder="<%= q["default"] %>"                                              <%# R40 %>
-                 class="mt-1 block w-full rounded-md ring-1 ring-gray-300 focus:ring-2 focus:ring-indigo-600 ...">
+                 class="mt-2 block w-full rounded-md ring-1 ring-gray-300 focus:ring-2 focus:ring-indigo-600 ...">
         </div>
       <% end %>
     </div>
@@ -554,6 +613,28 @@ JS; nothing extra needed for R46's keyboard-dismiss.
 Card styling, type scale, button classes — all reused verbatim from the ui
 guide (R49). `backdrop:bg-gray-900/40` is the one bit of new CSS (a Tailwind
 arbitrary-variant on `::backdrop`, no separate stylesheet needed).
+
+**F4 — error region color:** the guide reserves `amber` for "needs
+attention / awaiting human" (gates, paused phases), not validation/failure
+messaging, and prescribes form errors "inline in `red-600` attached to the
+field (not only a flash)." Both R45 (no answers typed) and R47 (server
+rejection) are failure states, so the region now uses `red`, on the same
+soft-badge token shape the guide already defines for status badges
+(`bg-{color}-50 text-{color}-700 ring-1 ring-{color}-600/20`) rather than the
+previous off-scale `text-amber-800`. It stays one shared banner rather than
+truly per-field, because neither R45 nor R47 is attached to a single input —
+R45 is "nothing was answered" (a whole-form condition) and R47 is a
+server-side rejection (busy/blank) that isn't localized to one field either;
+a per-field red-600 caption doesn't apply here for the same reason a
+single-field error state doesn't apply to a submit-level validation.
+
+**F5 — spacing scale:** `mt-1` was off the guide's mandated steps
+(`2, 4, 6, 8, 12`); changed to `mt-2` above (both the input's label gap and
+the error region's top margin). The `...` elisions elsewhere in this class
+string are for button/input details already fully specified in
+`guides/ui-style-guide.md` §"Core components" (Buttons, Forms) — the
+Implementer should copy those verbatim, keeping every spacing utility on the
+2/4/6/8/12 scale, not just the two instances flagged here.
 
 ### 7.2 Client-side compose + validate (`answer_questions_form_controller.js`, new)
 
@@ -689,7 +770,7 @@ module Dashboard
 
     def broadcast_summary(user)
       Turbo::StreamsChannel.broadcast_replace_later_to([ user, :dashboard ], target: "dashboard-summary",
-        partial: "home/summary", locals: { active: Dashboard::ActivePipelines.new(user), fleet: Dashboard::FleetHealth.new.call })
+        partial: "home/summary", locals: { active: Dashboard::ActivePipelines.new(user).call, fleet: Dashboard::FleetHealth.new.call })
     end
 
     def broadcast_activity(user)
@@ -699,6 +780,11 @@ module Dashboard
   end
 end
 ```
+
+`broadcast_summary` calls `.call` explicitly (mirroring the controller path
+in §4) so `_summary.html.erb`'s single contract — a materialized `Data`
+struct, never a query object — holds for both the initial render and every
+live update.
 
 Whole-panel replace for the recent-activity feed is a deliberate exception to
 "target the smallest DOM unit": that feed is a synthesized read model across
@@ -729,36 +815,68 @@ Both above pass `activity: false` (the default) — they're state/freshness
 refreshes, not new feed entries.
 
 Plus five precise, `activity: true` call sites for R19's actual event
-types (each a single added line, right after the record that *is* the
-event is created/persisted):
+types. **F3 audit:** three of the five sit inside a service-level
+`ApplicationRecord.transaction do ... end`, so "right after the `create!`"
+would fire the broadcast (and enqueue its render job) before the transaction
+commits — a direct violation of "persist → enqueue jobs → broadcast" /
+"broadcasts only after the write commits." Each of those three is placed at
+the point the file's *own* existing convention already broadcasts from
+(outside the transaction), not literally next to its `create!`:
 
-3. `app/services/phases/approve.rb` — after `@phase.approvals.create!(...)`
-   → "phase approved."
-4. `app/services/phases/manager_tick.rb#record_decision` — after
-   `@phase.manager_decisions.create!`, only when `decision.in?(%w[consensus escalate])`
-   → auto-gate approvals and escalations (`"route_to"` excluded — see
-   `Dashboard::RecentActivity` above).
-5. `app/services/phases/rework_to_phase.rb#record_rework_event` — after
-   `@pipeline.rework_events.create!` → "sent back for rework."
+3. `app/services/phases/approve.rb` — `@phase.approvals.create!(...)` sits
+   inside `call`'s `ApplicationRecord.transaction do ... end`
+   (`app/services/phases/approve.rb:29-32`). Add the broadcast **right after
+   that `transaction` block closes** (before `advanced = Advance.call(...)`),
+   not inside it → "phase approved."
+4. `app/services/phases/manager_tick.rb#record_decision` — `record_decision`
+   runs inside `call`'s own `ApplicationRecord.transaction` block (lines
+   43-51); this file already solves exactly this problem for run/phase
+   broadcasts by accumulating `@affected_runs`/`@affected_phases` during the
+   transaction and flushing them from `broadcast_affected`, called after the
+   transaction closes (line 58). Follow the same shape: `record_decision`
+   pushes onto a new `@affected_decisions` when
+   `decision.in?(%w[consensus escalate])` (`"route_to"` excluded — see
+   `Dashboard::RecentActivity` above), and `broadcast_affected` fans each out
+   with `activity: true` alongside its existing broadcasts.
+5. `app/services/phases/rework_to_phase.rb#record_rework_event` —
+   `record_rework_event` runs inside `call`'s `ApplicationRecord.transaction`
+   block (lines 45-52); this file already defers its own broadcasts to after
+   that block closes, with an explicit comment why ("Broadcasts only AFTER
+   the transaction commits... never inside the transaction", line 54-55).
+   Add `Dashboard::Broadcast.call(pipeline: @pipeline, activity: true)` into
+   that same post-transaction group (alongside the existing
+   `StepRuns::BroadcastCard.call(run)` / `@changed_phases.each { ... }`)
+   → "sent back for rework."
 6. `app/services/step_runs/complete.rb` — after the `succeeded`/`failed`
    `@step_run.update!` (both the normal-completion branch and the
    transient-retries-exhausted branch in `requeue_transient`) → "piece of
-   work completing."
-7. `app/services/pipelines/finalize.rb#persist_finalization` — after
-   `@pipeline.update!(status: "completed", ...)` → "pipeline finishing"
-   (the literal status transition, distinct from #3's "Review phase
-   approved," which happens earlier and asynchronously triggers this).
+   work completing." **No transaction hazard here** — `Complete#call` has no
+   `ApplicationRecord.transaction` wrapper; each `update!` commits
+   immediately, so a broadcast placed right after it is already post-commit.
+7. `app/services/pipelines/finalize.rb#persist_finalization` — the
+   `@pipeline.update!(status: "completed", ...)` itself is inside
+   `persist_finalization`'s own `ApplicationRecord.transaction` block
+   (lines 93-96), but the file already calls its broadcast from `finalize!`
+   *after* `persist_finalization` returns (line 71-72, with the comment
+   "Broadcast only after the state writes commit"). Add the dashboard
+   broadcast at that same existing post-commit call site, not inside
+   `persist_finalization` → "pipeline finishing" (the literal status
+   transition, distinct from #3's "Review phase approved," which happens
+   earlier and asynchronously triggers this).
 
 And one more for R14's stuck-flagging to update live, not just on next load:
 
 8. `app/services/step_runs/sweep.rb#refresh_stuck_state` — capture the
    distinct pipeline ids behind `newly_stuck` *before* the `update_all`
    (which returns a row count, not records), then broadcast
-   `activity: true` for each afterward.
+   `activity: true` for each afterward. **No transaction hazard** — `Sweep`
+   has no `ApplicationRecord.transaction` wrapper either; each `update_all`
+   commits on its own.
 
-Eight edits total, each one line plus a lookup for the pipeline — no new
-broadcast call sites invented beyond what the existing pattern already
-funnels through.
+Eight edits total, each one line (plus, for #4, threading one more
+accumulator array the file already has the pattern for) — no new broadcast
+call sites invented beyond what the existing pattern already funnels
+through, and no call site fires before its write is durable.
 
 ### Worker fleet — polling, not push (confirmed default)
 
@@ -829,9 +947,9 @@ app/views/pipelines/_define_panel.html.erb — remove the free-text answers form
 app/helpers/define_helper.rb              — + define_open_questions_structured (§6)
 app/services/phases/broadcast_column.rb   — + Dashboard::Broadcast.call (§8.1)
 app/services/step_runs/broadcast_card.rb  — + Dashboard::Broadcast.call (§8.1)
-app/services/phases/approve.rb            — + activity broadcast (§8.3)
-app/services/phases/manager_tick.rb       — + activity broadcast in record_decision (§8.4)
-app/services/phases/rework_to_phase.rb    — + activity broadcast in record_rework_event (§8.5)
+app/services/phases/approve.rb            — + activity broadcast after the transaction closes (§8.3)
+app/services/phases/manager_tick.rb       — + @affected_decisions accumulator; broadcast from broadcast_affected (§8.4)
+app/services/phases/rework_to_phase.rb    — + activity broadcast in the existing post-transaction broadcast group (§8.5)
 app/services/step_runs/complete.rb        — + activity broadcast (§8.6)
 app/services/pipelines/finalize.rb        — + activity broadcast (§8.7)
 app/services/step_runs/sweep.rb           — + activity broadcast for newly-stuck pipelines (§8.8)
@@ -839,6 +957,7 @@ config/routes.rb                          — + get "fleet_health", to: "home#fl
 db/seeds.rb                               — Clarifying Questions Writer template: + open_questions_structured (§6)
 docs/artifact-schema.md                   — register open_questions_structured (§6, guide addition)
 guides/ui-style-guide.md                  — document the per-user-stream aggregate-view pattern (§8, guide addition)
+guides/backend-guide.md                   — document the presentation-boundary rescue exception (§4, guide addition)
 ```
 
 **Untouched, load-bearing:** `StatusHelper`, `NavigationHelper`, `Pipeline`,
@@ -854,18 +973,29 @@ tests thin; system tests for critical flows.
 - **Query object tests** (`test/queries/dashboard/`): membership scoping
   (a pipeline in another user's project never appears), the active-status
   filter (R8), attention-first sort with the stuck-step-run derivation
-  (R14), the 10/15-item caps (R18, confirmed default), and each empty-input
-  case (no pipelines/workers/activity → `[]`/zero counts, not an exception).
+  (R14), the 10/15-item caps (R18, confirmed default), `ActivePipelines#call`
+  returns a `Data` struct whose `rows`/`total_count`/`attention_count` agree
+  with each other (e.g. `attention_count <= total_count`, `rows.size <=
+  total_count`), and each empty-input case (no pipelines/workers/activity →
+  `Data.new(rows: [], total_count: 0, attention_count: 0)` / `[]` / zero
+  counts, not an exception).
 - **`Dashboard::Broadcast` test**: given a pipeline, asserts one
   `broadcast_replace_later_to` per project member on `[user, :dashboard]`
   with the right target ids; `activity: false` doesn't touch
   `"recent-activity"`; a pipeline that drops out of `ActivePipelines` (e.g.
-  just completed) gets a `broadcast_remove_to` instead of a stale replace.
+  just completed) gets a `broadcast_remove_to` instead of a stale replace;
+  for the three transaction-wrapped call sites (approve, manager_tick,
+  rework_to_phase — §8), assert the broadcast is observable only after
+  `Approve.call`/`ManagerTick.call`/`ReworkToPhase.call` returns, not
+  mid-call (guard against a future regression re-introducing the
+  in-transaction hazard F3 flagged).
 - **`HomeController` test**: extend the existing stub — signed-out redirect
   (R2), empty-projects state (R4), zero-counts-shown-not-hidden (R7), each
   panel renders its empty state independently, and a forced query failure
-  (stub one query object to raise) still renders the other two panels
-  (R33) — a regression test for the `safely` boundary specifically.
+  (stub `Dashboard::ActivePipelines#call` — or another query's `#call` — to
+  raise) still renders the other two panels (R33) — a regression test for
+  the `safely` boundary, now specifically verifying it catches the query's
+  own read rather than something thrown later during view rendering.
 - **`Phases::AnswerQuestions` — no changes needed**, its existing test
   (`test/services/phases/answer_questions_test.rb`) already covers the
   targeting/busy/blank behavior this design relies on unchanged.
