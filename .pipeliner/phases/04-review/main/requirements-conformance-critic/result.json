@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "requirements-conformance-critic",
+  "status": "succeeded",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_personal-macbook-local",
+    "backend": "claude-code"
+  },
+  "summary": "I compared the built diff against the 18 business requirements from Define and emitted a `needs_work` verdict. 17 of 18 requirements are satisfied with concrete evidence: the core `Pipelines::StatusSummary` is a pure, total derivation PORO whose ordered branch cascade covers all state wordings (R3–R13) and ends in an unconditional catch-all so the summary is never blank (R12); a single shared partial renders it prominently in the detail header above the step cards (R1) and in each index row (R2) from one source of truth so the two surfaces can never disagree (R18); status is carried by words with the tone-dot merely echoing it (R17); `with_board` preloading gives true state on page load (R15); and `BroadcastStatus`'s reload-and-rerender design is inherently order-independent (R16). The one gap (finding F1, major) is an R14/R2 liveness hole: the human gate-approval path (`ApprovalsController → Phases::Approve → Phases::Advance`) transitions the pipeline out of `awaiting_human` without ever calling `Pipelines::BroadcastStatus`, so the \"gate stops waiting on a person\" event R14 explicitly enumerates is never pushed to other viewers' detail pages or to any open list page — it's only corrected on manual reload, which is why I scored it major rather than blocker. The verdict is written to `verdict.json`."
+}

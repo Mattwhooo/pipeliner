@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "step": "requirements-conformance-critic",
+  "verdict": "needs_work",
+  "summary": "17 of 18 business requirements are satisfied with clear evidence. The core is a total, pure derivation PORO (Pipelines::StatusSummary) that maps whole-pipeline state to one plain-language line with an unconditional catch-all (R3-R13, R12 never-blank), rendered by a single shared partial in the detail header above the step cards (R1) and in each index row (R2), with one source of truth so the full and compact forms can never disagree (R18). Status is carried by words with the tone-dot only echoing it (R17). Live delivery uses after-commit Pipelines::BroadcastStatus broadcasts, whose reload-and-rerender design makes it order-independent (R16), and both controllers preload with_board so pages render true state on load (R15). The one gap is R14/R2 liveness on the human gate-approval event: the ApprovalsController -> Phases::Approve -> Phases::Advance path transitions the pipeline out of awaiting_human (to running or completed) but never calls Pipelines::BroadcastStatus, so 'a gate stops waiting on a person' — an event R14 explicitly enumerates — is not pushed to other viewers' detail pages or to any open list page. Load-time truth (R15) still holds so a reload corrects it, capping this at major rather than blocker.",
+  "findings": [
+    {
+      "id": "F1",
+      "target_artifact": "app/services/phases/approve.rb (and app/services/phases/advance.rb)",
+      "issue": "R14 requires that when 'a gate ... stops waiting on a person' the summary on every open page changes to the new state as a consequence of the event, within a few seconds, without the viewer acting. Pipelines::BroadcastStatus is wired into StepRuns::Claim/RecordProgress/Complete and Phases::ManagerTick (which covers the gate STARTS-waiting and escalation transitions), but the human-approval path — ApprovalsController#create -> Phases::Approve -> Phases::Advance — updates pipeline status from awaiting_human to running/completed without ever calling Pipelines::BroadcastStatus (grep of app/ shows only 4 call sites, none on this path; Advance broadcasts only phase columns via BroadcastColumn). Consequently, after a human approves a gate, the prominent detail-page summary and every compact list-row summary (R2) on other open pages keep showing 'Waiting on human approval at the <phase> gate' until a manual reload. The approving user's own detail page is masked only because the controller issues a full redirect. Fix: call Pipelines::BroadcastStatus.call(pipeline) after commit on the approval/advance path (mirroring ManagerTick's tail call).",
+      "severity": "major"
+    }
+  ]
+}
