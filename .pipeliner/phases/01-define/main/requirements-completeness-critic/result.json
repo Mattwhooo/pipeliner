@@ -2,10 +2,10 @@
   "schema_version": "1.0",
   "step": "requirements-completeness-critic",
   "status": "succeeded",
-  "iteration": 1,
+  "iteration": 2,
   "worker": {
     "id": "wk_opus",
     "backend": "claude-code"
   },
-  "summary": "I reviewed the business requirements (`requirements.md`) for completeness and atomicity against the ask, the discovery notes, and the open-questions assumptions, and cross-checked the two prior critic verdicts. The requirements are well-structured — every menu item in the ask is mapped to a concrete \"When X, Y\" behavior and the human-vs-automatic-loop race is anticipated (R18–R21) — so I did not find blockers. But I emitted a `needs_work` verdict with five findings: three major gaps (no requirement that fresh menu-action outputs are surfaced to the person for review, the undefined re-pause behavior of the multi-step \"Repeat from the Beginning\" action, and the missing failure path for a menu-triggered re-run) and two minor ones (Done's validity before convergence given the existing gate precondition, and two non-atomic requirements R13/R23 that bundle independently testable behaviors). The verdict is written to `.pipeliner/phases/01-define/main/requirements-completeness-critic/verdict.json`."
+  "summary": "I reviewed the iteration-2 business requirements (33 requirements in `requirements.md`) for completeness and atomicity, grounding my assessment in the ask, the iteration-2 discovery notes, and the open-questions artifact. I first confirmed that all five iteration-1 findings were genuinely closed (fresh output now surfaced in R9/R11/R18, multi-step restart behavior defined in R15/R18, a dedicated failure-path section in R24/R25, Done-before-convergence resolved in R19/R20, and the compound R13/R23 split into R16/R17 and R31/R32/R33). On a fresh pass I found two remaining issues and emitted a `needs_work` verdict: a **major** internal contradiction — R5, R26, and the assumptions reference the person \"resuming\" the automatic loop, but no requirement defines a resume capability and the stated model makes Done the sole exit, leaving the counterpart to the ask's core \"pause\" verb undefined and untestable; and a **minor** completeness gap — the in-flight display for single-step menu re-runs (Explore/Clarifying Questions) is unspecified, unlike the explicit \"restart in progress\" state R15 gives the multi-step restart. Both would force a downstream design guess, so I recommended closing them before the phase converges."
 }
