@@ -10,9 +10,12 @@ below is written as observable behavior in non-technical terms.
 ## Scope note
 
 The dashboard summarizes information the user already has the right to see (the
-projects they belong to). It is a read-and-navigate surface: it shows status and
-lets the user jump to the relevant detail screen. It does not create, edit, or
-delete pipelines, workers, or activity itself.
+projects they belong to). It is primarily a read-and-navigate surface: it shows
+status and lets the user jump to the relevant detail screen. It does not create,
+edit, or delete pipelines, workers, or activity itself. The one action it does
+support in-place is answering a pipeline's open questions when it is waiting on a
+person (see "Answering open questions from the dashboard" below); everything else
+is view-and-navigate.
 
 ---
 
@@ -125,3 +128,64 @@ delete pipelines, workers, or activity itself.
   reflow to remain readable and usable rather than overflowing.
 - **R35.** When status is communicated anywhere on the dashboard, it should be
   understandable without relying on color alone, consistent with R12.
+
+## Answering open questions from the dashboard (human-in-the-loop)
+
+Some pipelines pause and wait for a person to answer open questions before they
+can continue. Today those questions can only be answered from deep inside the
+pipeline's own screen, as one big free-text box. This section lets a user answer
+them directly from the dashboard, through a friendly modal with one input per
+question. Answering re-opens that pipeline's work for another pass; leaving a
+question untouched keeps its suggested default.
+
+- **R36.** When a pipeline shown on the dashboard is waiting for a person to
+  answer its open questions, the dashboard should offer a clear, obvious way to
+  answer them (on the item already flagged as needing attention per R13), without
+  the user first having to navigate to another screen.
+- **R37.** When the user chooses to answer a pipeline's open questions, the
+  questions should open in a modal — an overlay layered on top of the dashboard —
+  rather than replacing the dashboard or sending the user to a different page.
+- **R38.** When the answer modal opens, it should clearly identify which pipeline
+  (and which project) the questions belong to, so the user knows exactly what they
+  are answering.
+- **R39.** When the answer modal opens, it should present each open question as
+  its own separate item, with the question's text as a label and its own dedicated
+  input box, rather than a single combined text field covering all questions.
+- **R40.** When a question has a suggested/assumed default answer, that default
+  should appear as the input box's default text (shown in place until the user
+  types), so the user can see at a glance what will be used if they leave it alone.
+- **R41.** When the user leaves a question's input untouched, that question should
+  be treated as answered by its stated default, matching what the default text
+  showed.
+- **R42.** When the user types into a question's input, their own answer should
+  replace that question's default for the submission.
+- **R43.** When the user submits the modal, all of the questions' answers — each
+  user's own where given, otherwise the default — should be sent together as a
+  single submission, and the modal should then close.
+- **R44.** When answers are submitted successfully, the affected pipeline should
+  re-open its requirements/questions work for another pass, and the dashboard
+  should reflect the pipeline's updated status without the user having to reload
+  the page, consistent with R31.
+- **R45.** When the user tries to submit without having changed any question from
+  its default, the dashboard should not send an empty, meaningless submission; it
+  should prompt the user that at least one answer is needed, and make clear that
+  accepting every default as-is is done by approving the pipeline rather than by
+  answering.
+- **R46.** When the user dismisses or cancels the modal without submitting (for
+  example by closing it or pressing the escape key), no answers should be sent and
+  the pipeline should be left exactly as it was.
+- **R47.** When the pipeline's question loop is momentarily busy (a pass is already
+  running, so new answers cannot be accepted yet), the dashboard should tell the
+  user this and preserve what they have typed, rather than silently discarding the
+  submission or appearing to succeed.
+- **R48.** When the answer modal is open, it should be operable by keyboard and
+  assistive technology — focus should move into the modal when it opens, the modal
+  should be closable by keyboard, and focus should return to a sensible place when
+  it closes — consistent with the accessibility rules elsewhere on the dashboard.
+- **R49.** When the answer modal is displayed, its appearance should match the rest
+  of the application — using the shared styling, spacing, and components — so it
+  reads as a polished, well-designed part of the dashboard rather than a bare form.
+- **R50.** When there are no open questions for a pipeline, or the pipeline is not
+  in a state where its questions can be answered, the dashboard should not offer
+  the answer option for that pipeline, so the user is never shown an action that
+  cannot be taken.

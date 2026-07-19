@@ -2,10 +2,10 @@
   "schema_version": "1.0",
   "step": "requirements-writer",
   "status": "succeeded",
-  "iteration": 1,
+  "iteration": 2,
   "worker": {
     "id": "wk_personal-macbook-local",
     "backend": "claude-code"
   },
-  "summary": "I wrote the business requirements artifact to `.pipeliner/phases/01-define/main/requirements-writer/output/requirements.md`. Since `input.json` carried no discovery notes, I grounded the requirements in the ask plus the domain vocabulary from `docs/concepts.md` and `docs/data-model.md` (pipeline statuses and phases, worker fleet states, stuck-work detection, activity events like approvals and rework). The result is 35 atomic, numbered requirements (R1–R35) in plain \"When X happens, Y should happen\" language, organized into access/landing, overall layout and at-a-glance summary, active-pipelines overview, recent activity, worker fleet health, freshness/live updates, and responsiveness/accessibility — deliberately keeping the dashboard a read-and-navigate surface, covering empty and unhealthy states, and requiring that status never be conveyed by color alone."
+  "summary": "I addressed the human feedback and wrote the updated business requirements. The prior iteration's requirements (R1–R35) were confirmed good (\"Defaults look good\"), so I kept them intact and added a new section, **\"Answering open questions from the dashboard (human-in-the-loop)\" (R36–R50)**, grounded in how the app actually works: pipelines that pause and wait for a person can have their open questions answered, and today that only happens deep inside the pipeline screen as one free-text box. The new requirements specify a modal launched from the dashboard's needs-attention item (R36–R37), that names the pipeline/project (R38), renders one dedicated labeled input per question (R39), shows each question's assumed default as the input's default/placeholder text (R40), treats untouched inputs as accepting their default and typed inputs as overrides (R41–R42), submits all answers together and re-opens the pipeline's work with a live dashboard update (R43–R44), guards the empty/all-default and \"loop busy\" edge cases (R45, R47), supports cancel/keyboard/assistive-tech and a polished, app-consistent look (R46, R48–R49), and hides the action when no answerable questions exist (R50). I also amended the scope note, which previously said the dashboard takes no actions, to acknowledge this one in-place action."
 }
