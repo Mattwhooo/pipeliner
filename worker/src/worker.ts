@@ -28,7 +28,19 @@ export class WorkerLoop {
   constructor(private readonly config: Config, private readonly api: Api) {}
 
   async start(): Promise<void> {
-    await this.api.register();
+    // Retry registration with backoff: under a Procfile the worker often
+    // starts before the control plane finishes booting, and a process-manager
+    // treats an early fatal as "kill everything".
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await this.api.register();
+        break;
+      } catch (e) {
+        const delay = Math.min(5_000 * attempt, 30_000);
+        log(`registration failed (attempt ${attempt}): ${String(e).slice(0, 200)} — retrying in ${delay / 1000}s`);
+        await sleep(delay);
+      }
+    }
     log(`registered as ${this.config.workerId} (roles: ${this.config.roles.join(", ")}, concurrency: ${this.config.concurrency})`);
 
     process.on("SIGINT", () => this.requestStop());
