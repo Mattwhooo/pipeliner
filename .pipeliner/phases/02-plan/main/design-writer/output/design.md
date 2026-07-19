@@ -57,10 +57,13 @@ way to get correct DAG-ordered re-dispatch (predecessor-must-be-merged, one
    the phase is actually settled*, checked **live** at click-time rather than
    trusted from cached status — because a paused phase's `workflows[].status`
    is never refreshed by a background tick (paused phases aren't ticked). A new
-   read-only PORO, `Phases::Convergence`, is the single source of truth for
-   "is this phase settled," shared by `ManagerTick` (which already computes
+   read-only query object, `Phases::Convergence`, is the single source of truth
+   for "is this phase settled," shared by `ManagerTick` (which already computes
    this) and `Approve` (which now needs to ask the same question on demand).
-   This satisfies R20/R21 without duplicating the consensus rule.
+   Per `guides/backend-guide.md` "Query objects," it lives in `app/queries/`,
+   not `app/services/` — it has no `.call`/`Result` interface because it isn't
+   a business action, just a predicate read. This satisfies R20/R21 without
+   duplicating the consensus rule.
 
 4. **Explore and Clarifying Questions are identified by the artifact they
    produce (`discovery_notes`, `open_questions`), not by step slug or name.**
@@ -150,12 +153,17 @@ incidentally.
 
 ## 4. Service layer
 
-### 4.1 `Phases::Convergence` (new — `app/services/phases/convergence.rb`)
+### 4.1 `Phases::Convergence` (new — `app/queries/phases/convergence.rb`)
 
 Extracted from `ManagerTick`'s existing `workflow_converged?`/
 `consensus_reached?` so the *same* rule is usable both by the tick (which also
 needs to mark each workflow `"converged"`) and by `Approve` (which only needs
-the boolean, computed fresh, with no side effects):
+the boolean, computed fresh, with no side effects). This is a **query object**,
+not a service (`guides/backend-guide.md` "Query objects" vs. "Services") — it
+is a read-only, noun-named predicate with no `.call`/`Result` interface, so it
+lives in `app/queries/`, alongside domain reads like `StepRuns::ClaimableFor`,
+rather than being conflated with the verb-first, `Result`-returning business
+actions in `app/services/`:
 
 ```ruby
 module Phases
@@ -792,19 +800,23 @@ header and the step-card grid:
           <div class="mt-3 flex flex-wrap gap-2">
             <% if steps.any? { |s| Array(s.outputs).include?("discovery_notes") } %>
               <%= button_to "Explore", rerun_step_phase_path(phase, artifact: "discovery_notes"),
-                    class: "rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50" %>
+                    class: "rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50",
+                    data: { turbo_submits_with: "Starting…" } %>
             <% end %>
             <% if steps.any? { |s| Array(s.outputs).include?("open_questions") } %>
               <%= button_to "Clarifying Questions", rerun_step_phase_path(phase, artifact: "open_questions"),
-                    class: "rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50" %>
+                    class: "rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50",
+                    data: { turbo_submits_with: "Starting…" } %>
             <% end %>
             <a href="#define-ask-human"
-               class="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50">Ask Human</a>
+               class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50">Ask Human</a>
             <%= button_to "Repeat from the Beginning", restart_phase_path(phase),
-                  class: "rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50",
-                  data: { turbo_confirm: "Restart Define from the first step? This replaces the current discovery notes and requirements with fresh output." } %>
+                  class: "rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50",
+                  data: { turbo_confirm: "Restart Define from the first step? This replaces the current discovery notes and requirements with fresh output.",
+                          turbo_submits_with: "Restarting…" } %>
             <%= form_with url: phase_approval_path(phase), class: "inline" do |f| %>
-              <%= f.submit "Done", class: "rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700 cursor-pointer" %>
+              <%= f.submit "Done", class: "rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 cursor-pointer",
+                    data: { turbo_submits_with: "Finishing…" } %>
             <% end %>
           </div>
         </div>
@@ -905,11 +917,11 @@ Assumption (generalize later, final bullet of the open-questions doc): satisfied
 **New files**
 
 - `db/migrate/<timestamp>_add_pause_support_to_phases.rb` — §3.1
-- `app/services/phases/convergence.rb` — §4.1
+- `app/queries/phases/convergence.rb` — §4.1
 - `app/services/phases/pause.rb` — §4.2
 - `app/services/phases/rerun_menu_step.rb` — §4.3
 - `app/services/phases/restart_define.rb` — §4.5
-- `test/services/phases/convergence_test.rb`
+- `test/queries/phases/convergence_test.rb`
 - `test/services/phases/pause_test.rb`
 - `test/services/phases/rerun_menu_step_test.rb`
 - `test/services/phases/restart_define_test.rb`
