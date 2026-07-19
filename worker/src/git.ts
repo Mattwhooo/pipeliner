@@ -49,7 +49,7 @@ export class Workspace {
   }
 
   private git(args: string[], cwd?: string) {
-    return exec("git", args, { cwd: cwd ?? this.repoDir, timeout: 120_000 });
+    return exec("git", args, { cwd: cwd ?? this.repoDir, timeout: 120_000, maxBuffer: 64 * 1024 * 1024 });
   }
 
   async prepare(): Promise<void> {
@@ -63,7 +63,7 @@ export class Workspace {
       await mkdir(this.config.reposDir, { recursive: true });
 
       if (!existsSync(this.repoDir)) {
-        await exec("git", ["clone", repo_url, this.repoDir], { timeout: 300_000 });
+        await exec("git", ["clone", repo_url, this.repoDir], { timeout: 300_000, maxBuffer: 64 * 1024 * 1024 });
       } else {
         await this.git(["fetch", "origin", "--prune"]);
       }
