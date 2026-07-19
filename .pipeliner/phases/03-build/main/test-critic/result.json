@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "test-critic",
+  "status": "failed",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_personal-macbook-local",
+    "backend": "claude-code"
+  },
+  "summary": "claude exited 1: Single-worker passes cleanly. The parallel errors are the DRb/QueryLogs environment quirk, not a code bug. Let me run the **full suite single-worker** to confirm everything passes."
+}
