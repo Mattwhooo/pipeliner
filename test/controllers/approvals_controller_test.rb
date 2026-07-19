@@ -32,6 +32,21 @@ class ApprovalsControllerTest < ActionDispatch::IntegrationTest
     assert_select "input[type=submit][value=?]", "Approve Define"
   end
 
+  test "approving with context seeds the next phase's entry steps" do
+    plan = phases(:onboarding_plan)
+    workflow = plan.workflows.create!(slug: "main", status: "pending")
+    entry = workflow.steps.create!(slug: "explore", step_type: "builder",
+      role: "code", position: 1)
+    @define.update!(status: "consensus")
+
+    post phase_approval_url(@define), params: { context: "Use Postgres." }
+
+    assert_redirected_to pipeline_url(pipelines(:onboarding))
+    run = entry.step_runs.sole
+    assert_equal "Use Postgres.", run.feedback.first["issue"]
+    assert_equal "human-gate", run.feedback.first["from"]
+  end
+
   test "cannot approve phases of other users' pipelines" do
     other_project = Project.create!(name: "Other3", repo_url: "https://github.com/example/other3")
     other = Pipelines::Create.call(project: other_project, title: "X").value

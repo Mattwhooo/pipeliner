@@ -45,5 +45,55 @@ module Phases
       assert result.failure?
       assert_equal :not_approvable, result.error
     end
+
+    test "approving with context seeds the next phase's entry steps with feedback" do
+      plan = phases(:onboarding_plan)
+      workflow = plan.workflows.create!(slug: "main", status: "pending")
+      entry = workflow.steps.create!(slug: "explore", step_type: "builder",
+        role: "code", position: 1)
+      # A downstream step (depends on the entry step) must NOT be seeded.
+      downstream = workflow.steps.create!(slug: "assemble", step_type: "builder",
+        role: "code", position: 2)
+      workflow.step_edges.create!(from_step: entry, to_step: downstream, kind: "depends_on")
+
+      @define.update!(status: "consensus")
+      result = Approve.call(phase: @define, user: users(:dev),
+        context: "Ship it on Postgres, not MySQL.")
+
+      assert result.success?
+      run = entry.step_runs.sole
+      assert_equal "ready", run.state
+      assert_equal 1, run.iteration
+      assert_equal [ { "from" => "human-gate", "issue" => "Ship it on Postgres, not MySQL.",
+                       "severity" => "major" } ], run.feedback
+      assert_empty downstream.step_runs
+    end
+
+    test "approving with context skips an entry step that already has an active run" do
+      plan = phases(:onboarding_plan)
+      workflow = plan.workflows.create!(slug: "main", status: "pending")
+      entry = workflow.steps.create!(slug: "explore", step_type: "builder",
+        role: "code", position: 1)
+      existing = entry.step_runs.create!(state: "ready", iteration: 1, required_role: "code")
+
+      @define.update!(status: "consensus")
+      result = Approve.call(phase: @define, user: users(:dev), context: "some context")
+
+      assert result.success?
+      assert_equal [ existing ], entry.step_runs.to_a
+      assert_empty existing.reload.feedback
+    end
+
+    test "approving without context does not seed the next phase" do
+      plan = phases(:onboarding_plan)
+      workflow = plan.workflows.create!(slug: "main", status: "pending")
+      entry = workflow.steps.create!(slug: "explore", step_type: "builder",
+        role: "code", position: 1)
+
+      @define.update!(status: "consensus")
+      Approve.call(phase: @define, user: users(:dev))
+
+      assert_empty entry.step_runs
+    end
   end
 end

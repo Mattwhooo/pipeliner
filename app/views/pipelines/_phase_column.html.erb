@@ -24,6 +24,8 @@
         <%= f.submit phase.consensus? ? "Approve #{phase.kind.humanize}" : "Approve anyway",
               class: "w-full rounded-md bg-indigo-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 cursor-pointer" %>
       <% end %>
+      <%= link_to "Review & approve →", phase_path(phase),
+            class: "mt-2 block text-center text-xs font-medium text-amber-800 hover:text-amber-900" %>
     </div>
   <% elsif phase.approved? && (approval = phase.approvals.order(:id).last) %>
     <p class="mt-2 px-1 text-xs text-gray-400" title="<%= approval.note %>">

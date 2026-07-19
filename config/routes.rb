@@ -18,9 +18,12 @@ Rails.application.routes.draw do
   resources :pipelines, only: [ :index, :show ]
   resources :workers, only: [ :index ]
   resources :step_templates, path: "step-library"
-  resources :phases, only: [] do
+  resources :phases, only: [ :show ] do
     resources :steps, only: [ :new, :create ]
     resource :approval, only: [ :create ]
+    member do
+      post :send_back
+    end
   end
   resources :steps, only: [] do
     post :queue_run, on: :member
