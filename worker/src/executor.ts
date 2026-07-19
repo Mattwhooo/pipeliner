@@ -116,7 +116,18 @@ export class Executor {
       // PIPELINER_AGENT marks every process the agent spawns; repos under
       // pipeline development (like Pipeliner itself) use it to redirect
       // dangerous defaults (e.g. the dev database) to scratch equivalents.
-      env: { ...process.env, CLAUDE_CODE_ENTRYPOINT: "pipeliner-worker", PIPELINER_AGENT: "1" },
+      // DATABASE_URL is forced to a scratch database as a BRANCH-PROOF guard:
+      // config-level protections only exist on branches that contain them,
+      // and agents work on pipeline branches cut from older code. Rails gives
+      // DATABASE_URL precedence over database.yml in every checkout, so an
+      // agent can never reach the live control plane's database regardless of
+      // which commit its worktree is on. Override via PIPELINER_AGENT_DB_URL.
+      env: {
+        ...process.env,
+        CLAUDE_CODE_ENTRYPOINT: "pipeliner-worker",
+        PIPELINER_AGENT: "1",
+        DATABASE_URL: process.env.PIPELINER_AGENT_DB_URL ?? "postgresql://localhost/pipeliner_agent_scratch",
+      },
       stdio: ["ignore", "pipe", "pipe"],
       signal,
       timeout: this.config.stepTimeoutSeconds * 1000,
