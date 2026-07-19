@@ -1,0 +1,7 @@
+{
+  "schema_version": "1.0",
+  "step": "guide-alignment-critic",
+  "verdict": "pass",
+  "summary": "Checked the Define-phase artifacts (requirements.md, open_questions.md, discovery_notes.md) against guides/backend-guide.md and guides/ui-style-guide.md. The work under review is deliberately non-technical business requirements plus discovery notes; there is no code, design, or diff, so the code-level guide rules (service/Result interface, thin controllers, model/callback rules, Tailwind type/spacing scale, semantic status colors, Turbo stream targeting, Minitest expectations) have nothing to bind against yet. Where the specs do touch guide-governed concerns they align: R4 requires the paused state be shown 'using a label and not color alone' (UI guide: status never conveyed by color alone), and the discovery notes explicitly adopt the guides as constraints, mapping every proposed capability onto existing service primitives (Phases::SendBack target_step_id, AnswerQuestions, Approve) and POROs rather than callbacks, fat controllers, or model business logic. No requirement prescribes an approach that would deviate from either guide. No blockers or deviations found; guide alignment becomes substantively checkable once a design/diff exists in a later phase.",
+  "findings": []
+}
