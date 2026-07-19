@@ -20,6 +20,7 @@ Rails.application.routes.draw do
   resources :step_templates, path: "step-library"
   resources :phases, only: [] do
     resources :steps, only: [ :new, :create ]
+    resource :approval, only: [ :create ]
   end
   resources :steps, only: [] do
     post :queue_run, on: :member

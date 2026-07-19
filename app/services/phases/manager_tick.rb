@@ -115,6 +115,7 @@ module Phases
     def escalate(workflow, critic, critic_run, attempted_iteration)
       @phase.update!(status: "awaiting_human")
       @phase.pipeline.update!(status: "awaiting_human")
+      BroadcastColumn.call(@phase)
       record_decision(
         decision: "escalate",
         iteration: attempted_iteration,
@@ -169,8 +170,9 @@ module Phases
         @phase.update!(status: "approved")
         advance_pipeline
       else
-        # Human gate: park for approval. The approval UI is out of scope.
+        # Human gate: park for approval (surfaced by the board's gate banner).
         @phase.pipeline.update!(status: "awaiting_human")
+        BroadcastColumn.call(@phase)
       end
     end
 

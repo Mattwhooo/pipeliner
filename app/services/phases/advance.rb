@@ -16,6 +16,7 @@ module Phases
 
       if @phase.review_phase?
         pipeline.update!(status: "completed")
+        BroadcastColumn.call(@phase)
         return Result.success(pipeline)
       end
 
@@ -23,6 +24,8 @@ module Phases
       next_phase = pipeline.phases.find_by!(kind: Phase::KINDS_IN_ORDER[index + 1])
       next_phase.update!(status: "running")
       pipeline.update!(current_phase: next_phase.kind, status: "running")
+      BroadcastColumn.call(@phase)
+      BroadcastColumn.call(next_phase)
 
       Result.success(next_phase)
     end
