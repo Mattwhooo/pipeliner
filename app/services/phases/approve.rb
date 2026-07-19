@@ -45,7 +45,14 @@ module Phases
         seed_next_phase(advanced.value)
       end
 
-      Result.success(@phase)
+      # Advance only repaints phase columns; the human-approval path is the one
+      # place besides ManagerTick that changes pipeline status, so the summary
+      # must be refreshed here too or it shows a stale "awaiting approval" until
+      # reload (guides/ui-style-guide.md "Live by default").
+      pipeline = @phase.pipeline
+      Pipelines::BroadcastStatus.call(pipeline)
+
+      Result.success(pipeline)
     end
 
     private

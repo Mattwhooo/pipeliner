@@ -54,6 +54,7 @@ module StepRuns
       # skip BroadcastCard's own so a completion doesn't recompute it twice.
       BroadcastCard.call(@step_run, dashboard: false)
       Dashboard::Broadcast.call(pipeline: run_pipeline, activity: true)
+      Pipelines::BroadcastStatus.call(run_pipeline)
       # A success may have pushed a step branch — merge it into the pipeline
       # branch (control-plane-only, serialized per pipeline). Failed completions
       # have nothing to merge.

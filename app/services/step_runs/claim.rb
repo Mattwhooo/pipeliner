@@ -40,6 +40,7 @@ module StepRuns
       return Result.failure(:no_work) unless run
 
       BroadcastCard.call(run)
+      Pipelines::BroadcastStatus.call(run.step.workflow.phase.pipeline)
       Result.success(run)
     end
 

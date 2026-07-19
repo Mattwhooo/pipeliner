@@ -155,8 +155,9 @@ From `guides/ui-style-guide.md`:
 - **Tailwind only, on the defined scale**: spacing steps 2/4/6/8/12, the six
   type styles, neutrals + one indigo accent.
 - **Status colors are semantic and reserved** (blue=running, green=success,
-  amber=needs attention, red=stuck/failed, gray=pending) — and status is
-  **never conveyed by color alone**.
+  amber=needs attention, red=stuck/failed/blocked, gray=pending/idle *and a
+  deliberate cancel* — red is reserved for error stops, not for an `aborted`
+  pipeline a person canceled) — and status is **never conveyed by color alone**.
 - **Shared components** (StatusBadge, Card, buttons) have one source of truth —
   don't re-style ad hoc.
 - **Turbo Streams target the smallest DOM unit** (a badge, a card, keyed by
@@ -344,6 +345,124 @@ The claim service owns the `FOR UPDATE SKIP LOCKED` query (see
 `docs/data-model.md` → "Key behaviors"); the controller never touches SQL.
 Protocol details (heartbeat 15s / lease 60s, cancel flag in the heartbeat
 response, epoch fencing) are specified in `docs/worker.md`.
+
+### Adding a derived, live-broadcast status view
+
+The **pipeline status summary** is the reference example of a piece of UI that
+is *derived* (computed from current state, never stored) and *live* (rebroadcast
+whenever that state changes). The board carries a single, prominent, plain-
+language line per pipeline — *"Define: requirements-writer is drafting
+requirements, iteration 3"*, *"Waiting on human approval at the Plan gate"*,
+*"Build: 4 steps are running"*, *"Failed in Build: code-writer could not
+complete"* — that always reflects the true current state. Copy this shape for any future summarize-the-whole-thing view
+(a project rollup, a phase health line, etc.).
+
+Three pieces, each landing where the guides put it:
+
+- **The read is a domain value PORO** — `app/lib/pipelines/status_summary.rb`,
+  a pure derivation object with no side effects. It lives in `app/lib`, **not**
+  `app/queries`: a query object returns an `ActiveRecord::Relation`, but this
+  returns an in-memory value, so it belongs with "app/lib for app-specific POROs
+  that aren't services/queries" (`guides/backend-guide.md`). Its entry point is
+  `Pipelines::StatusSummary.for(pipeline)` — `.for`, **not** `.call`, because the
+  guide reserves `.call` for verb-first services that perform a business action;
+  a pure read reads more honestly as `.for` and won't be mistaken for a mutation.
+  It returns a `Summary` value carrying the finished sentence (`text`, never
+  blank) plus a **semantic tone** (`:info` / `:success` / `:attention` /
+  `:danger` / `:muted`). The tone is **never a per-branch color literal**: every
+  branch resolves it by looking its governing status string up in
+  `StatusHelper::STATUS_TONES` — the *same* table `status_badge` reads — so the
+  summary dot and the pipeline status badge can never show different colors for
+  the same state. Landing this needed exactly one reconciliation in that shared
+  table: **`STATUS_TONES["aborted"]` moves from `:danger` to `:muted`.** A
+  deliberate cancel is a neutral terminal state, so red stays *reserved for error
+  stops* (`stuck` / `failed` / `blocked`) while a canceled pipeline reads gray on
+  both the badge and the summary — the same red-vs-gray line the summary draws in
+  words between a failure (R9, "Failed in Build: …") and a deliberate cancel
+  (R11, "Canceled"). Because the color table in `guides/ui-style-guide.md` was
+  silent on a deliberately-canceled state, that PR also adds the matching
+  "canceled / aborted → gray (muted)" row to it (guide-silent-then-propose, per
+  `CLAUDE.md`).
+
+  `build` is a **total function**: an ordered list of first-match branches,
+  most operationally salient first, ending in an **unconditional catch-all** so
+  every current or future pipeline state yields a non-blank, truthful sentence.
+  The order is completed → failed (names the phase, and the step when known) →
+  canceled (`aborted`) → awaiting-human (gate wait vs. escalation) →
+  blocked/stuck → running → not-started → default. For a `running` pipeline it
+  looks at the current phase's **active runs** (state `running` or `claimed` — a
+  worker is actually leased): **one** active step names the phase, role, and
+  what it's doing (its latest `progress["message"]`, the same field the step
+  card shows, or a type verb like `planning`/`building`/`reviewing`), appending
+  `, iteration N` **only on the 2nd+ pass** (hidden on the first attempt);
+  **two** active steps name **both**; **three or more** collapse to
+  *"&lt;Phase&gt;: N steps are running"* rather than naming each. Keep every
+  branch of the wording in this one object so there is a single source of truth
+  for how state reads in English — distinct from `ManagerDecision#rationale`,
+  which is the *persisted* per-decision log, not the live board line.
+
+  ```ruby
+  # app/lib/pipelines/status_summary.rb
+  module Pipelines
+    class StatusSummary
+      Summary = Data.define(:text, :tone, :phase_label) do
+        def to_s = text
+      end
+
+      def self.for(pipeline) = new(pipeline).build
+      def initialize(pipeline) = @pipeline = pipeline
+      def build = ...  # -> Summary; pure, reads current associations only
+    end
+  end
+  ```
+
+- **The render is the smallest DOM unit.** A `pipelines/_status_summary`
+  partial renders inside a container keyed `dom_id(pipeline, :summary)`, wrapped
+  in an `aria-live="polite"` region so screen readers announce changes — status
+  is carried by a status dot + the sentence, **never color alone** (UI guide).
+  One partial, two variants selected by a `compact:` local, both calling the
+  same `StatusSummary.for` so the surfaces can never disagree: the **full**
+  variant sits high on `pipelines/show` (a Card, above the phase columns), the
+  **compact** variant is a single truncated line per row on `pipelines/index`.
+  `pipelines/show` already establishes the stream with
+  `turbo_stream_from @pipeline`; the summary reuses it — and `pipelines/index`
+  gains its **first** subscription, a per-row `turbo_stream_from pipeline`, so
+  the list updates live too. Because the partial is rendered on load from the
+  same value PORO, a dropped broadcast is cosmetic, never a correctness bug. The
+  tone → dot-color mapping goes through a one-line `PipelinesHelper`
+  (`summary_dot_class(tone)`) that reuses `StatusHelper::TONE_CLASSES`, so no new
+  color literal is introduced. To keep both controllers free of N+1, a
+  `Pipeline.with_board` scope
+  (`includes(phases: { workflows: { steps: { step_runs: :worker } } })`)
+  preloads the whole tree the summary reads; `#show` and `#index` both use it.
+
+- **The broadcast is a one-line service fired from the services that already
+  mutate state** — never a model callback. Mirror `StepRuns::BroadcastCard`
+  with a `Pipelines::BroadcastStatus.call(pipeline)` that
+  `broadcast_replace_later_to(pipeline, target: dom_id(pipeline, :summary),
+  partial: "pipelines/status_summary")`. Because `_later_to` re-renders the
+  partial **in a job that reloads the pipeline from the DB**, every broadcast
+  paints freshly-derived current state — so a late or racing broadcast still
+  lands on the *actual latest* state, and an older event can never repaint a
+  stale summary over a newer one. Add that one call, after commit, wherever
+  pipeline-visible state turns over: `StepRuns::Claim`, `StepRuns::RecordProgress`
+  and `StepRuns::Complete` (run started / progressed / finished — one line right
+  after the existing `BroadcastCard.call`), and `Phases::ManagerTick` (once at
+  the end of `call`, after `broadcast_affected`). The `ManagerTick` seam is the
+  essential one: a gate-wait or an escalation to `awaiting_human` changes **only**
+  phase/pipeline status and touches no step card, so without it *"Waiting on
+  human approval at the Plan gate"* would never appear live. Keep `BroadcastStatus`
+  separate from `BroadcastCard` (don't fold it in): a tick that touches N cards
+  should refresh the one summary **once**, not N times. *(Designed but out of
+  scope, noted so it isn't mistaken for covered: broadcasting from
+  `StepRuns::Sweep` for instant `stuck` flips, first paint from `Pipelines::Create`,
+  and a real `paused` pipeline status to make "Paused" wording reachable — today
+  only `aborted` → "Canceled" is.)*
+
+This is the first **pipeline-level** broadcast in the app; until now only step
+cards (`dom_id(step, :card)`) streamed. The precedent to keep: derived reads are
+pure value POROs, live rebroadcast is a thin service called by state-changing
+services after commit, and the on-load render is always authoritative.
 
 ---
 

@@ -27,6 +27,23 @@ module Phases
       [ workflow, critic ]
     end
 
+    def summary_target
+      ActionView::RecordIdentifier.dom_id(@pipeline, :summary)
+    end
+
+    # Asserts that, among whatever jobs the block enqueues, at least one Turbo
+    # broadcast targets the pipeline's summary dom id. Inspects the enqueued
+    # Turbo::Streams::ActionBroadcastJob directly (the app's established pattern
+    # — see StepRuns::BroadcastCardTest) rather than via
+    # Turbo::Broadcastable::TestHelper, which this app cannot load: it's only
+    # wired up by turbo-rails behind an :action_cable on_load hook that never
+    # fires without an app/channels mount, so referencing it aborts the suite.
+    def assert_summary_broadcast(&block)
+      assert_enqueued_with(job: Turbo::Streams::ActionBroadcastJob,
+        args: ->(job_args) { job_args.any? { |arg| arg.is_a?(Hash) && arg[:target] == summary_target } },
+        &block)
+    end
+
     # Builds a builder -> critic consensus loop under the phase:
     #   builder --depends_on--> critic   (critic runs after the builder)
     #   critic  --route_to----> builder  (needs_work re-runs the builder)
@@ -233,6 +250,31 @@ module Phases
       assert_equal 2, escalation.iteration
     end
 
+    # A gate-wait changes only phase/pipeline status — no run card moves — so
+    # without a summary broadcast here the live "Waiting on human approval…" line
+    # would never appear until reload (R7/R14). This is the essential seam.
+    test "a human gate tick refreshes the live status summary" do
+      @phase.update!(status: "running", gate_mode: "human")
+      _workflow, builder, critic = build_loop(@phase)
+      succeed(builder, iteration: 1)
+      succeed(critic, iteration: 1, verdict: { "verdict" => "pass" })
+
+      assert_summary_broadcast { run! }
+
+      assert @pipeline.reload.awaiting_human?
+    end
+
+    test "an escalation tick refreshes the live status summary" do
+      @phase.update!(status: "running")
+      _workflow, builder, critic = build_loop(@phase, max_iterations: 1)
+      succeed(builder, iteration: 1)
+      succeed(critic, iteration: 1, verdict: { "verdict" => "needs_work", "findings" => [] })
+
+      assert_summary_broadcast { run! }
+
+      assert_equal "awaiting_human", @phase.reload.status
+    end
+
     test "auto gate on the review phase completes the pipeline" do
       review = phases(:onboarding_review)
       review.update!(status: "running", gate_mode: "auto")
@@ -316,8 +358,9 @@ module Phases
       succeed(critic, iteration: 1, verdict: { "verdict" => "needs_work", "findings" => [] })
 
       # The escalate path collects the phase and broadcasts it only after commit;
-      # no run is created, so exactly one column broadcast is enqueued.
-      assert_enqueued_jobs 1, only: Turbo::Streams::ActionBroadcastJob do
+      # no run is created, so exactly one column broadcast is enqueued, plus the
+      # per-tick pipeline status-summary broadcast.
+      assert_enqueued_jobs 2, only: Turbo::Streams::ActionBroadcastJob do
         run!
       end
       assert_equal "awaiting_human", @phase.reload.status

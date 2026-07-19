@@ -16,14 +16,20 @@
   </div>
 </div>
 
+<%= turbo_stream_from @pipeline %>
+
+<%# The first status on the page: a single plain-language line for what is
+    happening right now, above the per-step cards (R1). %>
+<div class="mt-6">
+  <%= render "pipelines/status_summary", pipeline: @pipeline, compact: false %>
+</div>
+
 <% if @pipeline.initial_prompt.present? %>
   <div class="mt-6 rounded-lg border border-default bg-surface p-6 shadow-sm">
     <h2 class="text-xs font-semibold uppercase tracking-wide text-subtle">The ask</h2>
     <p class="mt-2 whitespace-pre-line text-sm text-muted"><%= @pipeline.initial_prompt %></p>
   </div>
 <% end %>
-
-<%= turbo_stream_from @pipeline %>
 
 <% define_phase = @phases.find(&:define_phase?) %>
 <% downstream_phases = @phases.reject(&:define_phase?) %>

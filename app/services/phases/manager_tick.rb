@@ -75,6 +75,10 @@ module Phases
       # entangled with the tick's transaction.
       perform_pending_rework
       broadcast_affected
+      # Gate-wait, escalation, consensus and advance change only phase/pipeline
+      # status — no card — so the pipeline summary must be refreshed here or those
+      # transitions would be invisible until reload (R7, R14).
+      Pipelines::BroadcastStatus.call(@phase.pipeline)
       Result.success(@phase)
     end
 

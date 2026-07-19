@@ -24,8 +24,10 @@ module StepRuns
       # Progress ticks fire many times per second on a busy run; skip the
       # dashboard fan-out here (no state actually changes on the dashboard's
       # summary/attention view) and let state-changing transitions elsewhere
-      # (Claim, Complete, ...) keep it fresh.
+      # (Claim, Complete, ...) keep it fresh. The status summary does surface
+      # the live progress line, so it broadcasts on every tick.
       BroadcastCard.call(@step_run, dashboard: false)
+      Pipelines::BroadcastStatus.call(@step_run.step.workflow.phase.pipeline)
       Result.success(@step_run)
     end
 

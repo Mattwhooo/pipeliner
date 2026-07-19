@@ -1,0 +1,29 @@
+<%# Live "what is happening right now?" summary for one pipeline. One source of
+    truth for both surfaces: `compact: false` (detail header) and `compact: true`
+    (list row) render the SAME Pipelines::StatusSummary, so they can never
+    disagree about the state (R18). The stable dom_id(pipeline, :summary) is both
+    the Turbo stream target and an aria-live region — the word carries the
+    meaning, the dot only echoes it (R17). %>
+<% compact = local_assigns.fetch(:compact, false) %>
+<% summary = Pipelines::StatusSummary.for(pipeline) %>
+
+<% if compact %>
+  <div id="<%= dom_id(pipeline, :summary) %>" aria-live="polite"
+       class="flex items-center gap-2">
+    <span class="h-2 w-2 shrink-0 rounded-full <%= summary_dot_class(summary.tone) %>" aria-hidden="true"></span>
+    <span class="truncate text-sm text-gray-500"><%= summary.text %></span>
+  </div>
+<% else %>
+  <div id="<%= dom_id(pipeline, :summary) %>" aria-live="polite"
+       class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+    <% if summary.phase_label.present? %>
+      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">
+        <%= summary.phase_label %>
+      </p>
+    <% end %>
+    <div class="mt-1 flex items-center gap-2">
+      <span class="h-2.5 w-2.5 shrink-0 rounded-full <%= summary_dot_class(summary.tone) %>" aria-hidden="true"></span>
+      <p class="text-sm font-medium text-gray-900"><%= summary.text %></p>
+    </div>
+  </div>
+<% end %>

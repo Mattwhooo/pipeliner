@@ -12,11 +12,13 @@ module StatusHelper
     "awaiting_human" => :attention, "needs_setup" => :attention,
     "reworking" => :attention, "draining" => :attention,
     "paused" => :attention,
-    # stuck / failed → red
+    # stuck / failed → red (reserved for error stops needing intervention)
     "stuck" => :danger, "failed" => :danger, "blocked" => :danger,
-    "aborted" => :danger,
-    # pending / idle → gray
-    "pending" => :muted, "draft" => :muted, "offline" => :muted
+    # pending / idle / deliberately canceled → gray. `aborted` is a deliberate
+    # cooperative-cancel — a neutral terminal state, not the red-reserved error
+    # stop — so the summary dot and the status badge agree it reads gray (R11/F1).
+    "pending" => :muted, "draft" => :muted, "offline" => :muted,
+    "aborted" => :muted
   }.freeze
 
   TONE_CLASSES = {
