@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "requirements-writer",
+  "status": "succeeded",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_personal-macbook-local",
+    "backend": "claude-code"
+  },
+  "summary": "I read the discovery notes and open-question defaults from the two prior Define-phase steps, then wrote the declared `business_requirements` artifact to `output/requirements.md`. It contains 23 atomic, numbered requirements (R1–R23) in the required \"When X happens, Y should happen\" plain-language form, grouped into access/scope, at-a-glance summary numbers, needs-attention items, recent activity, worker health, first-run/empty states, freshness/reliability, and consistency with the rest of the app. The requirements encode the sensible defaults settled in discovery: the Dashboard is a per-user, at-a-glance summary (pipeline counts by status, a count of pipelines awaiting a person, and online-worker count) plus a short \"needs your attention\" list and a five-item recent-pipelines list that links out to the full Pipelines and Workers views — rather than a duplicate of the Pipelines table — with friendly first-run/empty states, load-time freshness (no live updates required this version), status conveyed in words not color alone, and no routing or navigation changes. I stayed within my worktree and wrote only the declared output."
+}
