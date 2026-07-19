@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "slug": "developer-docs-updater",
+  "type": "builder",
+  "role": "code",
+  "prompt": "prompt.md",
+  "inputs": [],
+  "outputs": [
+    {
+      "kind": "repo",
+      "artifact": "developer_docs"
+    }
+  ],
+  "scope": null,
+  "fan_out": null
+}
