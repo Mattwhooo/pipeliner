@@ -51,6 +51,35 @@ module Phases
       assert_equal :not_approvable, result.error
     end
 
+    test "approves a paused phase once every workflow has converged" do
+      workflow = workflows(:define_main)
+      requirements = steps(:requirements_writer)
+      critic = steps(:completeness_critic)
+      requirements.step_runs.destroy_all
+      requirements.step_runs.create!(state: "succeeded", iteration: 1, required_role: "requirements",
+        finished_at: Time.current, merged_at: Time.current)
+      critic.step_runs.create!(state: "succeeded", iteration: 1, required_role: "review",
+        verdict: { "verdict" => "pass" }, finished_at: Time.current, merged_at: Time.current)
+      workflow.update!(status: "converged")
+      @define.update!(status: "paused")
+
+      result = Approve.call(phase: @define, user: users(:dev))
+
+      assert result.success?
+      assert_equal "approved", @define.reload.status
+    end
+
+    test "refuses Done on a paused phase that hasn't settled" do
+      # requirements_ready fixture is still "ready" — the loop hasn't converged.
+      @define.update!(status: "paused")
+
+      result = Approve.call(phase: @define, user: users(:dev))
+
+      assert result.failure?
+      assert_equal :not_settled, result.error
+      assert_equal "paused", @define.reload.status
+    end
+
     test "approving with context seeds the next phase's entry steps with feedback" do
       plan = phases(:onboarding_plan)
       workflow = plan.workflows.create!(slug: "main", status: "pending")

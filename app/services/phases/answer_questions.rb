@@ -9,7 +9,7 @@ module Phases
   # a human gate). At consensus/awaiting_human, answering re-opens the phase for
   # another iteration rather than approving it.
   class AnswerQuestions
-    ANSWERABLE_STATUSES = %w[running consensus awaiting_human].freeze
+    ANSWERABLE_STATUSES = %w[running consensus awaiting_human paused].freeze
 
     def self.call(phase:, user:, answers:)
       new(phase:, user:, answers:).call

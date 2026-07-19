@@ -11,6 +11,7 @@ module StatusHelper
     # needs attention → amber
     "awaiting_human" => :attention, "needs_setup" => :attention,
     "reworking" => :attention, "draining" => :attention,
+    "paused" => :attention,
     # stuck / failed → red
     "stuck" => :danger, "failed" => :danger, "blocked" => :danger,
     "aborted" => :danger,
