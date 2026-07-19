@@ -47,14 +47,31 @@ module StepRuns
     def refresh_stuck_state
       available = available_roles
 
-      newly_stuck = StepRun.where(state: "ready", created_at: ...STUCK_GRACE.ago)
+      newly_stuck_scope = StepRun.where(state: "ready", created_at: ...STUCK_GRACE.ago)
         .where.not(required_role: available)
-        .update_all(state: "stuck", updated_at: Time.current)
+      # update_all returns a row count, not records — capture the affected
+      # pipelines before the update so the dashboard can be told afterward.
+      newly_stuck_pipeline_ids = pipeline_ids_for(newly_stuck_scope)
+      newly_stuck = newly_stuck_scope.update_all(state: "stuck", updated_at: Time.current)
 
       unstuck = StepRun.where(state: "stuck", required_role: available)
         .update_all(state: "ready", updated_at: Time.current)
 
+      broadcast_newly_stuck(newly_stuck_pipeline_ids)
+
       [ newly_stuck, unstuck ]
+    end
+
+    def pipeline_ids_for(step_run_scope)
+      Pipeline.joins(phases: { workflows: { steps: :step_runs } })
+        .where(step_runs: { id: step_run_scope.select(:id) })
+        .distinct.pluck(:id)
+    end
+
+    def broadcast_newly_stuck(pipeline_ids)
+      Pipeline.where(id: pipeline_ids).find_each do |pipeline|
+        Dashboard::Broadcast.call(pipeline: pipeline, activity: true)
+      end
     end
 
     def available_roles

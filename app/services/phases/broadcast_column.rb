@@ -15,6 +15,7 @@ module Phases
         partial: partial,
         locals: { phase: phase, current_phase_kind: pipeline.current_phase }
       )
+      Dashboard::Broadcast.call(pipeline: pipeline)
     end
   end
 end

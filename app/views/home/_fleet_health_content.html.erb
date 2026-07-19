@@ -1,0 +1,49 @@
+<div class="rounded-lg border border-gray-200 bg-white shadow-sm">
+  <div class="border-b border-gray-100 px-6 py-4">
+    <h2 class="text-lg font-semibold text-gray-900">Worker fleet</h2>
+  </div>
+
+  <% unhealthy = fleet[:online_count].zero? && fleet[:role_gap].any? %>
+
+  <% if fleet[:workers].empty? %>
+    <div class="py-12 text-center">
+      <p class="text-sm font-medium text-gray-900">No workers connected</p>
+      <p class="mt-1 text-xs text-gray-500">Start a worker and it will self-register here.</p>
+    </div>
+  <% else %>
+    <% if unhealthy %>
+      <div class="mx-6 mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700 ring-1 ring-inset ring-red-600/20">
+        No workers are online while work is waiting — pipelines needing these roles can't progress.
+      </div>
+    <% end %>
+
+    <div class="flex items-center gap-4 px-6 py-4 text-sm">
+      <span class="text-gray-900"><span class="font-semibold"><%= fleet[:online_count] %></span> online</span>
+      <span class="text-gray-500"><span class="font-semibold text-gray-700"><%= fleet[:offline_count] %></span> offline</span>
+    </div>
+
+    <% if !unhealthy && fleet[:role_gap].any? %>
+      <div class="mx-6 mb-4 rounded-md bg-amber-50 p-3 text-sm text-amber-800 ring-1 ring-inset ring-amber-600/20">
+        No online worker supports: <%= fleet[:role_gap].map { |role| content_tag(:span, role, class: "font-mono") }.join(", ").html_safe %>
+      </div>
+    <% end %>
+
+    <div class="divide-y divide-gray-100">
+      <% fleet[:workers].each do |worker| %>
+        <div class="flex items-center justify-between gap-2 px-6 py-3">
+          <div class="min-w-0">
+            <p class="truncate text-sm font-medium text-gray-900"><%= worker.name.presence || worker.public_id %></p>
+            <p class="mt-0.5 text-xs text-gray-500">
+              <% if worker.last_heartbeat_at %>
+                <time title="<%= worker.last_heartbeat_at %>"><%= time_ago_in_words(worker.last_heartbeat_at) %> ago</time>
+              <% else %>
+                never heard from
+              <% end %>
+            </p>
+          </div>
+          <%= status_badge(worker.status) %>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+</div>

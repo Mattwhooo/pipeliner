@@ -29,11 +29,27 @@ class PhasesController < ApplicationController
       answers: params[:answers].to_s.strip
     )
 
-    if result.success?
-      redirect_to pipeline_path(phase.pipeline),
-        notice: "Answers sent — Define is iterating on the requirements."
-    else
-      redirect_to pipeline_path(phase.pipeline), alert: answers_alert(result.error)
+    respond_to do |format|
+      format.html do
+        if result.success?
+          redirect_to pipeline_path(phase.pipeline),
+            notice: "Answers sent — Define is iterating on the requirements."
+        else
+          redirect_to pipeline_path(phase.pipeline), alert: answers_alert(result.error)
+        end
+      end
+      format.turbo_stream do
+        if result.success?
+          # Dashboard row/summary refresh arrives via Dashboard::Broadcast —
+          # nothing to render inline.
+          head :ok
+        else
+          render turbo_stream: turbo_stream.replace(
+            "#{ActionView::RecordIdentifier.dom_id(phase, :answer_modal)}_error",
+            partial: "home/answer_error", locals: { phase: phase, message: answers_alert(result.error) }
+          ), status: :unprocessable_entity
+        end
+      end
     end
   end
 

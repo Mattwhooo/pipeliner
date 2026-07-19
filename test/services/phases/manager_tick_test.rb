@@ -275,12 +275,37 @@ module Phases
       succeed(builder, iteration: 1)
       succeed(critic, iteration: 1, verdict: { "verdict" => "needs_work", "findings" => [] })
 
-      # The escalate path collects the phase and broadcasts it only after commit;
-      # no run is created, so exactly one column broadcast is enqueued.
+      # The escalate path collects the phase and broadcasts it only after
+      # commit; the dashboard fan-out (Dashboard::Broadcast) renders
+      # synchronously, so only the original phase-column replace is enqueued.
       assert_enqueued_jobs 1, only: Turbo::Streams::ActionBroadcastJob do
         run!
       end
       assert_equal "awaiting_human", @phase.reload.status
+    end
+
+    # F3 regression guard (see Dashboard::BroadcastTest): the consensus/
+    # escalate dashboard broadcast must fire only after ManagerTick's own
+    # transaction commits, never from inside it. Uses the human-gate path
+    # (no Advance.call involved) to isolate ManagerTick's own transaction
+    # boundary from Advance's separate one.
+    test "the consensus dashboard broadcast fires only after the transaction commits" do
+      @phase.update!(status: "running", gate_mode: "human")
+      _workflow, builder, critic = build_loop(@phase)
+      succeed(builder, iteration: 1)
+      succeed(critic, iteration: 1, verdict: { "verdict" => "pass", "findings" => [] })
+      boom = Class.new(StandardError)
+      original = Dashboard::Broadcast.method(:call)
+
+      Dashboard::Broadcast.define_singleton_method(:call) { |**| raise boom }
+      begin
+        assert_raises(boom) { run! }
+      ensure
+        Dashboard::Broadcast.define_singleton_method(:call, original)
+      end
+
+      assert_equal "consensus", @phase.reload.status
+      assert @phase.manager_decisions.consensus_decision.exists?
     end
   end
 end

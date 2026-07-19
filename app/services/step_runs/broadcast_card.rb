@@ -14,6 +14,7 @@ module StepRuns
         partial: "pipelines/step_card",
         locals: { step: step }
       )
+      Dashboard::Broadcast.call(pipeline: pipeline)
     end
   end
 end

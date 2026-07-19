@@ -11,6 +11,7 @@ Rails.application.routes.draw do
   # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
 
   root "home#index"
+  get "fleet_health", to: "home#fleet_health", as: :dashboard_fleet_health
 
   resources :projects, only: [ :index, :show, :new, :create ] do
     resources :pipelines, only: [ :new, :create ]

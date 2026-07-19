@@ -50,6 +50,7 @@ module StepRuns
         lease_expires_at: nil
       )
       BroadcastCard.call(@step_run)
+      Dashboard::Broadcast.call(pipeline: run_pipeline, activity: true)
       # A success may have pushed a step branch — merge it into the pipeline
       # branch (control-plane-only, serialized per pipeline). Failed completions
       # have nothing to merge.
@@ -88,6 +89,7 @@ module StepRuns
           lease_expires_at: nil
         )
         BroadcastCard.call(@step_run)
+        Dashboard::Broadcast.call(pipeline: run_pipeline, activity: true)
         return Result.success(@step_run)
       end
 
@@ -110,6 +112,10 @@ module StepRuns
 
     def transient_reason
       @result&.dig("summary").presence || "worker reported a transient outage"
+    end
+
+    def run_pipeline
+      @step_run.step.workflow.phase.pipeline
     end
   end
 end
