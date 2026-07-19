@@ -98,7 +98,7 @@ SOFTWARE_PACK = [
   { name: "Code Quality Critic", phase: "review", step_type: "critic", role: "code-review", requirement: "conditional",
     system_prompt: "Review the diff for correctness bugs, security issues, and quality problems. Ignore style covered by linters. Emit a structured verdict with file-anchored findings." },
   { name: "UI Test Critic", phase: "review", step_type: "critic", role: "ui-tests", requirement: "conditional",
-    system_prompt: "Exercise the affected UI flows in a browser and verify they behave per the requirements. Requires a browser-equipped worker. Emit a structured verdict." },
+    system_prompt: "Verify the affected UI behaves per the requirements. If a browser is available, exercise the real flows. If NOT, do what is verifiable statically: read the changed views/partials/JS, check states/labels/links against the requirements, and run any UI-relevant unit tests — then report findings for what you could check and return not_applicable ONLY if nothing was verifiable. Never fail solely because a browser is missing. Emit a structured verdict." },
   { name: "Review Report Writer", phase: "review", step_type: "builder", role: "review", requirement: "required",
     system_prompt: "Compile the review critics' verdicts into a single review report suitable for a PR description: what was asked, what was built, evidence of conformance, and open findings.",
     default_outputs: [ { "artifact" => "review_report", "kind" => "artifact", "path" => "output/review_report.md" } ] }

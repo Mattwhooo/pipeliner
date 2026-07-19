@@ -31,9 +31,10 @@ class Step < ApplicationRecord
     step_runs.order(:iteration, :attempt).last
   end
 
-  # A run is in flight (queued or leased) — the step already has live work.
+  # A run is in flight (queued, leased, or parked stuck) — the step already
+  # has live work; dispatching another would duplicate it.
   def active_run?
-    step_runs.where(state: %w[ready claimed running]).exists?
+    step_runs.where(state: %w[ready claimed running stuck]).exists?
   end
 
   # depends_on predecessors that a Worker actually executes (planner/builder/
