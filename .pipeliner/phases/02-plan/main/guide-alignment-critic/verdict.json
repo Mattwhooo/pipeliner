@@ -1,0 +1,7 @@
+{
+  "schema_version": "1.0",
+  "step": "guide-alignment-critic",
+  "verdict": "not_applicable",
+  "summary": "No reviewable artifact was provided. input.json lists no resolved_inputs, no planner design/spec output exists anywhere under .pipeliner/ (only this critic step's own scaffolding: step.json, input.json, prompt.md), and there is no diff between HEAD and main. With no design, specs, or code diff to check against guides/backend-guide.md or guides/ui-style-guide.md, there is nothing to evaluate. Both guides were confirmed present; alignment review should be re-run once the plan phase produces an artifact and it is threaded into this step's inputs.",
+  "findings": []
+}
