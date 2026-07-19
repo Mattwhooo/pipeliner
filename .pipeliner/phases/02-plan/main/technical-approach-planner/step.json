@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "slug": "technical-approach-planner",
+  "type": "planner",
+  "role": "code",
+  "prompt": "prompt.md",
+  "inputs": [],
+  "outputs": [
+    {
+      "kind": "artifact",
+      "path": "output/approach.md",
+      "artifact": "technical_approach"
+    }
+  ],
+  "scope": null,
+  "fan_out": null
+}
