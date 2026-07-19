@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "requirements-conformance-critic",
+  "status": "succeeded",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_opus",
+    "backend": "claude-code"
+  },
+  "summary": "I compared the Build diff against all 50 business requirements from Define (`requirements.md`), reading the controllers, three `Dashboard::` query objects, the `Dashboard::Broadcast` service and its eight post-commit call sites, the full `home/` view/partial tree, the answer-questions modal with its three Stimulus controllers and the `PhasesController#answers` / `Phases::AnswerQuestions` flow, plus the status/define helpers and the pipeline/worker enums. Every requirement R1–R50 is satisfied with concrete evidence — access/landing and auth, the three at-a-glance panels with always-shown headline counts, the active-pipelines overview (correct active-status scoping, phase progress, attention treatments that never rely on color alone, sort/cap/see-all, deep links, empty states), recent activity, worker-fleet health with role-gap and unhealthy warnings, live updates via per-user broadcasts and a 30s fleet poll with per-panel error isolation, and the complete human-in-the-loop answer modal (per-question inputs, defaults-as-placeholder, override semantics, single submission, all-defaults and busy-loop guards, cancel/Escape/focus handling, shared styling). One non-blocking observation: the \"Workers online\" summary tile refreshes on pipeline-scoped broadcasts rather than on every isolated worker status flip, but the fleet panel itself updates live via polling, so R31's intent is met. Verdict: **pass** with no findings, written to `verdict.json`."
+}
