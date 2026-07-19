@@ -1,7 +1,0 @@
-{
-  "schema_version": "1.0",
-  "step": "test-critic",
-  "verdict": "pass",
-  "summary": "Ran the full Rails test suite (112 runs, 408 assertions, 0 failures, 0 errors, 0 skips), rubocop-rails-omakase (115 files, no offenses), and the worker TypeScript typecheck (tsc --noEmit, exit 0). All tests and linters pass; the implementation builds cleanly. No development/production database commands were run — the test suite executed in RAILS_ENV=test only.",
-  "findings": []
-}

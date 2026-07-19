@@ -1,1 +1,0 @@
-Turn the approach into a technical design: components, data model, interfaces, and a file-level plan of the changes. Cite the requirements each part satisfies.

@@ -1,1 +1,0 @@
-From the technical design, write executable specs (this repo uses Minitest) that capture the requirements' observable behavior. Put them in the repo's test directory following its conventions. It is expected that some fail or are skipped until Build implements the design — they define done. Do not implement production code.
