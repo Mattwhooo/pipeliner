@@ -1,14 +1,13 @@
 {
   "schema_version": "1.0",
-  "iteration": 4,
+  "iteration": 5,
   "resolved_inputs": [],
   "feedback": [
     {
       "id": "F1",
-      "from": "rework:review",
-      "issue": "connect() attaches a matchMedia('(prefers-color-scheme: dark)') 'change' listener whenever no theme cookie exists yet. toggle() then writes the cookie (establishing an explicit preference) but never removes that listener. Within the same page session (no Turbo/full navigation to trigger disconnect+reconnect), if the OS theme subsequently changes, onSystemChange fires and unconditionally sets the class to media.matches, overriding the user's explicit toggle choice and contradicting the 'manual choice wins over system default' behavior. Fix: remove the listener in toggle() once a preference is stored (or have onSystemChange early-return when hasStoredPreference() is true).",
-      "severity": "minor",
-      "target_artifact": "app/javascript/controllers/theme_controller.js"
+      "issue": "The test asserts `assert_not dark_mode?` immediately after sign-in, assuming the browser's default color-scheme preference is light, but never emulates/pins `prefers-color-scheme` for the Capybara/Selenium session. On a host (or CI runner) whose OS appearance is set to Dark, headless Chrome reports `prefers-color-scheme: dark`, the app correctly applies dark mode per its 'default to system settings' requirement, and this assertion fails (confirmed reproducing on this machine: `defaults read -g AppleInterfaceStyle` = Dark). Fix by explicitly forcing a known color scheme for the test session (e.g. a Chrome option/CDP call to set `prefers-color-scheme: light` in test/application_system_test_case.rb) so the test is deterministic regardless of the host's OS theme.",
+      "severity": "blocker",
+      "target_artifact": "test/system/theme_toggle_test.rb"
     }
   ]
 }
