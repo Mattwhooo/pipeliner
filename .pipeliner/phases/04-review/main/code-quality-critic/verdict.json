@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "step": "code-quality-critic",
+  "verdict": "needs_work",
+  "summary": "The pause/menu/restart feature is well-structured and reuses existing services cleanly, but the 'Repeat from the Beginning' restart does not reliably re-run every step. Because per-step menu re-runs (RerunMenuStep) and Ask-Human answers (AnswerQuestions) advance only one step's iteration, RestartDefine's reliance on ManagerTick's iteration-gated dispatch silently skips any step already at or above the restart's seed iteration — the exact usage the menu loop encourages. Two lower-severity issues: human feedback duplicates geometrically across repeated restarts, and Pause has no Define-phase guard so a crafted POST can strand any running phase.",
+  "findings": [
+    {
+      "id": "F1",
+      "target_artifact": "app/services/phases/restart_define.rb",
+      "issue": "\"Repeat from the Beginning\" can skip steps instead of re-running every one. RestartDefine seeds only the first worker step at iteration max+1 and delegates the rest to ManagerTick#dispatch_ready_steps, which dispatches a step only when `current_iteration(step) < target_iteration`. But RerunMenuStep and AnswerQuestions each bump a single step's iteration independently (proven by rerun_menu_step_test: one 'Clarifying Questions' re-run puts that step at iteration 2 while siblings stay at 1). After even a single menu re-run, the restart seeds requirements at iteration 2; when the cascade reaches the already-advanced open_questions/discovery step, target_iteration (2) is not greater than its current_iteration (2), so it is skipped. The restart then converges and returns to the paused menu having regenerated only a subset of Define's artifacts — directly contradicting the feature's promise (and the button's turbo_confirm text: 'replaces the current discovery notes and requirements with fresh output'). This is triggered by the ordinary menu loop of using Explore/Clarifying Questions before choosing Repeat from the Beginning.",
+      "severity": "major"
+    },
+    {
+      "id": "F2",
+      "target_artifact": "app/services/phases/restart_define.rb",
+      "issue": "carried_feedback accumulates duplicate human feedback across repeated restarts. It collects every step_run feedback entry with from=='human' with no de-duplication, then stores the result in restart_feedback and (via ManagerTick#restart_carry_feedback) stamps it onto every step the cascade dispatches. Each restart therefore re-collects the copies the previous restart already fanned out onto N runs, so the human-feedback set grows geometrically with each 'Repeat from the Beginning' — the menu is explicitly designed to be looped 'until done'. Workers receive an ever-growing list of identical feedback entries. A `.uniq` (or de-duping by content) would bound it.",
+      "severity": "minor"
+    },
+    {
+      "id": "F3",
+      "target_artifact": "app/services/phases/pause.rb",
+      "issue": "Pause has no Define-phase restriction (PAUSABLE_STATUSES is just %w[running], and there is no @phase.define_phase? guard, unlike AnswerQuestions#answerable?). The pause/rerun/restart routes are generic phase member routes, so a crafted POST to /phases/:id/pause on any running non-Define phase succeeds and sets it to 'paused'. Paused phases are excluded from Phases::TickAll and ManagerTick returns :not_running for them, and the paused menu UI only renders in the Define panel — so a non-Define phase paused this way is stranded with no way to resume. Add a define_phase? guard (return :not_pausable otherwise) to match the rest of the menu services' scope.",
+      "severity": "minor"
+    }
+  ]
+}
