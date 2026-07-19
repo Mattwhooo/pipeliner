@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "guide-alignment-critic",
+  "status": "succeeded",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_opus",
+    "backend": "claude-code"
+  },
+  "summary": "I reviewed the Plan-phase artifacts (`design.md` and `workflow_plan.json`) against `guides/backend-guide.md` and `guides/ui-style-guide.md`, cross-checking the design's claims against the actual `_sidebar.html.erb`, `_theme_toggle.html.erb`, and `test/system/theme_toggle_test.rb`. The design holds up on every guide dimension in scope: the backend guide is legitimately not applicable (a pure view relocation with no business logic), and the UI guide is satisfied — semantic color tokens only, the `_theme_toggle` partial preserved as the single source of truth, icon-only-button aria-label/title retained, on-scale `gap-2` for the new row, and a Minitest system test extended with DOM-position-agnostic selectors for the critical flow plus keyboard-reachability. The only off-scale spacing values (`mt-1`, `p-3`) are pre-existing footer values carried over unchanged, not new deviations, so I recorded a **pass** verdict with no findings in `verdict.json`."
+}
