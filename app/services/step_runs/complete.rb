@@ -38,6 +38,10 @@ module StepRuns
         lease_expires_at: nil
       )
       BroadcastCard.call(@step_run)
+      # A success may have pushed a step branch — merge it into the pipeline
+      # branch (control-plane-only, serialized per pipeline). Failed completions
+      # have nothing to merge.
+      Pipelines::MergeStepBranchJob.perform_later(@step_run) if @status == "succeeded"
       Result.success(@step_run)
     end
 

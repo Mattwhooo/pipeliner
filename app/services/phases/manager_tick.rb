@@ -66,7 +66,10 @@ module Phases
         next if step.active_run?
 
         predecessors = step.worker_predecessors
-        next unless predecessors.all? { |p| p.latest_run&.succeeded? }
+        # A predecessor only unblocks a dependent once its branch has MERGED —
+        # a merely-succeeded run's artifacts aren't on the pipeline branch yet,
+        # so the dependent's worktree wouldn't contain them.
+        next unless predecessors.all? { |p| p.latest_run&.succeeded? && p.latest_run.merged? }
 
         target_iteration = predecessors.filter_map { |p| p.latest_run.iteration }.max || 1
         next unless current_iteration(step) < target_iteration
@@ -140,7 +143,9 @@ module Phases
     def workflow_converged?(workflow)
       worker_steps = workflow.steps.select(&:worker_executed?)
       return false if worker_steps.empty?
-      return false unless worker_steps.all? { |s| s.latest_run&.succeeded? }
+      # Require merged, not just succeeded: a phase can't reach consensus while a
+      # step's work is still sitting unmerged on its step branch.
+      return false unless worker_steps.all? { |s| s.latest_run&.succeeded? && s.latest_run.merged? }
 
       # LLM-judgment seam: consensus here is a mechanical unanimous critic pass.
       # The hybrid Manager may declare consensus despite minor dissent (weighing

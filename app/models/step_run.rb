@@ -23,6 +23,14 @@ class StepRun < ApplicationRecord
     lease_expires_at.present? && lease_expires_at.past?
   end
 
+  # True once the control plane has merged this run's step branch into the
+  # pipeline branch (Pipelines::MergeStepBranch). A succeeded run only counts as
+  # a satisfied predecessor / toward consensus once merged — otherwise later
+  # steps' worktrees wouldn't contain this step's artifacts.
+  def merged?
+    merged_at.present?
+  end
+
   # The critic's structured verdict value ("pass" | "needs_work" |
   # "not_applicable"), read from the verdict.json mirror. Nil for non-critics.
   def verdict_status

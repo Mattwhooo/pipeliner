@@ -2,6 +2,8 @@ require "test_helper"
 
 module StepRuns
   class CompleteTest < ActiveSupport::TestCase
+    include ActiveJob::TestHelper
+
     setup do
       @worker = workers(:claude_local)
       @run = step_runs(:requirements_ready)
@@ -9,9 +11,12 @@ module StepRuns
         lease_expires_at: 1.minute.from_now)
     end
 
-    test "records a successful completion" do
-      result = Complete.call(step_run: @run, worker: @worker, epoch: "abc123",
-        status: "succeeded", result: { "ok" => true }, commit_sha: "deadbeef")
+    test "records a successful completion and enqueues the branch merge" do
+      result = nil
+      assert_enqueued_with(job: Pipelines::MergeStepBranchJob, args: [ @run ]) do
+        result = Complete.call(step_run: @run, worker: @worker, epoch: "abc123",
+          status: "succeeded", result: { "ok" => true }, commit_sha: "deadbeef")
+      end
 
       assert result.success?
       @run.reload
@@ -19,6 +24,13 @@ module StepRuns
       assert_equal "deadbeef", @run.commit_sha
       assert @run.finished_at.present?
       assert_nil @run.lease_expires_at
+    end
+
+    test "a failed completion does not enqueue a merge" do
+      assert_no_enqueued_jobs only: Pipelines::MergeStepBranchJob do
+        Complete.call(step_run: @run, worker: @worker, epoch: "abc123", status: "failed")
+      end
+      assert_equal "failed", @run.reload.state
     end
 
     test "rejects a completion with a stale epoch" do

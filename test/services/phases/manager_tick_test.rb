@@ -22,9 +22,10 @@ module Phases
       [ workflow, builder, critic ]
     end
 
-    def succeed(step, iteration:, verdict: nil)
+    def succeed(step, iteration:, verdict: nil, merged: true)
       step.step_runs.create!(state: "succeeded", iteration: iteration,
-        required_role: step.role, verdict: verdict, finished_at: Time.current)
+        required_role: step.role, verdict: verdict, finished_at: Time.current,
+        merged_at: merged ? Time.current : nil)
     end
 
     def run!(phase = @phase)
@@ -49,12 +50,28 @@ module Phases
       assert_equal "ready", builder.latest_run.state
       assert_equal 0, critic.step_runs.count, "critic waits on the builder"
 
-      builder.latest_run.update!(state: "succeeded", finished_at: Time.current)
+      builder.latest_run.update!(state: "succeeded", finished_at: Time.current,
+        merged_at: Time.current)
       run!
       critic.reload
       assert_equal 1, critic.step_runs.count, "critic dispatched once builder succeeded"
       assert_equal "ready", critic.latest_run.state
       assert_equal 1, critic.latest_run.iteration
+    end
+
+    test "a succeeded but unmerged predecessor does not dispatch its dependent" do
+      @phase.update!(status: "running")
+      _workflow, builder, critic = build_loop(@phase)
+
+      # Builder succeeded but its branch has not been merged yet — the critic's
+      # worktree would not contain the builder's artifacts, so it must wait.
+      succeed(builder, iteration: 1, merged: false)
+      run!
+      assert_equal 0, critic.reload.step_runs.count, "critic waits for the merge"
+
+      builder.latest_run.update!(merged_at: Time.current)
+      run!
+      assert_equal 1, critic.reload.step_runs.count, "critic dispatched once merged"
     end
 
     test "routes critic needs_work feedback to a new builder run at iteration+1" do
@@ -89,7 +106,8 @@ module Phases
       succeed(critic, iteration: 1, verdict: { "verdict" => "needs_work", "findings" => [] })
 
       run! # routes -> builder iteration 2 (ready)
-      builder.reload.latest_run.update!(state: "succeeded", finished_at: Time.current)
+      builder.reload.latest_run.update!(state: "succeeded", finished_at: Time.current,
+        merged_at: Time.current)
 
       run! # builder@2 succeeded -> critic re-dispatched at iteration 2
       critic.reload
