@@ -2,10 +2,10 @@
   "schema_version": "1.0",
   "step": "implementer",
   "status": "succeeded",
-  "iteration": 3,
+  "iteration": 4,
   "worker": {
     "id": "wk_sonnet",
     "backend": "claude-code"
   },
-  "summary": "Both comment blocks are now well-formed with no stray `*/` markers, so the `:root { ... }` light-mode block on lines 11-21 is no longer swallowed. The fix was a one-line rewording in `app/assets/tailwind/application.css`: `raw gray-*/white` → `raw gray/white shades`, removing the literal `*/` sequence that was prematurely closing the CSS comment and corrupting everything that followed, including the light-mode `:root` custom-property declarations that dozens of views depend on (`bg-app`, `bg-surface`, `text-default`, etc.). No other files were touched, since this was the sole blocker raised by the critic."
+  "summary": "I addressed the critic's feedback (F1) in `app/javascript/controllers/theme_controller.js`: `toggle()` now calls a new `stopWatchingSystemTheme()` method that removes the `matchMedia` `change` listener and clears `this.media` once the user makes an explicit choice. This prevents a later OS theme change from firing `onSystemChange` and overriding the user's manual toggle within the same page session (no navigation required). `disconnect()` remains safe since it now no-ops if `this.media` was already cleared by `toggle()`."
 }

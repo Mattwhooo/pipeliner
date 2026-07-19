@@ -25,7 +25,14 @@ export default class extends Controller {
     const dark = !document.documentElement.classList.contains("dark")
     document.documentElement.classList.toggle("dark", dark)
     document.cookie = `theme=${dark ? "dark" : "light"}; path=/; max-age=31536000; SameSite=Lax`
+    this.stopWatchingSystemTheme()
     this.syncPressedState()
+  }
+
+  stopWatchingSystemTheme() {
+    if (!this.media) return
+    this.media.removeEventListener("change", this.onSystemChange)
+    this.media = null
   }
 
   syncPressedState() {
