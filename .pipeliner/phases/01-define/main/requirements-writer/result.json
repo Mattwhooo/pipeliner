@@ -2,10 +2,10 @@
   "schema_version": "1.0",
   "step": "requirements-writer",
   "status": "succeeded",
-  "iteration": 2,
+  "iteration": 3,
   "worker": {
-    "id": "wk_sonnet",
+    "id": "wk_sonnet2",
     "backend": "claude-code"
   },
-  "summary": "I revised `requirements.md` for iteration 2, addressing all five gaps flagged by the requirements-completeness critic (F1–F5) using the fresh code facts from the iteration-2 discovery notes: added requirements that Explore/Clarifying Questions/Repeat-from-Beginning results are actually shown to the person before they choose their next action (R9, R11, R18), specified that a \"Repeat from the Beginning\" restart runs several steps in sequence with a \"restart in progress\" state before the menu reappears (R15–R18), added a dedicated failure-path section for menu-triggered re-runs (R24–R25), gated \"Done\" on Define having reached its settled state with an explicit not-ready message otherwise (R19–R20), and split the two compound requirements (old R13, R23) into independently testable ones (R16/R17, R31/R32/R33). The result is 33 atomic, non-technical \"When X, Y should happen\" requirements plus an updated assumptions list reflecting the new resolutions."
+  "summary": "I've revised the requirements to iteration 3, addressing both findings from the requirements-completeness critic: (F1) removed the undefined \"resume\" language from R5/R26 (now R5/R27) and the assumptions — the assumptions now state explicitly that a menu action or Done are the only two ways out of the paused state, with no separate Resume control; (F2) added a new R12 specifying that a single-step re-run (Explore or Clarifying Questions) hides the paused menu and shows a live in-progress indicator while running, matching the existing \"restart in progress\" treatment already defined for Repeat from the Beginning. All 34 requirements were renumbered sequentially to accommodate the new R12, and the document's intro note now explains the iteration-3 changes."
 }
