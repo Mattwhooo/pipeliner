@@ -18,6 +18,26 @@ class ThemeToggleTest < ApplicationSystemTestCase
     assert_not dark_mode?
   end
 
+  test "the toggle lives in the sidebar footer next to Sign out, not the header" do
+    sign_in_via_ui
+
+    within(".border-t.border-default") do
+      assert_selector "button[aria-label='Toggle dark mode']"
+      assert_button "Sign out"
+    end
+    assert_no_selector ".h-14 button[aria-label='Toggle dark mode']"
+  end
+
+  test "the toggle is keyboard reachable and responds to the keyboard" do
+    sign_in_via_ui
+    assert_not dark_mode?
+
+    theme_button.send_keys(:return)
+
+    assert dark_mode?
+    assert_equal "true", theme_button["aria-pressed"]
+  end
+
   private
 
   def sign_in_via_ui

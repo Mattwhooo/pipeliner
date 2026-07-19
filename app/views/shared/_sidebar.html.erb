@@ -2,7 +2,6 @@
   <div class="flex h-14 items-center gap-2 border-b border-default px-4">
     <span class="inline-block h-2.5 w-2.5 rounded-full bg-indigo-600"></span>
     <span class="text-sm font-semibold text-default">Pipeliner</span>
-    <div class="ml-auto"><%= render "shared/theme_toggle" %></div>
   </div>
 
   <nav class="flex-1 space-y-1 px-2 py-4">
@@ -27,8 +26,11 @@
   <% if user_signed_in? %>
     <div class="border-t border-default p-3">
       <div class="truncate text-xs text-muted" title="<%= current_user.email %>"><%= current_user.email %></div>
-      <%= button_to "Sign out", destroy_user_session_path, method: :delete,
-            class: "mt-1 text-xs font-medium text-muted hover:text-default bg-transparent" %>
+      <div class="mt-1 flex items-center gap-2">
+        <%= button_to "Sign out", destroy_user_session_path, method: :delete,
+              class: "text-xs font-medium text-muted hover:text-default bg-transparent" %>
+        <div class="ml-auto"><%= render "shared/theme_toggle" %></div>
+      </div>
     </div>
   <% end %>
 </aside>
