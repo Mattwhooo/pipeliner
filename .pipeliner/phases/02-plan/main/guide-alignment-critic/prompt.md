@@ -1,0 +1,1 @@
+Read guides/backend-guide.md and guides/ui-style-guide.md in this repository, then check the work under review (design, specs, or diff) against them: service/Result patterns, thin controllers, model rules, Tailwind scale and semantic status colors, Turbo conventions, testing expectations. Cite the specific guide rule for each finding. Emit a structured verdict.

@@ -1,0 +1,7 @@
+{
+  "schema_version": "1.0",
+  "step": "guide-alignment-critic",
+  "verdict": "pass",
+  "summary": "The plan-phase design (design.md) and workflow_plan.json conform to both guides for the scope of this view-only relocation. Backend guide is correctly treated as not applicable (no services/controllers/models/business logic touched). UI style guide is satisfied: only semantic color tokens are used (no raw gray/white), the shared _theme_toggle partial stays the single source of truth (reused unchanged, only its container div is moved), the icon-only toggle keeps its aria-label + title, the new flex row uses the on-scale gap-2, and testing follows the Minitest system-test expectation by extending the existing critical-flow test with position-agnostic selectors. Accessibility (keyboard reachability, preserved focus ring) is addressed. The pre-existing mt-1/p-3 values in the footer are carried over unchanged rather than newly introduced, so they are not a new spacing-scale deviation.",
+  "findings": []
+}
