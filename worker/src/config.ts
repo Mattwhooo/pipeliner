@@ -12,6 +12,7 @@ export interface Config {
   workerName: string;
   /** Arbitrary role labels this worker supports (role-based matching). */
   roles: string[];
+  /** Maximum number of steps this worker executes in parallel. */
   concurrency: number;
   /** Directory where project repos are cloned and worktrees are created. */
   reposDir: string;
