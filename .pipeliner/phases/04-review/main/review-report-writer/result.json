@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "review-report-writer",
+  "status": "succeeded",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_personal-macbook-local",
+    "backend": "claude-code"
+  },
+  "summary": "I compiled the three Review-phase critic verdicts into a single PR-ready review report at `.pipeliner/phases/04-review/main/review-report-writer/output/review_report.md`. The report opens with an overall `needs_work` verdict and a green-tests banner, then walks through: **what was asked** (the live-status ask plus the 18 Define requirements grouped by placement/wording/liveness/presentation), **what was built** (the `Pipelines::StatusSummary` total-derivation PORO, the after-commit `BroadcastStatus` service, the shared partial, the `with_board` preload, and the new approval/advance path — a 35-file, +1318/−74 change set), **evidence of conformance** (a per-critic table: test-critic pass with concrete numbers, 17/18 requirements met, strong guide alignment), and **open findings** — three `major` (missing `BroadcastStatus` on the human gate-approval path/R14, non-atomic `Phases::Advance`, and broadcasts firing inside `ManagerTick`'s open transaction) and one `minor` (ad-hoc gate button/input styling). I noted that all three majors share one root cause on the new `Approve → Advance` path, so a single focused pass closes them, and I fixed a finding-count inconsistency so the header and summary table both read 3 major + 1 minor."
+}
