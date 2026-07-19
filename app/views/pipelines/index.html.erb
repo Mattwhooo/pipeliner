@@ -12,7 +12,6 @@
           <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500">Title</th>
           <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500">Project</th>
           <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500">Status</th>
-          <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500">Phase</th>
           <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500">Created</th>
         </tr>
       </thead>
@@ -23,8 +22,12 @@
               <%= link_to pipeline.title, pipeline, class: "hover:text-indigo-600" %>
             </td>
             <td class="px-6 py-4 text-sm text-gray-500"><%= pipeline.project.name %></td>
-            <td class="px-6 py-4"><%= status_badge(pipeline.status) %></td>
-            <td class="px-6 py-4 text-sm text-gray-500"><%= pipeline.current_phase.humanize %></td>
+            <td class="max-w-xs px-6 py-4">
+              <%# Live compact summary — the same state as the detail page (R2, R18);
+                  the per-row subscription keeps it from going stale (R14). %>
+              <%= turbo_stream_from pipeline %>
+              <%= render "pipelines/status_summary", pipeline: pipeline, compact: true %>
+            </td>
             <td class="px-6 py-4 text-sm text-gray-500">
               <time title="<%= pipeline.created_at %>"><%= time_ago_in_words(pipeline.created_at) %> ago</time>
             </td>

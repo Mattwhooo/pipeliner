@@ -1,0 +1,1 @@
+Implement the technical design (or your assigned task from the build plan) as real changes to the repository. Follow the repo's conventions and stay within your declared scope.
