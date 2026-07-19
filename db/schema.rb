@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_18_230010) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_18_230011) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -86,6 +86,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_18_230010) do
     t.index ["pipeline_id", "kind"], name: "index_phases_on_pipeline_id_and_kind", unique: true
     t.index ["pipeline_id", "position"], name: "index_phases_on_pipeline_id_and_position", unique: true
     t.index ["pipeline_id"], name: "index_phases_on_pipeline_id"
+  end
+
+  create_table "pipeline_template_steps", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "phase", null: false
+    t.bigint "pipeline_template_id", null: false
+    t.integer "position", default: 0, null: false
+    t.bigint "step_template_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["pipeline_template_id", "step_template_id", "phase"], name: "index_pipeline_template_steps_uniqueness", unique: true
+    t.index ["pipeline_template_id"], name: "index_pipeline_template_steps_on_pipeline_template_id"
+    t.index ["step_template_id"], name: "index_pipeline_template_steps_on_step_template_id"
+  end
+
+  create_table "pipeline_templates", force: :cascade do |t|
+    t.boolean "allow_manager_additions", default: true, null: false
+    t.datetime "created_at", null: false
+    t.bigint "project_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["project_id"], name: "index_pipeline_templates_on_project_id", unique: true
   end
 
   create_table "pipelines", force: :cascade do |t|
@@ -294,6 +314,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_18_230010) do
   add_foreign_key "memberships", "projects"
   add_foreign_key "memberships", "users"
   add_foreign_key "phases", "pipelines"
+  add_foreign_key "pipeline_template_steps", "pipeline_templates"
+  add_foreign_key "pipeline_template_steps", "step_templates"
+  add_foreign_key "pipeline_templates", "projects"
   add_foreign_key "pipelines", "projects"
   add_foreign_key "project_assessments", "projects"
   add_foreign_key "project_assessments", "workers", column: "ran_by_worker_id"

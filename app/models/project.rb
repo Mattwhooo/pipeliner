@@ -4,6 +4,7 @@ class Project < ApplicationRecord
   has_many :pipelines, dependent: :destroy
   has_many :step_templates, dependent: :destroy
   has_many :project_assessments, dependent: :destroy
+  has_one :pipeline_template, dependent: :destroy
 
   enum :env_status, {
     pending: "pending",

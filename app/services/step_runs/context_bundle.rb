@@ -51,11 +51,21 @@ module StepRuns
       }
 
       # Planner steps receive the Step Library so they can compose workflows
-      # (which steps this task needs, and in what order).
+      # (which steps this task needs, and in what order), plus the project's
+      # pipeline-template constraints: pinned steps are non-negotiable, and
+      # additions beyond them are only allowed when the template says so.
       if step.type_planner?
         bundle[:library] = StepTemplate.available_to(project).order(:name).map do |t|
           { name: t.name, type: t.step_type, role: t.role,
             requirement: t.requirement, phase: t.phase }
+        end
+        if (template = project.pipeline_template)
+          bundle[:composition] = {
+            allow_additions: template.allow_manager_additions,
+            pinned: Phase::KINDS_IN_ORDER.index_with do |kind|
+              template.entries_for(kind).includes(:step_template).map { |e| e.step_template.name }
+            end
+          }
         end
       end
 
