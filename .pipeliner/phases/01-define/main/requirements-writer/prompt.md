@@ -1,0 +1,1 @@
+From the ask, the discovery notes, and the human's answers to the clarifying questions, write detailed, atomic business requirements in the form 'When X happens, Y should happen'. Non-technical language only. Number them (R1, R2...). Reflect every decision the human made.
