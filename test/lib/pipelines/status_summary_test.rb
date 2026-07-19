@@ -228,6 +228,40 @@ module Pipelines
       end
     end
 
+    # --- F1 (iter 3): tone is *sourced from* the shared STATUS_TONES table ---
+    # The summary must not pick colors with per-branch literals. Every branch
+    # resolves its tone by looking the governing status up in the same
+    # StatusHelper::STATUS_TONES table that status_badge reads, so the summary
+    # dot and the pipeline's status badge can never disagree about a state's
+    # color (design §3.1, §8b).
+
+    test "each state's tone is sourced from STATUS_TONES, not a per-branch literal" do
+      # For each top-level pipeline status the summary tone equals what the shared
+      # table says for that status — whatever that value is. This holds by
+      # construction only if the summary reads the table rather than hardcoding.
+      %w[draft running awaiting_human blocked stuck completed aborted].each do |st|
+        @pipeline.update!(status: st)
+        assert_equal StatusHelper::STATUS_TONES.fetch(st),
+          StatusSummary.for(@pipeline.reload).tone,
+          "#{st}: summary tone must come from the shared STATUS_TONES table"
+      end
+    end
+
+    test "an aborted pipeline's summary tone matches its status badge tone" do
+      # The one reconciled conflict (F1): a deliberate cancel must read the same
+      # muted gray on the summary dot and the pipeline's status_badge — never one
+      # gray and one red for the same pipeline. This requires STATUS_TONES to
+      # retone "aborted" :danger -> :muted at the single source; a deliberate
+      # cancel is a neutral terminal state, not the red-reserved error stop (R9).
+      @pipeline.update!(status: "aborted")
+
+      badge_tone = StatusHelper::STATUS_TONES.fetch("aborted")
+      assert_equal :muted, badge_tone,
+        "aborted is retoned to muted at the single source (STATUS_TONES)"
+      assert_equal badge_tone, summary.tone,
+        "the summary dot and the status badge agree on the aborted state"
+    end
+
     # --- R13: everyday language, no internal codes -------------------------
 
     test "the summary uses plain language with no internal codes or ids" do
