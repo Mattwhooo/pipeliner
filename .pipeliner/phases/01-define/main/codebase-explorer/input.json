@@ -1,35 +1,17 @@
 {
   "schema_version": "1.0",
-  "iteration": 2,
+  "iteration": 3,
   "resolved_inputs": [],
   "feedback": [
     {
       "id": "F1",
-      "issue": "The core purpose is 'human feedback,' which requires the person to see the results of a menu action before deciding what to do next — but no requirement states that the freshly produced outputs (discovery notes from Explore, open questions from Clarifying Questions, replaced artifacts after Repeat from the Beginning) are shown to the person in the paused view. R8/R9/R12 say fresh output is 'produced' but never that it is surfaced for review, leaving the feedback loop's central affordance unspecified.",
+      "issue": "R5 and R26 both say the automatic loop should not run again 'until the person resumes or finishes,' and the assumptions section states 'Anyone who can view the pipeline can pause, resume, and use the menu' — yet no requirement defines a resume capability. R1 specifies only a pause control; R7's menu offers Explore, Clarifying Questions, Ask Human, Repeat from the Beginning, and Done, with no Resume item; and the stated stepping model (R21/R22/R26, and the assumption 'the automatic loop stays paused until they choose Done') says Done is the sole exit. So it is undefined — and internally contradictory — whether the person can resume the automatic loop without finishing: if resume is a real affordance it is unspecified (no control, no effect defined, no distinction from Done); if it is not, the 'resumes' language in R5/R26 and the assumptions is stray and makes the 'resumes' branch of R5/R26 untestable. Resume is the direct counterpart to the ask's central 'pause' verb, so this ambiguity should be resolved rather than left to design.",
       "severity": "major",
       "target_artifact": ".pipeliner/phases/01-define/main/requirements-writer/output/requirements.md"
     },
     {
       "id": "F2",
-      "issue": "'Repeat from the Beginning' (R12/R13) triggers a multi-step restart of the whole Define workflow, but R15/R16 only define the return-to-paused-menu behavior for a re-run of a single step. It is undefined whether the phase stays paused while the restart runs through its several steps and when control returns to the person — after the first step, or after the whole workflow re-converges. This ambiguity means the interaction between a multi-step action and the 'step through one action at a time' model is unresolved.",
-      "severity": "major",
-      "target_artifact": ".pipeliner/phases/01-define/main/requirements-writer/output/requirements.md"
-    },
-    {
-      "id": "F3",
-      "issue": "No requirement covers the failure path for a menu-triggered re-run. Discovery notes state workers can error or let leases expire, yet the menu actions (R8-R13) assume success. It is unspecified what the person sees if a re-run fails or times out, whether they are returned to the paused menu, and whether the phase remains safely paused rather than proceeding on a failed/partial result.",
-      "severity": "major",
-      "target_artifact": ".pipeliner/phases/01-define/main/requirements-writer/output/requirements.md"
-    },
-    {
-      "id": "F4",
-      "issue": "R14 maps 'Done' to 'the existing approval that ends the Define phase,' but the existing approval is only valid at a settled gate (consensus / awaiting_human per the discovery notes), whereas a pause can be requested mid-loop before convergence. It is unspecified whether Done is available and valid when the phase is paused before it has converged — i.e., whether choosing Done force-approves un-converged work or is gated. Testability of R14 depends on resolving this precondition.",
-      "severity": "minor",
-      "target_artifact": ".pipeliner/phases/01-define/main/requirements-writer/output/requirements.md"
-    },
-    {
-      "id": "F5",
-      "issue": "Atomicity: R13 bundles two distinct, independently testable behaviors — (a) fresh results replace earlier results / latest-only, and (b) the person's previously submitted answers and notes are carried forward as feedback. Similarly R23 bundles three separate regression guarantees (approving, sending back, and answering questions at the settled gate). Each should be split into singular requirements so each can be verified on its own.",
+      "issue": "The in-flight display for a single-step menu re-run (Explore, R8; Clarifying Questions, R10) is unspecified. R15 explicitly defines a 'restart in progress' state and suppresses the paused menu for the multi-step Repeat-from-the-Beginning restart, and R9/R11 (success) and R24/R25 (failure) define the end states, but no requirement says what the person sees while an Explore or Clarifying-Questions re-run is still running — whether the menu is shown, disabled, or replaced by an in-progress indicator. R28/R29 prevent an actual overlapping run but govern system behavior, not what is displayed, leaving an inconsistency with R15's explicit treatment of the multi-step case and a gap a downstream designer would have to guess at.",
       "severity": "minor",
       "target_artifact": ".pipeliner/phases/01-define/main/requirements-writer/output/requirements.md"
     }
