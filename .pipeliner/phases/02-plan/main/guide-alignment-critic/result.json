@@ -2,10 +2,10 @@
   "schema_version": "1.0",
   "step": "guide-alignment-critic",
   "status": "succeeded",
-  "iteration": 1,
+  "iteration": 2,
   "worker": {
     "id": "wk_personal-macbook-local",
     "backend": "claude-code"
   },
-  "summary": "I checked for the artifact under review and found none: `input.json` has an empty `resolved_inputs`, no planner design/spec output exists anywhere under `.pipeliner/` (the plan phase contains only this critic step's own scaffolding — `step.json`, `input.json`, `prompt.md`), and there is no diff between `HEAD` and `main`. I confirmed both `guides/backend-guide.md` and `guides/ui-style-guide.md` exist and are readable, but with no design, specs, or code diff to evaluate against them, there is nothing to align-check. I therefore wrote `verdict.json` with verdict `not_applicable` and empty findings, noting the review should be re-run once the plan phase produces an artifact and threads it into this step's inputs."
+  "summary": "I read both guides (`guides/backend-guide.md`, `guides/ui-style-guide.md`) and checked the plan-phase work under review — the technical design (`design-writer/output/design.md`) and the executable specs the spec-writer wrote (`test/lib/pipelines/status_summary_test.rb`, `test/services/pipelines/broadcast_status_test.rb`, `test/integration/pipeline_live_status_test.rb`) — grounding my findings against the actual codebase (`StatusHelper`, `StepRuns::BroadcastCard`, `StepRuns::Claim`). The work is strongly guide-aligned: the derivation is a side-effect-free PORO in `app/lib` using `.for` (correctly not the service `.call`), the broadcast is a thin service mirroring `BroadcastCard` and targeting the smallest DOM unit after commit, controllers stay thin with a persistence-only `with_board` scope, and views reuse the centralized semantic tones, Tailwind Card/type scale, `aria-live=\"polite\"`, and dot-plus-word so status is never color-alone. I found no blocker or major deviations, so I emitted a `needs_work` verdict carrying two minor, non-blocking reconciliation findings: (F1) the summary's `:muted` tone for an aborted/canceled pipeline conflicts with `StatusHelper::STATUS_TONES` mapping `aborted => :danger`, risking two colors for one state against the ui-style-guide's \"semantic and reserved\" / \"one source of truth\" rules; and (F2) the board flow uses integration request specs rather than the system tests the backend-guide names for critical flows (justified by the missing system-test base class). The verdict is written to `verdict.json`."
 }

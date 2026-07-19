@@ -1,7 +1,20 @@
 {
   "schema_version": "1.0",
   "step": "guide-alignment-critic",
-  "verdict": "not_applicable",
-  "summary": "No reviewable artifact was provided. input.json lists no resolved_inputs, no planner design/spec output exists anywhere under .pipeliner/ (only this critic step's own scaffolding: step.json, input.json, prompt.md), and there is no diff between HEAD and main. With no design, specs, or code diff to check against guides/backend-guide.md or guides/ui-style-guide.md, there is nothing to evaluate. Both guides were confirmed present; alignment review should be re-run once the plan phase produces an artifact and it is threaded into this step's inputs.",
-  "findings": []
+  "verdict": "needs_work",
+  "summary": "The design (design.md) and specs (status_summary_test.rb, broadcast_status_test.rb, pipeline_live_status_test.rb) are strongly aligned with both guides: derivation logic sits in a reusable side-effect-free PORO in app/lib with a read-only `.for` (correctly not the `.call` the backend-guide reserves for verb-first services), the summary broadcast is a thin service mirroring the existing StepRuns::BroadcastCard (backend-guide 'Broadcasts happen from services, after commit; target the smallest DOM unit'), controllers stay thin with a persistence-only `with_board` model scope, and views reuse StatusHelper tones, the guide's Tailwind Card/type scale, aria-live='polite', and dot-plus-word so status is never color-alone (ui-style-guide a11y). No blocker or major deviations. Two minor guide-reconciliation items remain: (1) the summary derives tone `:muted` for an aborted/canceled pipeline while the centralized StatusHelper::STATUS_TONES maps 'aborted' => :danger, so the summary dot and any status_badge for the same pipeline could show different colors, in tension with ui-style-guide 'Status colors are semantic and reserved' + 'one source of truth per component'; and (2) the board flow is specified with integration request specs rather than the system tests the backend-guide names for critical flows. Both are minor and non-blocking.",
+  "findings": [
+    {
+      "id": "F1",
+      "target_artifact": ".pipeliner/phases/02-plan/main/design-writer/output/design.md (§3.1 branch 3; §3.4) and test/lib/pipelines/status_summary_test.rb",
+      "issue": "The summary assigns tone :muted to an aborted/canceled pipeline, but the centralized StatusHelper::STATUS_TONES maps \"aborted\" => :danger (red). Because the design keeps the pipeline's existing status_badge (which colors via STATUS_TONES), the same aborted pipeline could show a gray summary dot and a red status badge simultaneously. ui-style-guide 'Color — Status colors are semantic and reserved — never used decoratively' and 'Core components — one source of truth per component' require a single semantic color per state. Recommend reconciling the tone source: either derive the summary tone from STATUS_TONES, or add an explicit 'canceled' semantic to StatusHelper (a deliberate cancel is arguably muted, not danger) and propose that guide/table addition in the same PR, per CLAUDE.md 'if the guide is silent, follow its principles, then propose a guide addition.'",
+      "severity": "minor"
+    },
+    {
+      "id": "F2",
+      "target_artifact": "test/integration/pipeline_live_status_test.rb (spec-writer output)",
+      "issue": "backend-guide 'Testing' states 'system tests cover the critical flows (pipeline board, gate approval, worker claim API).' The board's live-summary flow is covered with ActionDispatch::IntegrationTest request specs instead of a system test. The spec-writer justified this (no system-test base class configured in the repo), and request specs do exercise load-time true-state, the aria-live region, and the stream subscription, so this is a pragmatic substitution rather than a gap; noted so the deviation from the named testing expectation is explicit and Build can add a system test (or base class) if the board's live in-place update is to be verified end-to-end.",
+      "severity": "minor"
+    }
+  ]
 }
