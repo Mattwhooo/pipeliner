@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "slug": "workflow-planner",
+  "type": "planner",
+  "role": "code",
+  "prompt": "prompt.md",
+  "inputs": [],
+  "outputs": [
+    {
+      "kind": "artifact",
+      "path": "output/workflow_plan.json",
+      "artifact": "workflow_plan"
+    }
+  ],
+  "scope": null,
+  "fan_out": null
+}
