@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "guide-alignment-critic",
+  "status": "succeeded",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_opus",
+    "backend": "claude-code"
+  },
+  "summary": "I read both design guides and checked the dashboard work under review (the full diff: `app/queries/dashboard/*`, `app/services/dashboard/broadcast.rb`, `HomeController`/`PhasesController`, the `home/*` views, `status_helper.rb`, `define_helper.rb`, the touched broadcast services, and the two guide additions) against them. The implementation is strongly aligned: business logic lives in query objects and a `Dashboard::Broadcast` service, controllers are thin and branch only on `result.success?`/response format, broadcasts fire from services after commit onto a per-user stream targeting the smallest DOM unit, the shared `status_badge` helper carries semantic tones with the word always shown, and — importantly — the two genuinely new patterns (the presentation-boundary rescue and the cross-pipeline per-user stream) were added to the guides *in the same PR*, exactly as the guides demand. I verified two candidate findings were actually pre-existing repo-wide conventions the dashboard merely matches (the `time_ago_in_words`/`title` timestamp pattern, absent `local-time` controller) and dropped them as unfair to flag here. I emitted a `needs_work` verdict with five minor, cited, trivially-fixable findings — off-scale status colors (`red-500`/`green-500` vs the mandated `-600`), an attention pill that bypasses the shared `status_badge` helper, run-selection/JSON-parsing logic sitting in a view helper instead of a PORO, empty states missing the required primary action, and the fleet panel using interval polling instead of Turbo Streams — with no blockers or majors, written to `verdict.json`."
+}
