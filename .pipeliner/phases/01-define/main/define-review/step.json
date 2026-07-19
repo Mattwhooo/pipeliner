@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "slug": "define-review",
+  "type": "builder",
+  "role": "review",
+  "prompt": "prompt.md",
+  "inputs": [],
+  "outputs": [
+    {
+      "kind": "artifact",
+      "path": "output/define_summary.md",
+      "artifact": "define_summary"
+    }
+  ],
+  "scope": null,
+  "fan_out": null
+}

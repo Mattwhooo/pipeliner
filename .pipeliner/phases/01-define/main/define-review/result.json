@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "define-review",
+  "status": "succeeded",
+  "iteration": 2,
+  "worker": {
+    "id": "wk_opus",
+    "backend": "claude-code"
+  },
+  "summary": "I wrote the Define phase summary to `.pipeliner/phases/01-define/main/define-review/output/define_summary.md`. It synthesizes the three required pieces in plain, skimmable language: (1) **what was decided** — a table mapping each clarifying question to your actual answers (\"put it near the sign out button,\" \"no top bar,\" and \"leave the sign-in screen alone\"), landing on moving the toggle from the sidebar's top row down into its footer next to \"Sign out,\" with no new top bar and no change to the auth screen; (2) the **full R1–R7 business requirements** reproduced verbatim and numbered; and (3) the **downstream Plan/Build/Review steps** the Workflow Planner laid out, each explained in non-technical terms with a note on why this lean, UI-focused shape fits a view-only change. It closes with a one-line statement of what approving Define confirms."
+}
