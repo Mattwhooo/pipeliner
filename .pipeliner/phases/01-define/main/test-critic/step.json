@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "slug": "test-critic",
+  "type": "critic",
+  "role": "code",
+  "prompt": "prompt.md",
+  "inputs": [],
+  "outputs": [],
+  "scope": null,
+  "fan_out": null
+}
