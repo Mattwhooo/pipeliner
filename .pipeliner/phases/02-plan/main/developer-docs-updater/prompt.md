@@ -1,0 +1,1 @@
+Update the repository's developer documentation (e.g. docs/developer-guide.md) with any new information introduced by this design: new subsystems, models, endpoints, workflows, or conventions a developer would need. Edit the real docs in the repo; keep their existing tone and structure. Do not document things that are unchanged.

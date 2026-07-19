@@ -345,6 +345,79 @@ The claim service owns the `FOR UPDATE SKIP LOCKED` query (see
 Protocol details (heartbeat 15s / lease 60s, cancel flag in the heartbeat
 response, epoch fencing) are specified in `docs/worker.md`.
 
+### Adding a derived, live-broadcast status view
+
+The **pipeline status summary** is the reference example of a piece of UI that
+is *derived* (computed from current state, never stored) and *live* (rebroadcast
+whenever that state changes). The board carries a single, prominent, plain-
+language line per pipeline — *"Define: requirements-writer is drafting
+requirements, iteration 3"*, *"Waiting on human approval at the Plan gate"*,
+*"Stuck: no online worker for role `code` in Build"* — that always reflects the
+true current state. Copy this shape for any future summarize-the-whole-thing view
+(a project rollup, a phase health line, etc.).
+
+Three pieces, each landing where the guides put it:
+
+- **The read is a query object** — `app/queries/pipelines/status_summary.rb`,
+  a pure PORO with no side effects (per `guides/backend-guide.md` → "Query
+  objects"). Given a pipeline it returns the sentence plus a **semantic status
+  level** drawn from the same vocabulary `StatusHelper#status_badge` /
+  `STATUS_TONES` and the UI guide's status colors already use (`running` /
+  `awaiting_human` / `stuck` / `completed` / …), so the summary and the badge
+  can never disagree. It derives the line by looking at the pipeline's `status`
+  and `current_phase` first (a pipeline at `awaiting_human` / `stuck` /
+  `completed` / `aborted` describes itself without touching runs — and an
+  `awaiting_human` pipeline whose current phase is `gate_human?` reads as
+  *"Waiting on human approval at the &lt;Phase&gt; gate"*), then, for a `running`
+  pipeline, at the current phase's most salient `StepRun`: `Step#latest_run` /
+  `Step#active_run?` find the run in flight, and a `running` run names its
+  step's role and `iteration` and its latest `progress["message"]` (the same
+  field the step card shows); otherwise it falls back to the ready/claimed
+  frontier. Keep every branch of the wording in this one object so there is a
+  single source of truth for how state reads in English — distinct from
+  `ManagerDecision#rationale`, which is the *persisted* per-decision log, not
+  the live board line.
+
+  ```ruby
+  # app/queries/pipelines/status_summary.rb
+  module Pipelines
+    class StatusSummary
+      Summary = Data.define(:level, :headline, :detail)
+
+      def initialize(pipeline) = @pipeline = pipeline
+      def summary = ...  # -> Summary; pure, reads current associations only
+    end
+  end
+  ```
+
+- **The render is the smallest DOM unit.** A `pipelines/_status_summary`
+  partial renders inside a container keyed `dom_id(pipeline, :summary)`, placed
+  high on `pipelines/show` (above the phase columns) and wrapped in an
+  `aria-live="polite"` region so screen readers announce changes — status is
+  carried by an icon/label + the sentence, **never color alone** (UI guide).
+  `pipelines/show` already establishes the stream with
+  `turbo_stream_from @pipeline`; the summary reuses it. Because the partial is
+  rendered on load from the same query object, a dropped broadcast is cosmetic,
+  never a correctness bug.
+
+- **The broadcast is a one-line helper fired from the services that already
+  mutate state** — never a model callback. Mirror `StepRuns::BroadcastCard`
+  with a `Pipelines::BroadcastStatusSummary.call(pipeline)` that
+  `broadcast_replace_later_to(pipeline, target: dom_id(pipeline, :summary),
+  partial: "pipelines/status_summary")`. Add that one call, after commit,
+  wherever pipeline-visible state turns over: `StepRuns::RecordProgress` and
+  `StepRuns::Complete` (run progressed/finished), `Phases::ManagerTick`
+  (dispatch / routing / consensus / gate advance / escalation to
+  `awaiting_human`), `StepRuns::Sweep` (a run went `stuck` or recovered), and
+  `Pipelines::Create` (first paint). These services already broadcast per-step
+  cards to the same `pipeline` stream (`dom_id(step, :card)`) — the summary is
+  one more replace alongside, targeting a different DOM id.
+
+This is the first **pipeline-level** broadcast in the app; until now only step
+cards (`dom_id(step, :card)`) streamed. The precedent to keep: derived reads are
+query objects, live rebroadcast is a thin helper called by state-changing
+services after commit, and the on-load render is always authoritative.
+
 ---
 
 ## 6. How to debug
