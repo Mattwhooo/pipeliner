@@ -1,0 +1,1 @@
+From the ask and the draft requirements, write the open questions where human context would materially change the outcome: ambiguities, unstated preferences, tradeoffs only the requester can decide. Number them, keep each answerable in a sentence or two, and note your assumed default for each. These are presented to a human at the phase gate.
