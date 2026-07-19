@@ -14,6 +14,11 @@ Rails.application.routes.draw do
 
   resources :projects, only: [ :index, :show, :new, :create ] do
     resources :pipelines, only: [ :new, :create ]
+    resource :pipeline_template, only: [ :show, :update ] do
+      resources :steps, only: [ :create, :destroy ], controller: "pipeline_template_steps" do
+        post :move, on: :member
+      end
+    end
   end
   resources :pipelines, only: [ :index, :show ]
   resources :workers, only: [ :index ]

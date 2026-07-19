@@ -8,8 +8,12 @@
     </div>
     <p class="mt-1 font-mono text-xs text-gray-500"><%= @project.repo_url %></p>
   </div>
-  <%= link_to "New pipeline", new_project_pipeline_path(@project),
-        class: "rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700" %>
+  <div class="flex items-center gap-3">
+    <%= link_to "Pipeline template", project_pipeline_template_path(@project),
+          class: "rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50" %>
+    <%= link_to "New pipeline", new_project_pipeline_path(@project),
+          class: "rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700" %>
+  </div>
 </div>
 
 <h2 class="mt-10 text-lg font-semibold text-gray-900">Pipelines</h2>
