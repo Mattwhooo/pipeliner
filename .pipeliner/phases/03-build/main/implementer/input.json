@@ -1,6 +1,13 @@
 {
   "schema_version": "1.0",
-  "iteration": 2,
+  "iteration": 3,
   "resolved_inputs": [],
-  "feedback": []
+  "feedback": [
+    {
+      "id": "F1",
+      "issue": "The comment spanning lines 7-10 contains a literal `*/` inside the words 'raw gray-*/white', which closes the CSS comment early. The rest of the intended comment text is left as invalid CSS, and this consumes the light-mode `:root { ... }` block (lines 11-21) that declares the default (non-dark) values for --color-app, --color-surface, --color-surface-hover, --color-border, --color-text, --color-text-muted, --color-text-subtle, --color-nav-active-bg, and --color-nav-active-text. Verified against the compiled app/assets/builds/tailwind.css: only the `.dark { ... }` override for these custom properties exists; the light-mode `:root` declarations are missing entirely. Every view using bg-app, bg-surface, bg-surface-hover, border-default, divide-default, ring-default, text-default, text-muted, text-subtle, bg-nav-active, or text-nav-active (dozens of swept views) will render with these colors undefined whenever the `dark` class is absent -- i.e. the app is broken by default for light-mode/system-light users, which is the majority default path per this feature's own requirement to follow system preference.",
+      "severity": "blocker",
+      "target_artifact": "app/assets/tailwind/application.css"
+    }
+  ]
 }
