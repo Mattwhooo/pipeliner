@@ -16,7 +16,7 @@ module Phases
     end
 
     def call
-      return Result.failure(:not_pausable, record: @phase) unless @phase.status.in?(PAUSABLE_STATUSES)
+      return Result.failure(:not_pausable, record: @phase) unless pausable?
       return Result.success(@phase) if @phase.pause_requested? # idempotent re-click
 
       if @phase.any_step_active?
@@ -27,6 +27,17 @@ module Phases
 
       BroadcastColumn.call(@phase)
       Result.success(@phase)
+    end
+
+    private
+
+    # Pausing (and the rest of the paused menu) is a Define-only feature —
+    # match Phases::AnswerQuestions#answerable?. Without this, a crafted POST
+    # to /phases/:id/pause on any running non-Define phase would set it to
+    # "paused", which Phases::TickAll skips and the board has no UI to resume
+    # from, stranding the phase.
+    def pausable?
+      @phase.define_phase? && @phase.status.in?(PAUSABLE_STATUSES)
     end
   end
 end
