@@ -11,7 +11,7 @@
   <div id="<%= dom_id(pipeline, :summary) %>" aria-live="polite"
        class="flex items-center gap-2">
     <span class="h-2 w-2 shrink-0 rounded-full <%= summary_dot_class(summary.tone) %>" aria-hidden="true"></span>
-    <span class="truncate text-sm text-gray-700"><%= summary.text %></span>
+    <span class="truncate text-sm text-gray-500"><%= summary.text %></span>
   </div>
 <% else %>
   <div id="<%= dom_id(pipeline, :summary) %>" aria-live="polite"
