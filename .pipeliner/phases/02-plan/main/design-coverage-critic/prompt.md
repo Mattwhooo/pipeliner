@@ -1,0 +1,1 @@
+Check the technical design against the business requirements: is every requirement addressed? Anything designed that no requirement asks for? Emit a structured verdict.

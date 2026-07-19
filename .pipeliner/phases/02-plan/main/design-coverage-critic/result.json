@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "design-coverage-critic",
+  "status": "succeeded",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_opus",
+    "backend": "claude-code"
+  },
+  "summary": "I reviewed the technical design (`design.md`) against the seven business requirements (`requirements.md`) for coverage in both directions. Forward: every requirement R1–R7 is explicitly addressed and traceable to a design section — the toggle's removal from the header (R1, §3.1), its relocation into a footer flex row alongside \"Sign out\" as a related pair (R2/R3, §3.2), unchanged behavior via reusing the shared partial and Stimulus controller as-is (R4), preserved keyboard reachability and focus ring (R5, §4), the untouched sign-in screen (R6), and no movement of other sidebar elements (R7, §5). Reverse: nothing is designed that no requirement asks for — the change is scoped to `_sidebar.html.erb` plus supporting test assertions, with §5 explicitly fencing off a new top bar, auth changes, and per-page header edits. I also confirmed the design's factual claims about the current header (line 5) and footer (lines 27–33) match the live `_sidebar.html.erb`. Result: **pass**, no findings, written to `verdict.json`."
+}

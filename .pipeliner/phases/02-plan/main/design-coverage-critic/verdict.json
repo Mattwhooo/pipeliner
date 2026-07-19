@@ -1,0 +1,7 @@
+{
+  "schema_version": "1.0",
+  "step": "design-coverage-critic",
+  "verdict": "pass",
+  "summary": "The technical design (design.md) covers all seven business requirements with full traceability and introduces no unrequested scope. R1 (remove toggle from header) is met by §3.1; R2 (relocate to footer next to Sign out) and R3 (grouped as a related pair) by the §3.2 flex-row footer; R4 (unchanged behavior) by leaving the _theme_toggle partial, theme_controller.js, and theme_helper.rb untouched; R5 (keyboard reachability + visible focus) by §4; R6 (sign-in screen unchanged) by explicitly not touching auth.html.erb; R7 (no other sidebar element moves) by §5 non-goals. The reverse check is clean: the change set is limited to app/views/shared/_sidebar.html.erb plus test assertions in test/system/theme_toggle_test.rb, and §5 fences off scope creep (no new top bar, no auth changes, no per-page header changes). Verified the design's factual claims about the current header (line 5) and footer (lines 27-33) against the live _sidebar.html.erb and they are accurate.",
+  "findings": []
+}
