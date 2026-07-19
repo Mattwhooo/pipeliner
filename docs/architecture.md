@@ -80,6 +80,28 @@ Workers are outbound-only and Projects bind to an **external GitHub repo**, so:
   installation token**, scoped to the project repo, delivered in the step context
   bundle and expiring with the lease.
 
+### Local hub mode (keep intermediary commits off the real remote)
+
+A project's `repo_url` can be a **local bare repo** ("hub") instead of the real
+remote. All pipeline traffic — step branches, per-step merges, iteration churn —
+stays on the hub; the real remote (GitHub/GitLab) sees nothing until a human
+deliberately pushes a finished pipeline branch from the hub and opens the PR/MR.
+
+```
+real remote (GitHub/GitLab)          # pristine — final branches only, pushed manually
+        ▲  (manual push of finished branch)
+local hub  ~/.pipeliner-hubs/<name>.git   # project.repo_url — all pipeline traffic
+        ▲  workers push step/**; control plane merges pipeline branches
+```
+
+Setup: `git clone --bare <working-repo-or-remote> ~/.pipeliner-hubs/<name>.git`,
+register the hub path as the project's `repo_url`. Caveats: refresh the hub from
+the real remote before new pipelines (`git fetch <remote-url> <branch>:<branch>`
+— the future update-from-base op should own this), and hub mode is inherently
+**local-first** (remote workers would need the hub served over SSH/HTTP — the
+original C1 mirror topology, worth supporting as a mode when workers leave the
+machine).
+
 ## Deployment topology
 
 - **Local-first for now** — the control plane runs **locally** while iterating
