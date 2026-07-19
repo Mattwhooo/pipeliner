@@ -1,0 +1,7 @@
+{
+  "schema_version": "1.0",
+  "step": "guide-alignment-critic",
+  "verdict": "pass",
+  "summary": "The Define-phase artifacts (requirements.md, discovery_notes.md, open_questions.md) align with guides/backend-guide.md and guides/ui-style-guide.md. Requirements are correctly business-level and technology-agnostic, so they make no architectural choice that could deviate from a guide. Discovery notes accurately carry the binding guide constraints forward: they read the UI guide's 'Dark mode later — don't hand-roll it per view' (Color section) as a mandate to centralize via tokens/variants/shared components rather than scatter per-view dark: overrides; they preserve the semantic/reserved status-color rules and the soft badge form (status_helper.rb as the single source), consistent with R12/R13 and 'status never by color alone'; they route any server-side preference persistence through a PORO service with a thin controller and Minitest per the backend guide; and they restate the 'propose a guide addition in the same PR' rule for any deviation. No guide rule is contradicted and the guide direction is correctly surfaced for Plan/Build.",
+  "findings": []
+}
