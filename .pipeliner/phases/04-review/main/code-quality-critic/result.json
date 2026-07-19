@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "code-quality-critic",
+  "status": "succeeded",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_opus",
+    "backend": "claude-code"
+  },
+  "summary": "I reviewed the full dark-mode diff — the CSS token layer (`application.css`), the Stimulus `theme_controller.js`, the `theme_helper.rb`, the pre-paint inline init script, the toggle partial, the ~20 converted views, the guide update, and the new helper/system tests. The architecture is sound: semantic color utilities redefined under a class-based `.dark` variant repaint the whole app with no per-view duplication, the inline head script applies the theme pre-paint (avoiding FOUC) with the server independently stamping `dark` on `<html>` from the cookie, and there are no security issues — CSP is fully commented out so the inline script runs, that script has no interpolation and is regex-restricted to `dark|light`, and the theme cookie is non-sensitive with `SameSite=Lax`. View conversion is complete (no orphaned raw grays/whites), and the default-to-system requirement is met with a manual toggle that correctly persists. I found one genuine but narrow correctness bug — the OS-preference `matchMedia` change listener is never torn down after an explicit toggle, so a mid-session OS theme change can override the user's manual choice — and recorded it as a minor finding with verdict `needs_work` in `verdict.json`."
+}
