@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0",
+  "step": "requirements-completeness-critic",
+  "verdict": "needs_work",
+  "summary": "The 15 requirements cover the main lifecycle states (active step, human gate, waiting for worker, phase transition, concurrency, complete, failed), live updates, load-time truth, accessibility, and coexistence with per-step cards, and most are written in testable when/should form. However, the set is incomplete in two material ways: it never defines which surfaces constitute 'the pipeline board' (show page vs. pipelines index — flagged as the top open question by the clarifying-questions step), and it has no requirement for pipelines with no current activity that are neither complete nor failed (not yet started, paused, or canceled), leaving the summary undefined for those states. A few requirements also use unverifiable qualifiers ('prominent', 'right away', 'fairly reflects') that need concrete, observable criteria before Plan can write acceptance tests.",
+  "findings": [
+    {
+      "id": "F1",
+      "target_artifact": ".pipeliner/phases/01-define/main/requirements-writer/output/requirements.md",
+      "issue": "No requirement defines which surfaces 'the pipeline board' includes. The clarifying-questions artifact (Q1) identifies two candidates — the pipeline show page and the pipelines index table — with an assumed default of both (full summary on show, compact live cell on index). The requirements never resolve this, so the feature's scope is ambiguous: R1–R15 could be satisfied on one page while the other keeps stale static status. Add a requirement enumerating the surfaces and what form the summary takes on each.",
+      "severity": "major"
+    },
+    {
+      "id": "F2",
+      "target_artifact": ".pipeliner/phases/01-define/main/requirements-writer/output/requirements.md",
+      "issue": "State coverage is enumerated but not exhaustive: there is no requirement for a pipeline with no current activity that is neither complete (R8) nor failed (R9) — e.g. created but not yet started, paused, or canceled. For those pipelines the summary content is unspecified, violating R11's promise that every summary reflects true current state. Add either explicit requirements for the remaining states or a catch-all requirement that every possible pipeline state maps to a defined, truthful plain-language summary.",
+      "severity": "major"
+    },
+    {
+      "id": "F3",
+      "target_artifact": ".pipeliner/phases/01-define/main/requirements-writer/output/requirements.md",
+      "issue": "R7's 'fairly reflects the concurrent activity' is not testable — 'fairly' has no observable criterion, and the requirement leaves the aggregation behavior open ('naming the activities together or summarizing them'). Specify a concrete rule, e.g. the clarifying-questions Q2 default: name the steps when two or fewer are active, otherwise show a count.",
+      "severity": "minor"
+    },
+    {
+      "id": "F4",
+      "target_artifact": ".pipeliner/phases/01-define/main/requirements-writer/output/requirements.md",
+      "issue": "R10's 'update by itself right away' has no verifiable bound. Rephrase in observable terms — e.g. the summary updates without user action as a consequence of the state-changing event (push on state transition), optionally with a latency ceiling — so a test can pass or fail it.",
+      "severity": "minor"
+    },
+    {
+      "id": "F5",
+      "target_artifact": ".pipeliner/phases/01-define/main/requirements-writer/output/requirements.md",
+      "issue": "R1's 'prominent' is subjective and untestable as written. Anchor it to a checkable placement/treatment, e.g. 'appears above the per-step cards in the pipeline header area' (exact styling stays with guides/ui-style-guide.md).",
+      "severity": "minor"
+    },
+    {
+      "id": "F6",
+      "target_artifact": ".pipeliner/phases/01-define/main/requirements-writer/output/requirements.md",
+      "issue": "R3 requires the iteration number unconditionally, which conflicts with the clarifying-questions Q7 assumed default (show iteration only when >= 2 to keep the common first pass short). Either wording is acceptable, but the requirements and the recorded defaults should agree; pick one and state it explicitly.",
+      "severity": "minor"
+    }
+  ]
+}

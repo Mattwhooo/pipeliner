@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "requirements-completeness-critic",
+  "status": "succeeded",
+  "iteration": 3,
+  "worker": {
+    "id": "wk_personal-macbook-local",
+    "backend": "claude-code"
+  },
+  "summary": "I reviewed the business requirements for the live pipeline status summary feature. My step's `input.json` had no resolved inputs, so I located the requirements-writer's output (`requirements.md`, 15 requirements) on its step branch `step/01-define/main/requirements-writer/25ae6f7685c87a1b` and cross-checked it against the pipeline ask and the clarifying-questions-writer's `open_questions.md`. The requirements cover the main lifecycle states, live updates, load-time accuracy, accessibility, and coexistence with per-step cards, but I issued a **needs_work** verdict with six findings in `verdict.json`: two major gaps — the set never defines which surfaces \"the pipeline board\" includes (show page vs. pipelines index, the top open question from the clarifying step) and has no requirement for pipelines that are idle but neither complete nor failed (not started, paused, canceled) — plus four minor testability/consistency issues: untestable qualifiers \"fairly reflects\" (R7), \"right away\" (R10), and \"prominent\" (R1), and R3's unconditional iteration display conflicting with the recorded Q7 default of showing it only from iteration 2 onward."
+}
