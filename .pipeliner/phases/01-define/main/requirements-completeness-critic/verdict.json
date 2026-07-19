@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "step": "requirements-completeness-critic",
+  "verdict": "needs_work",
+  "summary": "The requirements are largely atomic, testable, and written as plain 'when X, Y' statements, and they cover access/scope, at-a-glance numbers, recent activity, empty/first-run states, freshness, and consistency well. However, the 'Things that need attention' section only handles pipelines awaiting human approval and omits stuck/blocked pipelines that the discovery notes flagged as attention-worthy — a genuine completeness gap for a page whose job is 'what should I look at right now?'. Three smaller issues (a redundant count, an unspecified worker-count scope, and no data-load-failure state) also warrant a light revision.",
+  "findings": [
+    {
+      "id": "F1",
+      "target_artifact": ".pipeliner/phases/01-define/main/requirements-writer/output/requirements.md",
+      "issue": "The 'Things that need attention' section (R10-R12) surfaces only pipelines paused waiting for human approval. The discovery notes explicitly identified the attention set as stuck / blocked / awaiting_human, and for a landing page answering 'what should I look at right now?', stuck and blocked pipelines are arguably the most urgent items. They currently appear only as counts in R5, with no requirement to list them or route the user to resolve them. Either extend the attention list/actions to cover stuck and blocked pipelines, or add an explicit requirement stating they are intentionally count-only and why.",
+      "severity": "major"
+    },
+    {
+      "id": "F2",
+      "target_artifact": ".pipeliner/phases/01-define/main/requirements-writer/output/requirements.md",
+      "issue": "R6 (show a count of pipelines currently waiting on a person) duplicates a value R5 already requires as part of its per-status breakdown (which includes 'waiting on a person'). This makes the requirement set non-singular. Merge R6 into R5, or reframe R6 so it clearly adds something R5 does not (e.g., a distinct prominent placement).",
+      "severity": "minor"
+    },
+    {
+      "id": "F3",
+      "target_artifact": ".pipeliner/phases/01-define/main/requirements-writer/output/requirements.md",
+      "issue": "R7 and R17 require an online-worker count but do not state whether that count is global (the Workers page is unscoped shared infrastructure, per discovery notes) or scoped to the current user's context. Without that decision the requirement is not unambiguously testable. Specify the scope of the worker count.",
+      "severity": "minor"
+    },
+    {
+      "id": "F4",
+      "target_artifact": ".pipeliner/phases/01-define/main/requirements-writer/output/requirements.md",
+      "issue": "R18/R19 cover first-run and empty-section states, but no requirement covers what the person sees if the Dashboard's data cannot be loaded at all (a load/aggregation failure, distinct from 'nothing to show'). Add a requirement so a failure is communicated in plain words rather than appearing broken.",
+      "severity": "minor"
+    }
+  ]
+}
