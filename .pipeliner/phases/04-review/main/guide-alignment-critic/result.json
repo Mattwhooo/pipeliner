@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "guide-alignment-critic",
+  "status": "succeeded",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_opus",
+    "backend": "claude-code"
+  },
+  "summary": "I read both design guides and checked the dark-mode diff (CSS token layer, ThemeHelper, StatusHelper, the Stimulus theme controller, both layouts, the sidebar/auth/toggle partials, the swept views, and the tests) against them. The change is strongly guide-aligned: it adds no business-logic surface (the only Ruby is a presentation-only `ThemeHelper#dark_theme?` cookie reader — correctly a helper, not a service — with no controller/model/callback/job changes, satisfying the backend guide), it centralizes neutrals as `@theme`/`.dark` CSS custom-property tokens with a class-based `@custom-variant dark` and leaves zero raw `gray-*`/`white` neutrals in any view, keeps status colors in the single `StatusHelper::TONE_CLASSES` source of truth using exactly the guide's soft-badge + dark pattern with the status word always shown, uses Minitest (helper + system test) for the critical flow, and updates the UI guide in the same PR as CLAUDE.md requires. I found one **minor** deviation — the new theme-toggle button uses `focus-visible:outline-*` instead of the guide's canonical `focus-visible:ring-2 ring-indigo-600` focus pattern that every other interactive element in the app follows — and emitted a `needs_work` verdict with that single finding to `verdict.json`."
+}
