@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "requirements-writer",
+  "status": "succeeded",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_personal-macbook-local",
+    "backend": "claude-code"
+  },
+  "summary": "I wrote the business requirements to the declared output path.\n\n**Summary:** From the ask (a dashboard giving an at-a-glance view of active pipelines with their phase/status, recent activity, and worker fleet health) and the design docs — since no discovery notes existed, I grounded the requirements in the project's own vocabulary (the Define→Plan→Build→Review phases, pipeline/phase/worker statuses, role-based worker matching, stuck-step detection, and project membership) so they describe real behavior in non-technical language. I produced 28 atomic, numbered requirements (R1–R28) in \"When X happens, Y should happen\" form, organized into six areas: access & scoping, at-a-glance summary counts, active pipelines and their status (including attention-flagging for pipelines waiting on a person or stalled, and status-not-by-color-alone), a recent-activity feed, worker fleet health (availability, role coverage gaps, stale-worker handling, no-workers warning), and freshness/live-update behavior with graceful empty and error states."
+}
