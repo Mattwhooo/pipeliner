@@ -1,7 +1,8 @@
-<aside class="flex w-56 shrink-0 flex-col border-r border-gray-200 bg-white">
-  <div class="flex h-14 items-center gap-2 border-b border-gray-200 px-4">
+<aside class="flex w-56 shrink-0 flex-col border-r border-default bg-surface">
+  <div class="flex h-14 items-center gap-2 border-b border-default px-4">
     <span class="inline-block h-2.5 w-2.5 rounded-full bg-indigo-600"></span>
-    <span class="text-sm font-semibold text-gray-900">Pipeliner</span>
+    <span class="text-sm font-semibold text-default">Pipeliner</span>
+    <div class="ml-auto"><%= render "shared/theme_toggle" %></div>
   </div>
 
   <nav class="flex-1 space-y-1 px-2 py-4">
@@ -10,12 +11,12 @@
         <%= link_to item.path,
               class: class_names(
                 "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium",
-                item.active ? "bg-indigo-50 text-indigo-700" : "text-gray-700 hover:bg-gray-50"
+                item.active ? "bg-nav-active text-nav-active" : "text-default hover:bg-surface-hover"
               ) do %>
           <span><%= item.label %></span>
         <% end %>
       <% else %>
-        <span class="flex cursor-not-allowed items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-gray-300"
+        <span class="flex cursor-not-allowed items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-subtle"
               title="Coming soon">
           <%= item.label %>
         </span>
@@ -24,10 +25,10 @@
   </nav>
 
   <% if user_signed_in? %>
-    <div class="border-t border-gray-200 p-3">
-      <div class="truncate text-xs text-gray-500" title="<%= current_user.email %>"><%= current_user.email %></div>
+    <div class="border-t border-default p-3">
+      <div class="truncate text-xs text-muted" title="<%= current_user.email %>"><%= current_user.email %></div>
       <%= button_to "Sign out", destroy_user_session_path, method: :delete,
-            class: "mt-1 text-xs font-medium text-gray-500 hover:text-gray-900 bg-transparent" %>
+            class: "mt-1 text-xs font-medium text-muted hover:text-default bg-transparent" %>
     </div>
   <% end %>
 </aside>
