@@ -352,70 +352,104 @@ is *derived* (computed from current state, never stored) and *live* (rebroadcast
 whenever that state changes). The board carries a single, prominent, plain-
 language line per pipeline — *"Define: requirements-writer is drafting
 requirements, iteration 3"*, *"Waiting on human approval at the Plan gate"*,
-*"Stuck: no online worker for role `code` in Build"* — that always reflects the
-true current state. Copy this shape for any future summarize-the-whole-thing view
+*"Build: 4 steps are running"*, *"Failed in Build: code-writer could not
+complete"* — that always reflects the true current state. Copy this shape for any future summarize-the-whole-thing view
 (a project rollup, a phase health line, etc.).
 
 Three pieces, each landing where the guides put it:
 
-- **The read is a query object** — `app/queries/pipelines/status_summary.rb`,
-  a pure PORO with no side effects (per `guides/backend-guide.md` → "Query
-  objects"). Given a pipeline it returns the sentence plus a **semantic status
-  level** drawn from the same vocabulary `StatusHelper#status_badge` /
-  `STATUS_TONES` and the UI guide's status colors already use (`running` /
-  `awaiting_human` / `stuck` / `completed` / …), so the summary and the badge
-  can never disagree. It derives the line by looking at the pipeline's `status`
-  and `current_phase` first (a pipeline at `awaiting_human` / `stuck` /
-  `completed` / `aborted` describes itself without touching runs — and an
-  `awaiting_human` pipeline whose current phase is `gate_human?` reads as
-  *"Waiting on human approval at the &lt;Phase&gt; gate"*), then, for a `running`
-  pipeline, at the current phase's most salient `StepRun`: `Step#latest_run` /
-  `Step#active_run?` find the run in flight, and a `running` run names its
-  step's role and `iteration` and its latest `progress["message"]` (the same
-  field the step card shows); otherwise it falls back to the ready/claimed
-  frontier. Keep every branch of the wording in this one object so there is a
-  single source of truth for how state reads in English — distinct from
-  `ManagerDecision#rationale`, which is the *persisted* per-decision log, not
-  the live board line.
+- **The read is a domain value PORO** — `app/lib/pipelines/status_summary.rb`,
+  a pure derivation object with no side effects. It lives in `app/lib`, **not**
+  `app/queries`: a query object returns an `ActiveRecord::Relation`, but this
+  returns an in-memory value, so it belongs with "app/lib for app-specific POROs
+  that aren't services/queries" (`guides/backend-guide.md`). Its entry point is
+  `Pipelines::StatusSummary.for(pipeline)` — `.for`, **not** `.call`, because the
+  guide reserves `.call` for verb-first services that perform a business action;
+  a pure read reads more honestly as `.for` and won't be mistaken for a mutation.
+  It returns a `Summary` value carrying the finished sentence (`text`, never
+  blank) plus a **semantic tone** (`:info` / `:success` / `:attention` /
+  `:danger` / `:muted`) drawn from the same `StatusHelper` `STATUS_TONES` /
+  `TONE_CLASSES` vocabulary the badges use, so the summary and the badge can
+  never disagree.
+
+  `build` is a **total function**: an ordered list of first-match branches,
+  most operationally salient first, ending in an **unconditional catch-all** so
+  every current or future pipeline state yields a non-blank, truthful sentence.
+  The order is completed → failed (names the phase, and the step when known) →
+  canceled (`aborted`) → awaiting-human (gate wait vs. escalation) →
+  blocked/stuck → running → not-started → default. For a `running` pipeline it
+  looks at the current phase's **active runs** (state `running` or `claimed` — a
+  worker is actually leased): **one** active step names the phase, role, and
+  what it's doing (its latest `progress["message"]`, the same field the step
+  card shows, or a type verb like `planning`/`building`/`reviewing`), appending
+  `, iteration N` **only on the 2nd+ pass** (hidden on the first attempt);
+  **two** active steps name **both**; **three or more** collapse to
+  *"&lt;Phase&gt;: N steps are running"* rather than naming each. Keep every
+  branch of the wording in this one object so there is a single source of truth
+  for how state reads in English — distinct from `ManagerDecision#rationale`,
+  which is the *persisted* per-decision log, not the live board line.
 
   ```ruby
-  # app/queries/pipelines/status_summary.rb
+  # app/lib/pipelines/status_summary.rb
   module Pipelines
     class StatusSummary
-      Summary = Data.define(:level, :headline, :detail)
+      Summary = Data.define(:text, :tone, :phase_label) do
+        def to_s = text
+      end
 
+      def self.for(pipeline) = new(pipeline).build
       def initialize(pipeline) = @pipeline = pipeline
-      def summary = ...  # -> Summary; pure, reads current associations only
+      def build = ...  # -> Summary; pure, reads current associations only
     end
   end
   ```
 
 - **The render is the smallest DOM unit.** A `pipelines/_status_summary`
-  partial renders inside a container keyed `dom_id(pipeline, :summary)`, placed
-  high on `pipelines/show` (above the phase columns) and wrapped in an
-  `aria-live="polite"` region so screen readers announce changes — status is
-  carried by an icon/label + the sentence, **never color alone** (UI guide).
+  partial renders inside a container keyed `dom_id(pipeline, :summary)`, wrapped
+  in an `aria-live="polite"` region so screen readers announce changes — status
+  is carried by a status dot + the sentence, **never color alone** (UI guide).
+  One partial, two variants selected by a `compact:` local, both calling the
+  same `StatusSummary.for` so the surfaces can never disagree: the **full**
+  variant sits high on `pipelines/show` (a Card, above the phase columns), the
+  **compact** variant is a single truncated line per row on `pipelines/index`.
   `pipelines/show` already establishes the stream with
-  `turbo_stream_from @pipeline`; the summary reuses it. Because the partial is
-  rendered on load from the same query object, a dropped broadcast is cosmetic,
-  never a correctness bug.
+  `turbo_stream_from @pipeline`; the summary reuses it — and `pipelines/index`
+  gains its **first** subscription, a per-row `turbo_stream_from pipeline`, so
+  the list updates live too. Because the partial is rendered on load from the
+  same value PORO, a dropped broadcast is cosmetic, never a correctness bug. The
+  tone → dot-color mapping goes through a one-line `PipelinesHelper`
+  (`summary_dot_class(tone)`) that reuses `StatusHelper::TONE_CLASSES`, so no new
+  color literal is introduced. To keep both controllers free of N+1, a
+  `Pipeline.with_board` scope
+  (`includes(phases: { workflows: { steps: { step_runs: :worker } } })`)
+  preloads the whole tree the summary reads; `#show` and `#index` both use it.
 
-- **The broadcast is a one-line helper fired from the services that already
+- **The broadcast is a one-line service fired from the services that already
   mutate state** — never a model callback. Mirror `StepRuns::BroadcastCard`
-  with a `Pipelines::BroadcastStatusSummary.call(pipeline)` that
+  with a `Pipelines::BroadcastStatus.call(pipeline)` that
   `broadcast_replace_later_to(pipeline, target: dom_id(pipeline, :summary),
-  partial: "pipelines/status_summary")`. Add that one call, after commit,
-  wherever pipeline-visible state turns over: `StepRuns::RecordProgress` and
-  `StepRuns::Complete` (run progressed/finished), `Phases::ManagerTick`
-  (dispatch / routing / consensus / gate advance / escalation to
-  `awaiting_human`), `StepRuns::Sweep` (a run went `stuck` or recovered), and
-  `Pipelines::Create` (first paint). These services already broadcast per-step
-  cards to the same `pipeline` stream (`dom_id(step, :card)`) — the summary is
-  one more replace alongside, targeting a different DOM id.
+  partial: "pipelines/status_summary")`. Because `_later_to` re-renders the
+  partial **in a job that reloads the pipeline from the DB**, every broadcast
+  paints freshly-derived current state — so a late or racing broadcast still
+  lands on the *actual latest* state, and an older event can never repaint a
+  stale summary over a newer one. Add that one call, after commit, wherever
+  pipeline-visible state turns over: `StepRuns::Claim`, `StepRuns::RecordProgress`
+  and `StepRuns::Complete` (run started / progressed / finished — one line right
+  after the existing `BroadcastCard.call`), and `Phases::ManagerTick` (once at
+  the end of `call`, after `broadcast_affected`). The `ManagerTick` seam is the
+  essential one: a gate-wait or an escalation to `awaiting_human` changes **only**
+  phase/pipeline status and touches no step card, so without it *"Waiting on
+  human approval at the Plan gate"* would never appear live. Keep `BroadcastStatus`
+  separate from `BroadcastCard` (don't fold it in): a tick that touches N cards
+  should refresh the one summary **once**, not N times. *(Designed but out of
+  scope, noted so it isn't mistaken for covered: broadcasting from
+  `StepRuns::Sweep` for instant `stuck` flips, first paint from `Pipelines::Create`,
+  and a real `paused` pipeline status to make "Paused" wording reachable — today
+  only `aborted` → "Canceled" is.)*
 
 This is the first **pipeline-level** broadcast in the app; until now only step
 cards (`dom_id(step, :card)`) streamed. The precedent to keep: derived reads are
-query objects, live rebroadcast is a thin helper called by state-changing
+pure value POROs, live rebroadcast is a thin service called by state-changing
 services after commit, and the on-load render is always authoritative.
 
 ---
