@@ -2,10 +2,10 @@
   "schema_version": "1.0",
   "step": "design-coverage-critic",
   "status": "succeeded",
-  "iteration": 1,
+  "iteration": 2,
   "worker": {
     "id": "wk_personal-macbook-local",
     "backend": "claude-code"
   },
-  "summary": "I audited the technical design (`design-writer/output/design.md`) against the canonical business requirements (`requirements-writer/output/requirements.md`, R1–R18) and emitted a **needs_work** verdict. The design covers surface placement, live Turbo broadcasting, load-time truth, out-of-order convergence, and accessibility well (R1–R3, R7, R8, R10, R13–R18). But because the design writer's `input.json` had `resolved_inputs: []`, it derived its own looser R1–R6 from the ask and missed six granular behaviors the real requirements specify: R4 (hide the iteration number on the first attempt — the design always appends \"iteration N\"), R5 (name both steps when two are active — the design names one plus \"+N more running\"), R6 (collapse three-plus to \"<Phase>: N steps are running\" — same mismatched mechanism), R9 (name where a failed pipeline stopped — the \"Aborted\" branch has no location), R11 (distinct Paused/Canceled wording — no such branch), and R12 (a guaranteed never-blank catch-all for uncovered/future states — no explicit default terminal fallback). I also flagged one minor over-design item (the unrequested `as_of` timestamp). Seven findings total; verdict written to `verdict.json`."
+  "summary": "I reviewed the technical design (`design.md`) against the business requirements (`requirements.md`, R1–R18) and against the seven findings from iteration 1. All seven prior findings are resolved: the design now suppresses the iteration number on first attempts (R4), names both steps when two are working (R5), collapses to \"<Phase>: N steps are running\" for three or more (R6), gives a distinct failed-state branch that names where it stopped (R9), adds an aborted→\"Canceled\" / future paused→\"Paused\" branch (R11), makes `build` a total function with an unconditional catch-all (R12), and removes the out-of-scope `as_of` timestamp. My fresh full pass confirms every requirement R1–R18 maps to a concrete component and nothing is designed that no requirement asks for (the extra Blocked/stuck branch is a real state truthfully covered under R12, not scope creep). I emitted a **pass** verdict with an empty findings list to `verdict.json`."
 }
