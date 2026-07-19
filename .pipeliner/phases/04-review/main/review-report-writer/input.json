@@ -1,11 +1,17 @@
 {
   "schema_version": "1.0",
-  "iteration": 2,
+  "iteration": 3,
   "resolved_inputs": [],
   "feedback": [
     {
       "id": "F1",
-      "issue": "The toggle button's focus indicator is `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600`, which deviates from ui-style-guide.md §Accessibility baseline ('visible focus ring (`focus-visible:ring-2 ring-indigo-600`)') and §Buttons. Every other interactive element in the app uses the ring pattern (e.g. sign-in button uses `focus-visible:ring-2 focus-visible:ring-indigo-600`; all form inputs use `focus:ring-2 focus:ring-indigo-600`). A focus indicator IS present so this is not an a11y regression, but it breaks the guide's stated focus convention and app-wide consistency. Change to `focus-visible:ring-2 focus-visible:ring-indigo-600` (with `focus:outline-none`/`focus-visible:ring-inset` as used elsewhere) to match.",
+      "issue": "The neutral (`else`) flash branch on line 7 still uses raw neutral utilities `bg-gray-50 text-gray-700 ring-gray-600/20` (with hand-rolled `dark:` variants). This is the sole view left carrying raw neutrals, and this PR edited that exact line (it added the dark: variants), so the conversion opportunity was in-hand. It violates guides/ui-style-guide.md §Color as amended by this same PR: 'Never write raw bg-white/bg-gray-*/text-gray-*/border-gray-*/divide-gray-*/ring-gray-* in a view — use the semantic utilities.' The green/red branches legitimately use reserved status colors; only the neutral fallback deviates. Route it through a semantic utility (e.g. bg-surface-hover) or reuse StatusHelper's `muted` tone. Minor: functionally correct in both themes.",
+      "severity": "minor",
+      "target_artifact": "app/views/shared/_flash.html.erb"
+    },
+    {
+      "id": "F2",
+      "issue": "The toggle's focus indicator uses `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600` rather than the guide's canonically named `focus-visible:ring-2 ring-indigo-600` (§Accessibility baseline / §Buttons). This is a genuine but borderline deviation: a visible indigo focus indicator IS present (no a11y regression), and the outline pattern already pre-exists on main in phases/show.html.erb buttons, so the toggle matches an established in-repo pattern even though it differs from the guide's stated token. The codebase is itself inconsistent (login/form controls use `ring`, phase buttons use `outline`); aligning the toggle to `focus-visible:ring-2 focus-visible:ring-indigo-600` would match the guide's literal convention. Minor.",
       "severity": "minor",
       "target_artifact": "app/views/shared/_theme_toggle.html.erb"
     }
