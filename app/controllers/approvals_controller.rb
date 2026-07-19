@@ -9,7 +9,7 @@ class ApprovalsController < ApplicationController
 
     if result.success?
       redirect_to pipeline_path(phase.pipeline),
-        notice: "#{phase.kind.humanize} approved#{phase.pipeline.reload.completed? ? " — pipeline complete" : ""}."
+        notice: "#{phase.kind.humanize} approved#{result.value.completed? ? " — pipeline complete" : ""}."
     else
       redirect_to pipeline_path(phase.pipeline),
         alert: "This phase is not awaiting approval."
