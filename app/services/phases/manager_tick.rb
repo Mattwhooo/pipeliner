@@ -175,16 +175,7 @@ module Phases
     end
 
     def advance_pipeline
-      pipeline = @phase.pipeline
-      if @phase.review_phase?
-        pipeline.update!(status: "completed")
-        return
-      end
-
-      index = Phase::KINDS_IN_ORDER.index(@phase.kind)
-      next_kind = Phase::KINDS_IN_ORDER[index + 1]
-      pipeline.phases.find_by!(kind: next_kind).update!(status: "running")
-      pipeline.update!(current_phase: next_kind, status: "running")
+      Advance.call(phase: @phase)
     end
 
     # --- helpers ------------------------------------------------------------
