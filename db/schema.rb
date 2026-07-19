@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_18_230012) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_19_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -192,6 +192,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_18_230012) do
     t.string "epoch"
     t.jsonb "feedback", default: [], null: false
     t.datetime "finished_at"
+    t.string "input_fingerprint"
     t.integer "iteration", default: 1, null: false
     t.datetime "last_heartbeat_at"
     t.datetime "lease_expires_at"

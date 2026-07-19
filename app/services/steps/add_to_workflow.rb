@@ -6,22 +6,28 @@ module Steps
   class AddToWorkflow
     DEFAULT_WORKFLOW_SLUG = "main".freeze
 
-    def self.call(phase:, attributes:, template: nil, route_to_step_id: nil, wire_linear: true)
-      new(phase:, attributes:, template:, route_to_step_id:, wire_linear:).call
+    def self.call(phase:, attributes:, template: nil, route_to_step_id: nil,
+      wire_linear: true, workflow: nil)
+      new(phase:, attributes:, template:, route_to_step_id:, wire_linear:, workflow:).call
     end
 
-    def initialize(phase:, attributes:, template:, route_to_step_id:, wire_linear: true)
+    def initialize(phase:, attributes:, template:, route_to_step_id:, wire_linear: true,
+      workflow: nil)
       @phase = phase
       @attributes = attributes.to_h.symbolize_keys
       @template = template
       @route_to_step_id = route_to_step_id
       @wire_linear = wire_linear
+      @workflow = workflow
     end
 
     def call
       step = nil
       ApplicationRecord.transaction do
-        workflow = @phase.workflows.order(:id).first ||
+        # A caller composing several parallel workflows in one phase (the Workflow
+        # Planner's split Build) passes the exact workflow to add to; otherwise
+        # fall back to the phase's single default workflow.
+        workflow = @workflow || @phase.workflows.order(:id).first ||
           @phase.workflows.create!(slug: DEFAULT_WORKFLOW_SLUG)
 
         previous_last = workflow.steps.order(:position).last
@@ -59,7 +65,10 @@ module Steps
         system_prompt: presence(@attributes[:system_prompt]) || @template&.system_prompt,
         inputs: @template&.default_inputs.presence || [],
         outputs: @template&.default_outputs.presence || [],
-        scope: @template&.default_scope,
+        # An explicit scope (a parallel Build workflow's owned paths) overrides
+        # the template default so the pre-merge scope check confines this step to
+        # its workflow's partition.
+        scope: @attributes[:scope].presence || @template&.default_scope,
         step_template: @template,
         position: (workflow.steps.maximum(:position) || 0) + 1
       }

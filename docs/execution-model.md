@@ -161,6 +161,34 @@ can't assign these to one builder. Rule:
 Rule of thumb: **parallel ⇒ clearly delineated ownership; unclear ownership ⇒
 series.**
 
+### Materializing a parallel Build (the Workflow Planner emits it)
+
+The Define **Workflow Planner** decides the Build partition. Its `workflow_plan`
+`build` value is normally a flat list of step entries → **one serial Build
+workflow**. To parallelize, it instead emits a list of **workflow objects** —
+each `{ slug, scope: { paths }, steps: [...] }` — and `Workflows::MaterializePlan`
+creates **one Workflow per entry**, stamping the workflow's `scope` onto each of
+its steps so the pre-merge scope check confines it. The Manager then dispatches
+those workflows in parallel and requires **all** of them to converge before the
+phase reaches consensus (convergence is already per-workflow).
+
+The split is honored only when it is safe, else it **falls back to a single
+serial workflow** (the steps still run, just in series) with the reason noted on
+the materialization decision:
+
+- **Disjoint scopes required.** Scopes are compared by the literal directory
+  prefix of each glob; if one prefix is a path-prefix of another (or a workflow
+  declares no paths, i.e. claims the whole repo) they overlap → serialize.
+- **Self-contained workflows.** Each parallel workflow carries its own
+  implementer and its own critic(s); a critic's `route_to` resolves **within its
+  own workflow**.
+- **Explicit project control wins.** If the project **pins** Build steps or
+  **disables manager additions**, the split is declined in favor of the pinned/
+  serial composition (the project is asserting control the split can't honor
+  unambiguously).
+- The actual git merges are still serialized by the per-project repo lock;
+  disjoint scopes are what keep two parallel implementers off each other's files.
+
 ## Gates & human-in-the-loop
 
 - **Phase 1 (Define) always has a human in the loop.**
@@ -229,6 +257,39 @@ Guardrails:
 - Each bounce is recorded (a **rework record** — see `rework.json` in
   [artifact-schema.md](./artifact-schema.md)) so the trail shows *why* the
   pipeline went backward.
+
+## Skip re-running unchanged steps (input fingerprinting)
+
+The Manager re-runs a step only when what it consumes has actually changed. Each
+dispatched run records an **input fingerprint** (`Phases::InputFingerprint`): a
+digest of the step's declared input artifacts, its worker predecessors' current
+outputs, and the feedback routed to it. When the Manager is about to re-dispatch
+a step (its iteration is being pulled forward), it compares the fingerprint the
+new run *would* carry against the step's last succeeded+merged run:
+
+- **Match → reuse (skip).** The prior run's output still stands, so the Manager
+  **fast-forwards it to the new iteration** — a succeeded+merged run carrying the
+  same commit/result/verdict, with **no worker dispatched and no re-merge** (the
+  artifacts are already on the branch at their stable paths). A **`skip`
+  `ManagerDecision`** records it. Because a reused step keeps its predecessor's
+  unchanged commit, the skip **cascades**: a whole untouched sub-graph
+  fast-forwards in one tick, and only steps downstream of an *actually changed*
+  artifact do real work. This is what keeps a critic's `needs_work` from
+  re-running steps whose inputs it never touched, and keeps inter-phase rework
+  from re-running an earlier phase's untouched steps.
+- **No match → real dispatch.** A fresh `ready` run for a worker to claim.
+
+Content identity is the **producing merge commit**, never a re-read of git: a
+re-merge always yields a new `commit_sha` (ArtifactRef is re-indexed on every
+merge) and a step that really re-ran produces a new merge commit, while a
+*reused* step copies its source's commit. So the only unsafe direction — a real
+change looking unchanged — is impossible; at worst a no-op re-merge looks changed
+and costs one avoidable re-run.
+
+Two deliberate carve-outs: **feedback is part of the fingerprint**, so Define's
+Clarifying Questions correctly re-runs after every Human Feedback answer (its
+feedback grows each round); and **a restart never reuses** ("Repeat from the
+Beginning" redoes the work even when nothing changed).
 
 ## Routing decision (who re-runs on critic failure)
 

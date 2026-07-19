@@ -102,8 +102,43 @@ SOFTWARE_PACK = [
       Use the template names verbatim as they appear in `library`. On a critic
       entry, `route_to` names the earlier step (by its exact template name)
       whose work the critic's needs_work feedback should re-run; use null when
-      there is no such target. Emit valid JSON only — no prose, no comments, no
-      markdown fences.
+      there is no such target.
+
+      PARALLEL BUILD (optional): when — and ONLY when — the build work decomposes
+      into genuinely independent areas that touch DISJOINT sets of files (e.g. a
+      backend service vs. the UI that calls it), you MAY split `build` into
+      several workflows that run in parallel. In that case make `build` a list of
+      WORKFLOW objects instead of step objects:
+
+        "build": [
+          { "slug": "backend",
+            "scope": { "paths": ["app/services/billing/**", "app/models/**"] },
+            "steps": [
+              { "template": "Implementer", "route_to": null },
+              { "template": "Test Critic", "route_to": "Implementer" }
+            ] },
+          { "slug": "ui",
+            "scope": { "paths": ["app/views/billing/**", "app/javascript/**"] },
+            "steps": [
+              { "template": "Implementer", "route_to": null },
+              { "template": "Test Critic", "route_to": "Implementer" }
+            ] }
+        ]
+
+      Rules for a split — all must hold, or you MUST keep Build as one workflow
+      (the flat list above):
+        - Each workflow declares a `scope.paths` glob list, and the scopes across
+          workflows are DISJOINT (no path a file could match belongs to two of
+          them). Overlapping or missing scopes are rejected and silently
+          serialized, so don't split unless you can partition the files cleanly.
+        - Each workflow is SELF-CONTAINED: it carries its own implementer AND its
+          own critic(s), and every `route_to` names a template inside the SAME
+          workflow. A critic in one workflow never routes into another.
+        - Shared/integration files (routes, lockfiles, migrations, a nav/index)
+          belong to NO scope — do not split work that must edit them; keep it in
+          one workflow. When in doubt, use one workflow.
+
+      Emit valid JSON only — no prose, no comments, no markdown fences.
     PROMPT
     default_outputs: [ { "artifact" => "workflow_plan", "kind" => "artifact", "path" => "output/workflow_plan.json" } ] },
   { name: "Define Review", phase: "define", step_type: "builder", role: "review", requirement: "required",

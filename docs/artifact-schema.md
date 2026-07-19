@@ -328,7 +328,12 @@ approves the Define gate off this summary.
 output: the composed DAG for the Plan, Build and Review phases (top-level `plan`,
 `build`, `review` arrays of `{ "template", "route_to" }`). It moved to Define — a
 single planner now composes all three downstream phases (see
-[execution-model.md](./execution-model.md) → "Define decision tree").
+[execution-model.md](./execution-model.md) → "Define decision tree"). `build` may
+alternatively be a list of **workflow objects** —
+`{ "slug", "scope": { "paths": [...] }, "steps": [ { "template", "route_to" } ] }`
+— to split Build into disjoint parallel workflows (see
+[execution-model.md](./execution-model.md) → "Materializing a parallel Build");
+each workflow's `scope` is stamped onto its steps for the pre-merge scope check.
 
 ## Finalization (end of Review)
 

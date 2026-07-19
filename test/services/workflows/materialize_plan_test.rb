@@ -188,6 +188,98 @@ module Workflows
       assert_match(/1 plan \+ 1 build \+ 1 review/, decision.rationale)
     end
 
+    # --- parallel Build split ------------------------------------------------
+
+    def build_workflow(slug, paths, steps)
+      { "slug" => slug, "scope" => { "paths" => paths }, "steps" => steps }
+    end
+
+    test "splits Build into parallel workflows when the scopes are disjoint" do
+      run = composer_run(
+        "build" => [
+          build_workflow("backend", [ "app/services/**" ], [
+            { "template" => "Implementer" },
+            { "template" => "Test Critic", "route_to" => "Implementer" }
+          ]),
+          build_workflow("ui", [ "app/views/**" ], [
+            { "template" => "Implementer" },
+            { "template" => "Test Critic", "route_to" => "Implementer" }
+          ])
+        ],
+        "review" => [ { "template" => "Requirements Conformance Critic" } ]
+      )
+
+      assert MaterializePlan.call(step_run: run).success?
+
+      workflows = @build_phase.workflows.order(:slug).to_a
+      assert_equal %w[backend ui], workflows.map(&:slug), "one workflow per disjoint scope"
+
+      backend = workflows.find { |w| w.slug == "backend" }
+      assert_equal %w[implementer test-critic], backend.steps.order(:position).map(&:slug)
+      impl = backend.steps.find_by!(slug: "implementer")
+      critic = backend.steps.find_by!(slug: "test-critic")
+      assert_equal [ "app/services/**" ], impl.scope["paths"], "the workflow scope is stamped on its steps"
+      assert backend.step_edges.exists?(from_step: critic, to_step: impl, kind: "route_to"),
+        "each parallel workflow is self-contained: its critic routes within it"
+
+      ui = workflows.find { |w| w.slug == "ui" }
+      assert_equal [ "app/views/**" ], ui.steps.find_by!(slug: "implementer").scope["paths"]
+
+      decision = @plan_phase.manager_decisions.order(:created_at).last
+      assert_match(/2 parallel workflows/, decision.rationale)
+    end
+
+    test "falls back to a single serial workflow when Build scopes overlap" do
+      run = composer_run(
+        "build" => [
+          build_workflow("wide", [ "app/**" ], [ { "template" => "Implementer" } ]),
+          build_workflow("narrow", [ "app/services/**" ],
+            [ { "template" => "Test Critic", "route_to" => "Implementer" } ])
+        ],
+        "review" => []
+      )
+
+      assert MaterializePlan.call(step_run: run).success?
+      assert_equal 1, @build_phase.workflows.count, "overlapping scopes serialize into one workflow"
+      workflow = @build_phase.workflows.first
+      assert_equal %w[implementer test-critic], workflow.steps.order(:position).map(&:slug)
+
+      decision = @plan_phase.manager_decisions.order(:created_at).last
+      assert_match(/split not applied/, decision.rationale)
+      assert_match(/overlap/, decision.rationale)
+    end
+
+    test "does not split Build when the project pins Build steps" do
+      pin_template(allow_additions: true, "build" => [ "Implementer" ])
+      run = composer_run(
+        "build" => [
+          build_workflow("a", [ "app/services/**" ],
+            [ { "template" => "Test Critic", "route_to" => "Implementer" } ]),
+          build_workflow("b", [ "app/views/**" ], [ { "template" => "Test Critic" } ])
+        ],
+        "review" => []
+      )
+
+      assert MaterializePlan.call(step_run: run).success?
+      assert_equal 1, @build_phase.workflows.count
+      assert_includes @build_phase.workflows.first.steps.map(&:slug), "implementer",
+        "the pinned Implementer is still materialized"
+      assert_match(/split not applied/, @plan_phase.manager_decisions.order(:created_at).last.rationale)
+    end
+
+    test "does not split Build when a scope declares no paths" do
+      run = composer_run(
+        "build" => [
+          build_workflow("scoped", [ "app/services/**" ], [ { "template" => "Implementer" } ]),
+          build_workflow("unscoped", [], [ { "template" => "Test Critic", "route_to" => "Implementer" } ])
+        ],
+        "review" => []
+      )
+
+      assert MaterializePlan.call(step_run: run).success?
+      assert_equal 1, @build_phase.workflows.count, "a whole-repo scope can't run in parallel"
+    end
+
     private
 
     def composer_run(plan)

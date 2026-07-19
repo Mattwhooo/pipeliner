@@ -291,6 +291,111 @@ module Phases
       assert_not @pipeline.reload.completed?
     end
 
+    # --- Skip unchanged inputs ----------------------------------------------
+
+    # A -> B chain where A advances an iteration but produces IDENTICAL output.
+    # B's inputs are unchanged, so it must be fast-forwarded (reused), not re-run.
+    def chain(phase)
+      workflow = phase.workflows.create!(slug: "chain-#{SecureRandom.hex(4)}")
+      a = workflow.steps.create!(slug: "a", step_type: "builder", role: "code", position: 1)
+      b = workflow.steps.create!(slug: "b", step_type: "builder", role: "code", position: 2)
+      workflow.step_edges.create!(from_step: a, to_step: b, kind: "depends_on")
+      [ workflow, a, b ]
+    end
+
+    def fingerprinted_success(step, iteration:, commit_sha:, feedback: [], result: nil)
+      step.step_runs.create!(state: "succeeded", iteration: iteration, required_role: step.role,
+        commit_sha: commit_sha, feedback: feedback, result: result,
+        input_fingerprint: InputFingerprint.for(step, feedback: feedback),
+        finished_at: Time.current, merged_at: Time.current)
+    end
+
+    test "reuses a step's succeeded run instead of re-dispatching when its inputs are unchanged" do
+      @phase.update!(status: "running")
+      _workflow, a, b = chain(@phase)
+      fingerprinted_success(a, iteration: 1, commit_sha: "sha-a")
+      b1 = fingerprinted_success(b, iteration: 1, commit_sha: "sha-b1",
+        result: { "artifacts" => { "impl" => "v1" } })
+      # A advanced to iteration 2 with the SAME output (e.g. it was itself reused).
+      fingerprinted_success(a, iteration: 2, commit_sha: "sha-a")
+
+      run!
+
+      b2 = b.reload.latest_run
+      assert_equal 2, b2.iteration
+      assert_equal "succeeded", b2.state, "B is reused (fast-forwarded), not re-dispatched"
+      assert b2.merged?
+      assert_equal "sha-b1", b2.commit_sha, "reuse carries the prior output forward"
+      assert_equal b1.result, b2.result
+      skip_decision = @phase.manager_decisions.skip_decision.last
+      assert skip_decision, "a skip ManagerDecision records the reuse"
+      assert_equal [ "b" ], skip_decision.route_to
+    end
+
+    test "re-dispatches for real when the predecessor's output actually changed" do
+      @phase.update!(status: "running")
+      _workflow, a, b = chain(@phase)
+      fingerprinted_success(a, iteration: 1, commit_sha: "sha-a")
+      fingerprinted_success(b, iteration: 1, commit_sha: "sha-b1")
+      # A advanced to iteration 2 with DIFFERENT output.
+      fingerprinted_success(a, iteration: 2, commit_sha: "sha-a2")
+
+      run!
+
+      b2 = b.reload.latest_run
+      assert_equal 2, b2.iteration
+      assert_equal "ready", b2.state, "B re-runs for real because A changed"
+      assert_not @phase.manager_decisions.skip_decision.exists?
+    end
+
+    test "a restart re-runs an unchanged step instead of reusing it" do
+      @phase.update!(status: "running", restart_in_progress: true, restart_feedback: [])
+      _workflow, a, b = chain(@phase)
+      fingerprinted_success(a, iteration: 1, commit_sha: "sha-a")
+      fingerprinted_success(b, iteration: 1, commit_sha: "sha-b1")
+      fingerprinted_success(a, iteration: 2, commit_sha: "sha-a")
+
+      run!
+
+      assert_equal "ready", b.reload.latest_run.state, "restart redoes the work, no reuse"
+      assert_not @phase.manager_decisions.skip_decision.exists?
+    end
+
+    # --- Parallel workflows -------------------------------------------------
+
+    test "a phase converges only when ALL of its parallel workflows converge" do
+      @phase.update!(status: "running", gate_mode: "human")
+      wf1, b1, c1 = build_loop(@phase)
+      wf2, b2, c2 = build_loop(@phase)
+      succeed(b1, iteration: 1)
+      succeed(c1, iteration: 1, verdict: { "verdict" => "pass" })
+      succeed(b2, iteration: 1)
+      succeed(c2, iteration: 1, verdict: { "verdict" => "needs_work", "findings" => [] })
+
+      run!
+
+      assert_equal "converged", wf1.reload.status
+      assert_not_equal "converged", wf2.reload.status
+      assert_not_equal "consensus", @phase.reload.status, "one unconverged workflow blocks consensus"
+      assert_equal 2, b2.reload.latest_run.iteration, "the unconverged workflow keeps iterating"
+    end
+
+    test "a phase reaches consensus once every parallel workflow converges" do
+      @phase.update!(status: "running", gate_mode: "human")
+      wf1, b1, c1 = build_loop(@phase)
+      wf2, b2, c2 = build_loop(@phase)
+      succeed(b1, iteration: 1)
+      succeed(c1, iteration: 1, verdict: { "verdict" => "pass" })
+      succeed(b2, iteration: 1)
+      succeed(c2, iteration: 1, verdict: { "verdict" => "pass" })
+
+      run!
+
+      assert_equal "converged", wf1.reload.status
+      assert_equal "converged", wf2.reload.status
+      assert_equal "consensus", @phase.reload.status
+    end
+
     # --- Inter-phase rework (automated trigger) -----------------------------
 
     test "a routeless needs_work critic routes back to the nearest earlier builder phase, once across two ticks" do

@@ -71,6 +71,44 @@ module Phases
       assert @pipeline.reload.awaiting_human?
     end
 
+    # Non-regression for input fingerprinting: Clarifying Questions consumes the
+    # human's answers as feedback, which grows every round, so its fingerprint
+    # changes each time and it must RE-RUN for real — never be reused/skipped —
+    # even though its declared inputs and its explorer predecessor are unchanged.
+    test "Clarifying Questions re-runs on every human answer and is never skipped" do
+      tick
+      finish(explorer)
+      tick
+
+      # Round 1: needs_work -> human answers -> Clarifying re-runs at iteration 2.
+      finish(clarifying, verdict: needs_work, artifacts: {
+        "open_questions_structured" => [ { "question" => "Scope?", "default" => "all" } ]
+      })
+      tick
+      Phases::SubmitHumanFeedback.call(phase: @define, user: @user,
+        answers: [ { question: "Scope?", answer: "just the API" } ])
+      tick
+      cq2 = clarifying.reload.latest_run
+      assert_equal 2, cq2.iteration
+      assert_equal "ready", cq2.state
+
+      # Round 2: still needs_work -> a second answer -> Clarifying re-runs at 3.
+      finish(clarifying, verdict: needs_work, artifacts: {
+        "open_questions_structured" => [ { "question" => "Auth?", "default" => "none" } ]
+      })
+      tick
+      Phases::SubmitHumanFeedback.call(phase: @define, user: @user,
+        answers: [ { question: "Auth?", answer: "OAuth" } ])
+      tick
+
+      cq3 = clarifying.reload.latest_run
+      assert_equal 3, cq3.iteration
+      assert_equal "ready", cq3.state, "re-runs for real on the new answer, not reused"
+      assert cq3.feedback.any? { |f| f["issue"].to_s.include?("OAuth") }
+      assert_not @define.manager_decisions.skip_decision.exists?, "no step was skipped"
+      assert_equal 1, explorer.step_runs.count, "the explorer still runs exactly once"
+    end
+
     test "does not advance past Clarifying Questions while it still needs_work" do
       tick
       finish(explorer)

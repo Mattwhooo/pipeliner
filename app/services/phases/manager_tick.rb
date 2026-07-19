@@ -110,6 +110,13 @@ module Phases
     # succeeded and that has no run yet at that iteration. This one rule covers
     # both first dispatch (roots at iteration 1) and a critic re-running after
     # its routed builder succeeds at a higher iteration.
+    #
+    # Skip-unchanged: a re-dispatch whose inputs + feedback are byte-identical to
+    # what the step's last succeeded run consumed is fast-forwarded to the new
+    # iteration instead of re-running the worker (see dispatch_or_reuse). This is
+    # what stops an untouched step downstream of a *reused* predecessor from
+    # re-running as the iteration climbs — only steps downstream of an actually
+    # changed artifact do real work.
     def dispatch_ready_steps(workflow)
       workflow.steps.each do |step|
         next unless step.worker_executed?
@@ -121,8 +128,69 @@ module Phases
         target_iteration = predecessors.filter_map { |p| p.latest_run.iteration }.max || 1
         next unless current_iteration(step) < target_iteration
 
-        create_run(step, iteration: target_iteration, feedback: restart_carry_feedback)
+        dispatch_or_reuse(step, iteration: target_iteration, feedback: restart_carry_feedback)
       end
+    end
+
+    # Dispatch a fresh worker run, unless the step's declared inputs + this
+    # feedback fingerprint-match a prior succeeded+merged run — in which case that
+    # run's output still stands, so reuse it at the new iteration (a "skip"
+    # decision) rather than re-running the worker. Reuse is disabled during a
+    # restart: "Repeat from the Beginning" deliberately redoes the work even when
+    # nothing changed (R15/R19).
+    def dispatch_or_reuse(step, iteration:, feedback:)
+      fingerprint = InputFingerprint.for(step, feedback: feedback)
+      reuse = @phase.restart_in_progress? ? nil : reusable_run(step, fingerprint)
+      if reuse
+        reuse_run(step, reuse, iteration: iteration, fingerprint: fingerprint)
+      else
+        create_run(step, iteration: iteration, feedback: feedback, fingerprint: fingerprint)
+      end
+    end
+
+    # The step's last succeeded+merged run whose recorded input fingerprint equals
+    # `fingerprint`. A blank fingerprint (runs predating fingerprinting, or a
+    # first dispatch with nothing to match) never reuses, so those always run for
+    # real. Sharded runs are excluded — fan-out reuse would need per-shard
+    # bookkeeping this doesn't model.
+    def reusable_run(step, fingerprint)
+      return nil if fingerprint.blank?
+
+      step.step_runs
+        .where(state: "succeeded", input_fingerprint: fingerprint, shard_key: nil)
+        .where.not(merged_at: nil)
+        .order(:iteration, :attempt).last
+    end
+
+    # Fast-forward `source`'s already-merged output to a new iteration: a
+    # succeeded+merged run carrying the same commit/result/verdict, no worker and
+    # no new merge needed (the artifacts are already on the branch at their stable
+    # paths). A critic's verdict rides along, which is sound precisely because its
+    # inputs are unchanged. Recorded as a "skip" decision for the audit trail.
+    def reuse_run(step, source, iteration:, fingerprint:)
+      run = step.step_runs.create!(
+        state: "succeeded",
+        iteration: iteration,
+        required_role: step.role,
+        feedback: source.feedback,
+        input_fingerprint: fingerprint,
+        result: source.result,
+        verdict: source.verdict,
+        commit_sha: source.commit_sha,
+        started_at: Time.current,
+        finished_at: Time.current,
+        merged_at: Time.current
+      )
+      @affected_runs << run
+      record_decision(
+        decision: "skip",
+        iteration: iteration,
+        route_to: [ step.slug ],
+        rationale: "#{step.slug}'s inputs are unchanged since its succeeded run at " \
+          "iteration #{source.iteration}; reusing that output at iteration " \
+          "#{iteration} instead of re-dispatching the worker."
+      )
+      run
     end
 
     # Carry a restart's human-tagged feedback (RestartDefine#carried_feedback)
@@ -403,14 +471,17 @@ module Phases
 
     # --- helpers ------------------------------------------------------------
 
-    def create_run(step, iteration:, feedback: [])
+    def create_run(step, iteration:, feedback: [], fingerprint: nil)
       # A human step is dispatched into a run the product owns — no worker claims
       # it — so it starts in awaiting_input, not ready (see StepRun state enum).
+      # Every worker run records the fingerprint of what it consumes so a later
+      # re-dispatch with the same inputs can reuse it (see dispatch_or_reuse).
       run = step.step_runs.create!(
         state: step.type_human? ? "awaiting_input" : "ready",
         iteration: iteration,
         required_role: step.role,
-        feedback: feedback
+        feedback: feedback,
+        input_fingerprint: fingerprint || InputFingerprint.for(step, feedback: feedback)
       )
       @affected_runs << run
       run
