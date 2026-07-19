@@ -1,2 +1,11 @@
-web: SOLID_QUEUE_IN_PUMA=1 bin/rails server
+# Full local stack: control plane + Tailwind watcher + a split worker fleet.
+# Run with bin/dev. Port 3333 is pinned (3000 and 5000 are taken on this machine — old app and macOS AirPlay);
+# workers retry registration until the web process finishes booting.
+#
+# Fleet split (role-based routing): Sonnet 5 does the volume work (builders,
+# requirements), Opus 4.8 does the judgment work (review critics). Adjust
+# roles/models here or run additional workers in separate terminals.
+web: SOLID_QUEUE_IN_PUMA=1 bin/rails server -p 3333
 css: bin/rails tailwindcss:watch
+worker_sonnet: PIPELINER_URL=http://localhost:3333 PIPELINER_REPOS_DIR=$HOME/.pipeliner-worker/sonnet PIPELINER_STEP_TIMEOUT=1800 PIPELINER_WORKER_ID=wk_sonnet PIPELINER_WORKER_NAME="Sonnet 5 worker" PIPELINER_CLAUDE_MODEL=claude-sonnet-5 PIPELINER_ROLES=code,requirements PIPELINER_CONCURRENCY=3 npm start --prefix worker
+worker_opus: PIPELINER_URL=http://localhost:3333 PIPELINER_REPOS_DIR=$HOME/.pipeliner-worker/opus PIPELINER_STEP_TIMEOUT=1800 PIPELINER_WORKER_ID=wk_opus PIPELINER_WORKER_NAME="Opus 4.8 worker" PIPELINER_CLAUDE_MODEL=claude-opus-4-8 PIPELINER_ROLES=review,code-review,ui-tests PIPELINER_CONCURRENCY=2 npm start --prefix worker

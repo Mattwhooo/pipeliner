@@ -55,6 +55,7 @@ module Phases
       # mid-transaction would race a rollback (guides/backend-guide.md).
       StepRuns::BroadcastCard.call(run)
       @changed_phases.each { |phase| BroadcastColumn.call(phase) }
+      Dashboard::Broadcast.call(pipeline: @pipeline, activity: true)
       Result.success(run)
     end
 

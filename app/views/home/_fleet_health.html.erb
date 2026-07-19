@@ -1,0 +1,3 @@
+<%= turbo_frame_tag "fleet-health-frame", src: dashboard_fleet_health_path, data: { controller: "poll-frame" } do %>
+  <%= render "home/fleet_health_content", fleet: fleet %>
+<% end %>

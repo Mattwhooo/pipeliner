@@ -21,7 +21,11 @@ module StepRuns
         progress: @progress,
         last_heartbeat_at: Time.current
       )
-      BroadcastCard.call(@step_run)
+      # Progress ticks fire many times per second on a busy run; skip the
+      # dashboard fan-out here (no state actually changes on the dashboard's
+      # summary/attention view) and let state-changing transitions elsewhere
+      # (Claim, Complete, ...) keep it fresh.
+      BroadcastCard.call(@step_run, dashboard: false)
       Result.success(@step_run)
     end
 

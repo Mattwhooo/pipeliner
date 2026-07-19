@@ -1,0 +1,18 @@
+<div id="recent-activity" class="rounded-lg border border-default bg-surface shadow-sm">
+  <div class="border-b border-default px-6 py-4">
+    <h2 class="text-lg font-semibold text-default">Recent activity</h2>
+  </div>
+
+  <% if events.any? %>
+    <div class="divide-y divide-default">
+      <% events.each do |event| %>
+        <%= render "home/activity_item", event: event %>
+      <% end %>
+    </div>
+  <% else %>
+    <div class="py-12 text-center">
+      <p class="text-sm font-medium text-default">No recent activity</p>
+      <p class="mt-1 text-xs text-muted">Notable events across your pipelines will show up here.</p>
+    </div>
+  <% end %>
+</div>

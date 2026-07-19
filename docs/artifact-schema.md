@@ -293,13 +293,22 @@ them (custom steps may add more):
 
 | Phase       | Canonical artifacts                                             | Kind     |
 |-------------|----------------------------------------------------------------|----------|
-| `01-define` | `discovery_notes`, `business_requirements`, `documentation`    | artifact |
+| `01-define` | `discovery_notes`, `business_requirements`, `documentation`, `open_questions`, `open_questions_structured` | artifact |
 | `02-plan`   | `technical_approach`, `technical_design`, `build_task_plan`, `documentation` | artifact |
 | `03-build`  | repo changes (git diff); optional `build_notes`                | repo / artifact |
 | `04-review` | `review_report`                                                | artifact |
 
 `build_task_plan` (Plan → Build) carries the scoped, disjoint task partition Build
 fans out over. **[OPEN]** formalize each canonical artifact's own schema.
+
+`open_questions_structured` (Define, `output/open_questions.json`) is a
+machine-readable sibling of `open_questions`: an array of
+`{ "question", "default" }` objects, question text only (no numbering). It
+exists so a product UI can render one labeled input per question with the
+assumed default as placeholder text, without parsing free-form markdown. A
+step whose run predates this artifact simply has none — callers must degrade
+gracefully (empty list), never error, since `open_questions` (the prose form)
+remains the source of truth presented at the phase gate.
 
 ## Finalization (end of Review)
 

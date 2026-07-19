@@ -1,0 +1,38 @@
+<dialog id="<%= dom_id(phase, :answer_modal) %>"
+        data-dialog-target="dialog"
+        data-controller="answer-questions-form"
+        data-action="submit->answer-questions-form#submit turbo:submit-end->answer-questions-form#closeOnSuccess click->dialog#closeOnBackdrop"
+        class="w-full max-w-md rounded-lg border border-default bg-surface p-6 shadow-sm backdrop:bg-gray-900/40">
+  <h2 class="text-lg font-semibold text-default">
+    Answer open questions — <%= phase.pipeline.title %>
+  </h2>
+  <p class="text-xs text-muted"><%= phase.pipeline.project.name %></p>
+
+  <div id="<%= dom_id(phase, :answer_modal) %>_error"
+       data-answer-questions-form-target="error"
+       class="hidden mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700 ring-1 ring-inset ring-red-600/20"></div>
+
+  <%= form_with url: answers_phase_path(phase),
+        data: { answer_questions_form_target: "form", turbo_stream: true } do |f| %>
+    <div class="mt-4 space-y-4">
+      <% define_open_questions_structured(phase).each_with_index do |q, i| %>
+        <div>
+          <label class="block text-sm font-medium text-default" for="answer_question_<%= i %>"><%= q["question"] %></label>
+          <input type="text" id="answer_question_<%= i %>"
+                 data-answer-questions-form-target="answer" data-question="<%= q["question"] %>"
+                 placeholder="<%= q["default"] %>"
+                 class="mt-2 block w-full rounded-md border-0 px-3 py-2 text-sm text-default ring-1 ring-inset ring-default focus:ring-2 focus:ring-indigo-600 bg-surface">
+        </div>
+      <% end %>
+    </div>
+    <%= f.hidden_field :answers, data: { answer_questions_form_target: "composed" } %>
+    <div class="mt-6 flex justify-end gap-2">
+      <button type="button" data-action="click->dialog#close"
+              class="rounded-md bg-surface px-3 py-2 text-sm font-semibold text-default ring-1 ring-default hover:bg-surface-hover">
+        Cancel
+      </button>
+      <%= f.submit "Send answers", data: { turbo_submits_with: "Sending…" },
+            class: "rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 cursor-pointer" %>
+    </div>
+  <% end %>
+</dialog>

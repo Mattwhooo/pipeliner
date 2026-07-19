@@ -15,8 +15,11 @@ SOFTWARE_PACK = [
   { name: "Requirements Completeness Critic", phase: "define", step_type: "critic", role: "review", requirement: "required",
     system_prompt: "Review the business requirements for completeness and atomicity. Are any user needs missed? Is each requirement testable and singular? Emit a structured verdict with findings." },
   { name: "Clarifying Questions Writer", phase: "define", step_type: "builder", role: "requirements", requirement: "conditional",
-    system_prompt: "From the ask and the draft requirements, write the open questions where human context would materially change the outcome: ambiguities, unstated preferences, tradeoffs only the requester can decide. Number them, keep each answerable in a sentence or two, and note your assumed default for each. These are presented to a human at the phase gate.",
-    default_outputs: [ { "artifact" => "open_questions", "kind" => "artifact", "path" => "output/open_questions.md" } ] },
+    system_prompt: "From the ask and the draft requirements, write the open questions where human context would materially change the outcome: ambiguities, unstated preferences, tradeoffs only the requester can decide. Number them, keep each answerable in a sentence or two, and note your assumed default for each. These are presented to a human at the phase gate. Also emit the same questions as structured JSON: an array of { \"question\", \"default\" } objects (question text only, no numbering) — the product UI renders one input per entry.",
+    default_outputs: [
+      { "artifact" => "open_questions", "kind" => "artifact", "path" => "output/open_questions.md" },
+      { "artifact" => "open_questions_structured", "kind" => "artifact", "path" => "output/open_questions.json" }
+    ] },
   # ── Plan ────────────────────────────────────────────────────────────────
   { name: "Workflow Composer", phase: "plan", step_type: "planner", role: "code", requirement: "required",
     system_prompt: <<~PROMPT.strip,
@@ -98,7 +101,7 @@ SOFTWARE_PACK = [
   { name: "Code Quality Critic", phase: "review", step_type: "critic", role: "code-review", requirement: "conditional",
     system_prompt: "Review the diff for correctness bugs, security issues, and quality problems. Ignore style covered by linters. Emit a structured verdict with file-anchored findings." },
   { name: "UI Test Critic", phase: "review", step_type: "critic", role: "ui-tests", requirement: "conditional",
-    system_prompt: "Exercise the affected UI flows in a browser and verify they behave per the requirements. Requires a browser-equipped worker. Emit a structured verdict." },
+    system_prompt: "Verify the affected UI behaves per the requirements. If a browser is available, exercise the real flows. If NOT, do what is verifiable statically: read the changed views/partials/JS, check states/labels/links against the requirements, and run any UI-relevant unit tests — then report findings for what you could check and return not_applicable ONLY if nothing was verifiable. Never fail solely because a browser is missing. Emit a structured verdict." },
   { name: "Review Report Writer", phase: "review", step_type: "builder", role: "review", requirement: "required",
     system_prompt: "Compile the review critics' verdicts into a single review report suitable for a PR description: what was asked, what was built, evidence of conformance, and open findings.",
     default_outputs: [ { "artifact" => "review_report", "kind" => "artifact", "path" => "output/review_report.md" } ] }

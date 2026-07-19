@@ -52,6 +52,47 @@ module Phases
       ManagerTick.call(phase: phase)
     end
 
+    test "a hard-failed step escalates the phase to the human gate" do
+      @phase.update!(status: "running")
+      _workflow, builder, _critic = build_loop(@phase)
+      builder.step_runs.create!(state: "failed", iteration: 1, required_role: builder.role,
+        result: { "summary" => "claude exited 1: boom" }, finished_at: Time.current)
+
+      run!
+
+      assert_equal "awaiting_human", @phase.reload.status
+      assert @pipeline.reload.awaiting_human?
+      decision = @phase.manager_decisions.escalate_decision.last
+      assert_match(/latest run failed/, decision.rationale)
+    end
+
+    test "routeless needs_work with no earlier builder phase escalates instead of spinning" do
+      define = phases(:onboarding_define)
+      define.update!(status: "running")
+      define.workflows.first&.steps&.each { |st| st.step_runs.destroy_all }
+      add_lone_critic(define, verdict: { "verdict" => "needs_work", "findings" => [] })
+
+      ManagerTick.call(phase: define)
+
+      assert_equal "awaiting_human", define.reload.status
+      assert_match(/no earlier builder phase/, define.manager_decisions.escalate_decision.last.rationale)
+    end
+
+    test "needs_work persisting after a spent rework escalates to the human gate" do
+      @phase.update!(status: "running")
+      add_builder(phases(:onboarding_define))
+      _workflow, critic = add_lone_critic(@phase, verdict: { "verdict" => "needs_work", "findings" => [] })
+      # A rework from this phase already happened after the verdict — no move left.
+      ReworkEvent.create!(pipeline: @pipeline, from_phase: @phase,
+        target_phase: phases(:onboarding_define), reason: "prior rework", mode: "automated",
+        raised_by: "agent", feedback: [], created_at: critic.latest_run.finished_at + 1.minute)
+
+      run!
+
+      assert_equal "awaiting_human", @phase.reload.status
+      assert_match(/rework/, @phase.manager_decisions.escalate_decision.last.rationale)
+    end
+
     test "refuses a phase that is not running" do
       @phase.update!(status: "pending")
       result = run!
@@ -275,12 +316,37 @@ module Phases
       succeed(builder, iteration: 1)
       succeed(critic, iteration: 1, verdict: { "verdict" => "needs_work", "findings" => [] })
 
-      # The escalate path collects the phase and broadcasts it only after commit;
-      # no run is created, so exactly one column broadcast is enqueued.
+      # The escalate path collects the phase and broadcasts it only after
+      # commit; the dashboard fan-out (Dashboard::Broadcast) renders
+      # synchronously, so only the original phase-column replace is enqueued.
       assert_enqueued_jobs 1, only: Turbo::Streams::ActionBroadcastJob do
         run!
       end
       assert_equal "awaiting_human", @phase.reload.status
+    end
+
+    # F3 regression guard (see Dashboard::BroadcastTest): the consensus/
+    # escalate dashboard broadcast must fire only after ManagerTick's own
+    # transaction commits, never from inside it. Uses the human-gate path
+    # (no Advance.call involved) to isolate ManagerTick's own transaction
+    # boundary from Advance's separate one.
+    test "the consensus dashboard broadcast fires only after the transaction commits" do
+      @phase.update!(status: "running", gate_mode: "human")
+      _workflow, builder, critic = build_loop(@phase)
+      succeed(builder, iteration: 1)
+      succeed(critic, iteration: 1, verdict: { "verdict" => "pass", "findings" => [] })
+      boom = Class.new(StandardError)
+      original = Dashboard::Broadcast.method(:call)
+
+      Dashboard::Broadcast.define_singleton_method(:call) { |**| raise boom }
+      begin
+        assert_raises(boom) { run! }
+      ensure
+        Dashboard::Broadcast.define_singleton_method(:call, original)
+      end
+
+      assert_equal "consensus", @phase.reload.status
+      assert @phase.manager_decisions.consensus_decision.exists?
     end
   end
 end

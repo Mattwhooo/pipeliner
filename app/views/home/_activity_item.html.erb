@@ -1,0 +1,9 @@
+<% destination = event.phase ? phase_path(event.phase) : pipeline_path(event.pipeline) %>
+<%= link_to destination, class: "block px-6 py-3 hover:bg-surface-hover" do %>
+  <p class="text-sm text-default"><%= event.description %></p>
+  <div class="mt-0.5 flex items-center gap-2 text-xs text-muted">
+    <span><%= event.project.name %></span>
+    <span>·</span>
+    <time title="<%= event.occurred_at %>"><%= time_ago_in_words(event.occurred_at) %> ago</time>
+  </div>
+<% end %>

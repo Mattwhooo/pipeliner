@@ -12,6 +12,8 @@ export interface ExecutionResult {
   verdict?: Record<string, unknown>;
   /** Infrastructure outage (session/rate limit, API overload) — not the step's fault. */
   transient?: boolean;
+  /** Killed by the wall-clock cap — retried quickly with an escalated timeout. */
+  timeout?: boolean;
 }
 
 /** Signatures of temporary infrastructure problems worth retrying with backoff. */
@@ -130,8 +132,18 @@ export class Executor {
       },
       stdio: ["ignore", "pipe", "pipe"],
       signal,
-      timeout: this.config.stepTimeoutSeconds * 1000,
     });
+
+    // Escalating wall-clock cap: retries of a timed-out step get more room
+    // (base × attempt, capped at 3×). Manual timer instead of spawn's timeout
+    // option so we can distinguish "we killed it" from an ordinary failure.
+    const timeoutMs =
+      this.config.stepTimeoutSeconds * 1000 * Math.min(this.bundle.step_run.attempt, 3);
+    let timedOut = false;
+    const killTimer = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGTERM");
+    }, timeoutMs);
 
     let lastText = "";
     let resultText = "";
@@ -164,6 +176,16 @@ export class Executor {
       child.on("close", (code) => resolveExit(code ?? 1));
       child.on("error", () => resolveExit(1));
     });
+    clearTimeout(killTimer);
+
+    if (timedOut) {
+      return {
+        ok: false,
+        timeout: true,
+        summary: `step timed out after ${Math.round(timeoutMs / 60_000)}m ` +
+          `(attempt ${this.bundle.step_run.attempt}); last activity: ${lastText.slice(0, 300)}`,
+      };
+    }
 
     if (exitCode !== 0) {
       const evidence = `${stderrTail} ${resultText} ${lastText}`;

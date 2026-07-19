@@ -1,0 +1,7 @@
+<%# Response for the fleet-health-frame's poll/reload fetch. No `src` here —
+    Turbo rejects a matched frame whose src self-references the frame it's
+    replacing, so only the wrapping page's frame (_fleet_health.html.erb)
+    carries `src`; this fragment just needs the matching id. %>
+<%= turbo_frame_tag "fleet-health-frame" do %>
+  <%= render "home/fleet_health_content", fleet: fleet %>
+<% end %>

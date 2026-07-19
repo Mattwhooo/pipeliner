@@ -34,6 +34,7 @@ module Phases
       @phase = phase
       @affected_runs = []
       @affected_phases = []
+      @affected_decisions = []
       @pending_rework = nil
     end
 
@@ -44,6 +45,7 @@ module Phases
         catch(:halt) do
           @phase.workflows.each do |workflow|
             dispatch_ready_steps(workflow)
+            escalate_failed_steps(workflow)
             route_critic_feedback(workflow)
           end
           settle_convergence
@@ -87,6 +89,16 @@ module Phases
 
     # --- 2. Route feedback --------------------------------------------------
 
+    def escalate_failed_steps(workflow)
+      workflow.steps.select(&:worker_executed?).each do |step|
+        run = step.latest_run
+        next unless run&.failed?
+
+        escalate_blocked(step, "latest run failed (attempt #{run.attempt}): " \
+          "#{run.result&.dig("summary").to_s[0, 120]}")
+      end
+    end
+
     def route_critic_feedback(workflow)
       workflow.steps.select(&:type_critic?).each do |critic|
         run = critic.latest_run
@@ -112,12 +124,17 @@ module Phases
     # of this tick doesn't run against a phase this is about to reset.
     def queue_inter_phase_rework(critic, critic_run)
       target = nearest_earlier_builder_phase
-      return if target.nil?
+      return escalate_blocked(critic,
+        "needs_work with no in-phase route and no earlier builder phase") if target.nil?
       # Re-trigger guard: the tick runs every ~10s while the critic's verdict
       # stands. Rework exactly once per critic verdict — skip if we already routed
       # a rework from this phase after this critic run finished (a later critic
       # re-run has a newer finished_at, so a genuine new verdict re-triggers).
-      return if reworked_since?(critic_run)
+      # A verdict that stands AFTER that rework came back means the automated
+      # loop has no further move — that is a judgment call, so escalate to the
+      # human gate instead of silently spinning.
+      return escalate_blocked(critic,
+        "needs_work persists after automated rework (or rework already spent)") if reworked_since?(critic_run)
 
       @pending_rework = {
         from_phase: @phase,
@@ -127,6 +144,21 @@ module Phases
         mode: "automated",
         raised_by: "agent"
       }
+      throw :halt
+    end
+
+    # A phase with no automated move left (unroutable needs_work, exhausted
+    # rework, hard-failed step) parks at the human gate instead of spinning.
+    def escalate_blocked(step, why)
+      @phase.update!(status: "awaiting_human")
+      @phase.pipeline.update!(status: "awaiting_human")
+      @affected_phases << @phase
+      record_decision(
+        decision: "escalate",
+        iteration: phase_iteration,
+        rationale: "#{step.slug}: #{why}. Awaiting human judgment " \
+          "(approve, send back, or re-run the step)."
+      )
       throw :halt
     end
 
@@ -265,17 +297,20 @@ module Phases
     end
 
     def record_decision(decision:, iteration:, rationale:, route_to: [])
-      @phase.manager_decisions.create!(
+      created = @phase.manager_decisions.create!(
         decision: decision,
         iteration: iteration,
         route_to: route_to,
         rationale: rationale
       )
+      @affected_decisions << created if decision.in?(%w[consensus escalate])
+      created
     end
 
     def broadcast_affected
       @affected_runs.each { |run| StepRuns::BroadcastCard.call(run) }
       @affected_phases.each { |phase| BroadcastColumn.call(phase) }
+      Dashboard::Broadcast.call(pipeline: @phase.pipeline, activity: true) if @affected_decisions.any?
     end
   end
 end
