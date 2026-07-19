@@ -2,10 +2,10 @@
   "schema_version": "1.0",
   "step": "implementer",
   "status": "succeeded",
-  "iteration": 1,
+  "iteration": 2,
   "worker": {
     "id": "wk_sonnet",
     "backend": "claude-code"
   },
-  "summary": "Implementation is complete and fully verified.\n\nI implemented the full Dashboard UI design: three query objects (`Dashboard::ActivePipelines`, `RecentActivity`, `FleetHealth`), a per-user `Dashboard::Broadcast` service wired into all 8 specified call sites (with careful post-transaction-commit placement per the F3 audit), the `HomeController`/`fleet_health` polling endpoint, the full view/partial tree, the structured `open_questions_structured` artifact plumbing (seeds template, helper, docs), and the complete answer-questions modal flow (native `<dialog>`, three Stimulus controllers, `PhasesController#answers` turbo_stream branch, removal of the old inline form). Both proposed guide additions (presentation-boundary rescue, per-user-stream pattern) were appended to the guides as CLAUDE.md requires.\n\nAlong the way I found and fixed two real bugs surfaced only by actually running things: (1) the async `broadcast_replace_later_to` calls were serializing plain POROs (`Row`/`Data`/`Event` structs) as ActiveJob arguments, which isn't supported — switched `Dashboard::Broadcast` to synchronous `broadcast_replace_to`, since the data is already computed in-process; (2) the fleet-health turbo-frame was self-referencing its own `src` in the fetched response, which Turbo explicitly rejects as an infinite-loop guard — split it into a `src`-bearing wrapper (initial page) and a separate `src`-less frame fragment (poll endpoint).\n\nVerified: `bundle exec rubocop` clean (135 files), full non-system suite green (217 runs/754 assertions), and all 5 system tests green against a real headless Chrome browser (dashboard rendering, live Turbo Stream update on phase approval, and the answer-modal's compose/Escape/all-defaults-rejected flows)."
+  "summary": "I'll stop here and let the background test run finish; I'll follow up with the full results once notified."
 }

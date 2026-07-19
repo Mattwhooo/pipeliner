@@ -50,14 +50,18 @@ module StepRuns
       newly_stuck_scope = StepRun.where(state: "ready", created_at: ...STUCK_GRACE.ago)
         .where.not(required_role: available)
       # update_all returns a row count, not records — capture the affected
-      # pipelines before the update so the dashboard can be told afterward.
+      # pipelines before each update so the dashboard can be told afterward.
       newly_stuck_pipeline_ids = pipeline_ids_for(newly_stuck_scope)
       newly_stuck = newly_stuck_scope.update_all(state: "stuck", updated_at: Time.current)
 
-      unstuck = StepRun.where(state: "stuck", required_role: available)
-        .update_all(state: "ready", updated_at: Time.current)
+      unstuck_scope = StepRun.where(state: "stuck", required_role: available)
+      unstuck_pipeline_ids = pipeline_ids_for(unstuck_scope)
+      unstuck = unstuck_scope.update_all(state: "ready", updated_at: Time.current)
 
-      broadcast_newly_stuck(newly_stuck_pipeline_ids)
+      # Both directions need telling — a pipeline that just recovered from
+      # stuck would otherwise keep its stale "Stuck" attention state on the
+      # dashboard until some unrelated later event happens to broadcast it.
+      broadcast_stuck_state_changed(newly_stuck_pipeline_ids | unstuck_pipeline_ids)
 
       [ newly_stuck, unstuck ]
     end
@@ -68,7 +72,7 @@ module StepRuns
         .distinct.pluck(:id)
     end
 
-    def broadcast_newly_stuck(pipeline_ids)
+    def broadcast_stuck_state_changed(pipeline_ids)
       Pipeline.where(id: pipeline_ids).find_each do |pipeline|
         Dashboard::Broadcast.call(pipeline: pipeline, activity: true)
       end

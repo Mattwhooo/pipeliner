@@ -24,10 +24,19 @@ module Dashboard
 
     # Approval (decision: approve) on a Review phase reads as "pipeline
     # finished" rather than generic "Review approved."
+    #
+    # Each source below is bounded to its own top-LIMIT at the DB (not just
+    # the final merged list) — otherwise a query with no LIMIT or time window
+    # materializes every matching row ever recorded, and the working set grows
+    # unbounded with a project's history. Limiting each source to LIMIT is
+    # still correct: the global top-LIMIT can never need more than LIMIT rows
+    # from any single source.
     def approval_events
       Approval.joins(phase: { pipeline: { project: :memberships } })
         .where(memberships: { user_id: @user.id }, decision: "approve")
-        .includes(phase: { pipeline: :project }).map { |approval| describe_approval(approval) }
+        .includes(phase: { pipeline: :project })
+        .order(created_at: :desc).limit(LIMIT)
+        .map { |approval| describe_approval(approval) }
     end
 
     # "consensus" (auto-gate approved a phase) or "escalate" (parked for a
@@ -36,13 +45,17 @@ module Dashboard
       ManagerDecision.where(decision: %w[consensus escalate])
         .joins(phase: { pipeline: { project: :memberships } })
         .where(memberships: { user_id: @user.id })
-        .includes(phase: { pipeline: :project }).map { |decision| describe_decision(decision) }
+        .includes(phase: { pipeline: :project })
+        .order(created_at: :desc).limit(LIMIT)
+        .map { |decision| describe_decision(decision) }
     end
 
     def rework_events
       ReworkEvent.joins(pipeline: { project: :memberships })
         .where(memberships: { user_id: @user.id })
-        .includes(:from_phase, :target_phase, pipeline: :project).map { |rework| describe_rework(rework) }
+        .includes(:from_phase, :target_phase, pipeline: :project)
+        .order(created_at: :desc).limit(LIMIT)
+        .map { |rework| describe_rework(rework) }
     end
 
     # A run reaching a terminal state — "a piece of work completing" (R19).
@@ -50,7 +63,9 @@ module Dashboard
       StepRun.where(state: %w[succeeded failed]).where.not(finished_at: nil)
         .joins(step: { workflow: { phase: { pipeline: { project: :memberships } } } })
         .where(memberships: { user_id: @user.id })
-        .includes(step: { workflow: { phase: :pipeline } }).map { |run| describe_step_run(run) }
+        .includes(step: { workflow: { phase: :pipeline } })
+        .order(finished_at: :desc).limit(LIMIT)
+        .map { |run| describe_step_run(run) }
     end
 
     def describe_approval(approval)
