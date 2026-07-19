@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "workflow-composer",
+  "status": "succeeded",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_sonnet2",
+    "backend": "claude-code"
+  },
+  "summary": "I read the business requirements (`requirements.md`) for the Human-in-the-Loop Pause feature, which describes both substantial backend/state-machine work (pause coordination, automatic-loop suspension, retry caps, race safety) and significant UI work (a paused menu, in-progress indicators, non-color status labels, an inline \"Ask Human\" flow). Since `composition` wasn't set in `input.json`, I selected steps directly from the `library` using the required/conditional rules: **Build** = Implementer + Test Critic (required, phase build/null). **Review** = the two required review critics (Requirements Conformance Critic, Review Report Writer) plus three conditional templates that are clearly relevant here — Code Quality Critic and Guide Alignment Critic (this task must satisfy both `backend-guide.md` and `ui-style-guide.md`), and UI Test Critic (the feature is UI-heavy: menu, live indicators, status labels). All critics route their `needs_work` feedback back to Implementer, matching the `route_to` convention shown in `docs/artifact-schema.md`. Output written to `output/workflow_plan.json`."
+}
