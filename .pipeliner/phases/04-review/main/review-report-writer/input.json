@@ -1,6 +1,13 @@
 {
   "schema_version": "1.0",
-  "iteration": 1,
+  "iteration": 2,
   "resolved_inputs": [],
-  "feedback": []
+  "feedback": [
+    {
+      "id": "F1",
+      "issue": "The toggle button's focus indicator is `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600`, which deviates from ui-style-guide.md §Accessibility baseline ('visible focus ring (`focus-visible:ring-2 ring-indigo-600`)') and §Buttons. Every other interactive element in the app uses the ring pattern (e.g. sign-in button uses `focus-visible:ring-2 focus-visible:ring-indigo-600`; all form inputs use `focus:ring-2 focus:ring-indigo-600`). A focus indicator IS present so this is not an a11y regression, but it breaks the guide's stated focus convention and app-wide consistency. Change to `focus-visible:ring-2 focus-visible:ring-indigo-600` (with `focus:outline-none`/`focus-visible:ring-inset` as used elsewhere) to match.",
+      "severity": "minor",
+      "target_artifact": "app/views/shared/_theme_toggle.html.erb"
+    }
+  ]
 }
