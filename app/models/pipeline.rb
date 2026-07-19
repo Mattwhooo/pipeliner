@@ -25,4 +25,11 @@ class Pipeline < ApplicationRecord
   validates :title, presence: true
   validates :public_id, presence: true, uniqueness: true
   validates :branch, presence: true, uniqueness: { scope: :project_id }
+
+  # Preloads the full board tree so the live status summary
+  # (Pipelines::StatusSummary) derives with zero extra queries on both the
+  # detail page and the list.
+  scope :with_board, -> {
+    includes(phases: { workflows: { steps: { step_runs: :worker } } })
+  }
 end

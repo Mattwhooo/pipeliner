@@ -2,14 +2,15 @@ class PipelinesController < ApplicationController
   def index
     @pipelines = Pipeline.joins(project: :memberships)
       .where(memberships: { user_id: current_user.id })
-      .includes(:project).order(created_at: :desc)
+      .includes(:project).with_board.order(created_at: :desc)
   end
 
   def show
     @pipeline = Pipeline.joins(project: :memberships)
       .where(memberships: { user_id: current_user.id })
+      .with_board
       .find(params[:id])
-    @phases = @pipeline.phases.includes(workflows: { steps: { step_runs: :worker } })
+    @phases = @pipeline.phases
   end
 
   def new

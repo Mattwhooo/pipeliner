@@ -22,6 +22,7 @@ module StepRuns
         last_heartbeat_at: Time.current
       )
       BroadcastCard.call(@step_run)
+      Pipelines::BroadcastStatus.call(@step_run.step.workflow.phase.pipeline)
       Result.success(@step_run)
     end
 
