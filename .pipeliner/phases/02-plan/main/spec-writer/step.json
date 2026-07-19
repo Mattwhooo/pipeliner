@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "slug": "spec-writer",
+  "type": "builder",
+  "role": "code",
+  "prompt": "prompt.md",
+  "inputs": [],
+  "outputs": [
+    {
+      "kind": "repo",
+      "artifact": "specs"
+    }
+  ],
+  "scope": null,
+  "fan_out": null
+}
