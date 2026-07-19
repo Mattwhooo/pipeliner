@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0",
+  "step": "design-coverage-critic",
+  "verdict": "needs_work",
+  "summary": "The design cleanly covers surface placement, live broadcasting, load-time truth, ordering convergence, and accessibility (R1-R3, R7, R8, R10, R13-R18). However, because the design writer received no requirements input (resolved_inputs: []) and derived its own looser R1-R6, six granular behavioral requirements from requirements.md are unaddressed or actively contradicted: the first-attempt iteration-suppression rule (R4), the two-step 'name both' rule (R5), the three-plus-step 'N steps are running' rule (R6), the failed-state 'name where it stopped' rule (R9), the paused/canceled wording (R11), and the guaranteed never-blank catch-all for uncovered/future states (R12). The multi-step concurrency handling in particular (a single named step plus '(+N more running)') satisfies neither R5 nor R6.",
+  "findings": [
+    {
+      "id": "F1",
+      "target_artifact": ".pipeliner/phases/02-plan/main/design-writer/output/design.md",
+      "issue": "R4 requires the attempt/iteration number to be shown only on the second or later attempt, and hidden on the first attempt so the common first pass stays short. The resolution order in §3.1 (both the message and the type-verb fallback branches) unconditionally appends 'iteration <n>', so a first-attempt run would render 'iteration 1', violating R4. The design must condition the iteration suffix on n > 1.",
+      "severity": "major"
+    },
+    {
+      "id": "F2",
+      "target_artifact": ".pipeliner/phases/02-plan/main/design-writer/output/design.md",
+      "issue": "R5 requires that when exactly two steps are actively working, the summary names BOTH steps. The design (§3.1 #4) instead selects a single most-salient run and appends ' (+N more running)', which names only one step and hides the second behind a count. This does not satisfy R5's 'name both' behavior.",
+      "severity": "major"
+    },
+    {
+      "id": "F3",
+      "target_artifact": ".pipeliner/phases/02-plan/main/design-writer/output/design.md",
+      "issue": "R6 requires that when three or more steps are working, the summary states the phase and the count in the form '<Phase>: N steps are running' rather than naming each. The design's '(+N more running)' appended to one named step (e.g. 'Build: builder is building, iteration 2 (+3 more running)') does not match the required phase-plus-count phrasing and still names a specific step. R6's threshold-based collapse to a pure count is not designed.",
+      "severity": "major"
+    },
+    {
+      "id": "F4",
+      "target_artifact": ".pipeliner/phases/02-plan/main/design-writer/output/design.md",
+      "issue": "R9 requires that a pipeline stopped by an error say it has failed AND name the phase or step where it stopped. The terminal branch in §3.1 #1 maps 'aborted' to a bare 'Aborted' with no phase/step location, and conflates error-failure with deliberate cancellation. (The stuck/no-worker branch #3 does name a location, but the genuine failure/aborted path does not.) The failed-state description must identify where it stopped and use failure wording.",
+      "severity": "major"
+    },
+    {
+      "id": "F5",
+      "target_artifact": ".pipeliner/phases/02-plan/main/design-writer/output/design.md",
+      "issue": "R11 requires distinct plain-language wording ('Paused' / 'Canceled') when a pipeline is deliberately paused or canceled by a person. The design's resolution order has no paused/canceled branch; the only terminal negative state is 'aborted'. Deliberate pause/cancel would either fall through or be misreported as failure, so R11 is not addressed.",
+      "severity": "major"
+    },
+    {
+      "id": "F6",
+      "target_artifact": ".pipeliner/phases/02-plan/main/design-writer/output/design.md",
+      "issue": "R12 requires a defined, truthful plain-language description for ANY state not otherwise covered (including future states) and that the summary never be blank or missing. The resolution order in §3.1 ends at #5 (draft/pending with no runs -> 'Not started') with no explicit guaranteed catch-all default; a pipeline in a running status with no currently-active runs, or any unanticipated/future status, is not shown to resolve to a non-blank sentence. An explicit terminal fallback branch guaranteeing R12 is missing.",
+      "severity": "major"
+    },
+    {
+      "id": "F7",
+      "target_artifact": ".pipeliner/phases/02-plan/main/design-writer/output/design.md",
+      "issue": "Designed beyond requirements: the 'as_of' relative timestamp on the Summary value and partial (§3.1, §3.3) is not requested by any requirement (R1-R18). It is benign and low-risk, but is scope the requirements do not ask for; call it out so it is a conscious inclusion rather than silent scope creep.",
+      "severity": "minor"
+    }
+  ]
+}
