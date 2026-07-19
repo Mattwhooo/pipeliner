@@ -1,9 +1,14 @@
 module Phases
-  # A human answers the Define phase's clarifying questions (the open_questions
-  # artifact) in-UI, re-opening the requirements loop for another iteration.
-  # Their answers become feedback on the requirements writer — the phase's first
-  # worker-executed step — so the Manager's existing DAG dispatch re-runs the
-  # questions step and its critic afterwards.
+  # A human sends free-form notes to the Define phase from the paused menu,
+  # re-opening the clarifying loop for another iteration. Their notes become
+  # feedback on the Clarifying Questions step (the loop's entry point, which
+  # consumes human context) — so re-running it re-emits open questions and the
+  # decision-tree loop continues. Deliberately NOT the Code Explorer: discovery
+  # runs once per pipeline and human answers must never re-trigger it.
+  #
+  # (In the normal running loop the human answers via the first-class Human
+  # Feedback step — Phases::SubmitHumanFeedback. This path is the paused-menu
+  # "Ask Human" escape hatch.)
   #
   # Valid only for the Define phase while it is still open (running or parked at
   # a human gate). At consensus/awaiting_human, answering re-opens the phase for
@@ -26,7 +31,7 @@ module Phases
       return Result.failure(:blank_answers, record: @phase) if @answers.blank?
       return Result.failure(:busy, record: @phase) if define_busy?
 
-      target = requirements_step
+      target = clarifying_questions_step
       return Result.failure(:no_target, record: @phase) if target.nil?
 
       run = nil
@@ -57,9 +62,19 @@ module Phases
       steps.any?(&:active_run?)
     end
 
-    # The requirements writer: the first worker-executed step by position.
-    def requirements_step
-      steps.select(&:worker_executed?).min_by(&:position)
+    # The Clarifying Questions step, identified by the `open_questions` artifact
+    # it declares (stable across template renames/reorders — same convention as
+    # Phases::RerunMenuStep). Falls back to the first worker step after Code
+    # Explorer so a note is never silently dropped, but never the explorer itself.
+    def clarifying_questions_step
+      by_artifact = steps.find do |s|
+        s.worker_executed? && Array(s.outputs).any? { |o| o["artifact"] == "open_questions" }
+      end
+      by_artifact || steps.select(&:worker_executed?).reject { |s| explorer?(s) }.min_by(&:position)
+    end
+
+    def explorer?(step)
+      Array(step.outputs).any? { |o| o["artifact"] == "discovery_notes" }
     end
 
     def steps

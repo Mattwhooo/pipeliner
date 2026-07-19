@@ -40,8 +40,20 @@
   </div>
 <% end %>
 
-<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-  <% downstream_phases.each do |phase| %>
-    <%= render "pipelines/phase_column", phase: phase, current_phase_kind: @pipeline.current_phase %>
-  <% end %>
-</div>
+<%# Plan/Build/Review are materialized by Define's Workflow Planner — until then
+    their columns would be empty and misleading, so hide them behind a
+    placeholder (docs/execution-model.md — downstream columns hidden until
+    planning). %>
+<% visible_downstream = downstream_phases.select { |phase| phase.workflows.any? { |w| w.steps.exists? } } %>
+<% if visible_downstream.any? %>
+  <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+    <% visible_downstream.each do |phase| %>
+      <%= render "pipelines/phase_column", phase: phase, current_phase_kind: @pipeline.current_phase %>
+    <% end %>
+  </div>
+<% else %>
+  <div class="mt-4 rounded-lg border border-dashed border-default bg-app px-6 py-8 text-center">
+    <p class="text-sm font-medium text-muted">Phases appear after planning</p>
+    <p class="mt-1 text-xs text-subtle">Plan, Build, and Review are laid out once Define's Workflow Planner runs.</p>
+  </div>
+<% end %>

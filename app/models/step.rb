@@ -16,12 +16,19 @@ class Step < ApplicationRecord
     builder: "builder",
     critic: "critic",
     manager: "manager",
-    gate: "gate"
+    gate: "gate",
+    # A step a HUMAN executes in the UI (the Define phase's Human Feedback
+    # step). The Manager dispatches it into an `awaiting_input` run the product
+    # owns; no worker ever claims it. See Phases::SubmitHumanFeedback and
+    # docs/execution-model.md — "Human Feedback step".
+    human: "human"
   }, prefix: :type
 
   validates :slug, presence: true, uniqueness: { scope: :workflow_id }
   # Role is the worker-matching label — required for anything a worker pulls.
-  validates :role, presence: true, if: :worker_executed?
+  # Human steps aren't claimed, but still carry a role ("human") so required_role
+  # (NOT NULL on step_runs) has a value; validate it likewise.
+  validates :role, presence: true, if: -> { worker_executed? || type_human? }
 
   def worker_executed?
     step_type.in?(WORKER_EXECUTED_TYPES)
@@ -31,10 +38,11 @@ class Step < ApplicationRecord
     step_runs.order(:iteration, :attempt).last
   end
 
-  # A run is in flight (queued, leased, or parked stuck) — the step already
-  # has live work; dispatching another would duplicate it.
+  # A run is in flight (queued, leased, parked stuck, or awaiting a human's
+  # input) — the step already has live work; dispatching another would
+  # duplicate it.
   def active_run?
-    step_runs.where(state: %w[ready claimed running stuck]).exists?
+    step_runs.where(state: %w[ready claimed running stuck awaiting_input]).exists?
   end
 
   # depends_on predecessors that a Worker actually executes (planner/builder/

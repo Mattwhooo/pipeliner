@@ -14,13 +14,6 @@ module Pipelines
     GATE_MODES = { "define" => "human", "plan" => "auto", "build" => "auto",
       "review" => "human" }.freeze
 
-    # Fallback (no pipeline_template): the standard core of every Define phase,
-    # run in this order. Custom define-phase templates run *between* Clarifying
-    # Questions and the Completeness Critic — hence "the three core names"
-    # excluded from the custom list below.
-    CORE_DEFINE_NAMES = [ "Requirements Writer", "Clarifying Questions Writer",
-      "Requirements Completeness Critic" ].freeze
-
     def self.call(project:, title:, initial_prompt: nil)
       new(project:, title:, initial_prompt:).call
     end
@@ -68,27 +61,80 @@ module Pipelines
       pipeline.update!(status: "running")
     end
 
-    # Auto-compose phases at creation from the project's pipeline_template (the
-    # pinned per-phase composition). Define and Plan are always composed; Plan
-    # leads with the Workflow Composer, which fills Build and Review later — so
-    # those start empty UNLESS the template forbids manager additions and pins
-    # build/review steps, in which case they're composed directly here (the
-    # composer's later materialization then no-ops on the non-empty phases).
+    # Compose Define at creation as the fixed decision tree (below); Plan, Build
+    # and Review start EMPTY and are materialized later by Define's Workflow
+    # Planner (Workflows::MaterializePlan). The one exception: a project that
+    # forbids manager additions gets its pinned plan/build/review steps composed
+    # directly here, so the planner's later materialization no-ops on them.
     def compose_phases(pipeline)
+      compose_define_tree(pipeline.phases.find_by!(kind: "define"))
+
       template = @project.pipeline_template
-      return compose_from_pack_defaults(pipeline) if template.nil?
+      return if template.nil? || template.allow_manager_additions
 
-      compose_templates(pipeline.phases.find_by!(kind: "define"),
-        define_template_list(template))
-      compose_templates(pipeline.phases.find_by!(kind: "plan"),
-        template_step_templates(template, "plan"))
-
-      unless template.allow_manager_additions
-        %w[build review].each do |kind|
-          steps = template_step_templates(template, kind)
-          compose_templates(pipeline.phases.find_by!(kind: kind), steps) if steps.any?
-        end
+      %w[plan build review].each do |kind|
+        steps = template_step_templates(template, kind)
+        compose_templates(pipeline.phases.find_by!(kind: kind), steps) if steps.any?
       end
+    end
+
+    # The Define decision tree (docs/execution-model.md — "Define decision
+    # tree"). A fixed, ordered set of steps wired with explicit DAG edges:
+    #
+    #   Code Explorer ─depends_on▶ Clarifying Questions ─depends_on▶ Requirements
+    #     Writer ─depends_on▶ Workflow Planner ─depends_on▶ Define Review
+    #
+    #   Clarifying Questions (a critic) ─route_to▶ Human Feedback ─route_to▶
+    #     Clarifying Questions   (the human-in-the-loop clarification loop)
+    #
+    # The linear depends_on chain only advances PAST Clarifying Questions once it
+    # PASSES (ManagerTick#predecessor_satisfied?), so nothing downstream runs
+    # until the task is fully defined. Human Feedback sits OFF the chain (reached
+    # only via route_to), so it never blocks the forward path.
+    DEFINE_STEP_NAMES = {
+      explorer: "Code Explorer",
+      clarifying: "Clarifying Questions",
+      human: "Human Feedback",
+      requirements: "Requirements Writer",
+      planner: "Workflow Planner",
+      review: "Define Review"
+    }.freeze
+
+    DEFINE_DEPENDS_ON = [
+      [ :explorer, :clarifying ], [ :clarifying, :requirements ],
+      [ :requirements, :planner ], [ :planner, :review ]
+    ].freeze
+
+    DEFINE_ROUTE_TO = [ [ :clarifying, :human ], [ :human, :clarifying ] ].freeze
+
+    def compose_define_tree(phase)
+      templates = StepTemplate.available_to(@project).index_by(&:name)
+      steps = {}
+      DEFINE_STEP_NAMES.each do |key, name|
+        template = templates[name]
+        next unless template
+
+        result = Steps::AddToWorkflow.call(phase: phase, attributes: {},
+          template: template, wire_linear: false)
+        steps[key] = result.value if result.success?
+      end
+      wire_define_edges(steps)
+    end
+
+    def wire_define_edges(steps)
+      workflow = steps.values.first&.workflow
+      return unless workflow
+
+      DEFINE_DEPENDS_ON.each { |from, to| add_edge(workflow, steps, from, to, "depends_on") }
+      DEFINE_ROUTE_TO.each { |from, to| add_edge(workflow, steps, from, to, "route_to") }
+    end
+
+    def add_edge(workflow, steps, from_key, to_key, kind)
+      from = steps[from_key]
+      to = steps[to_key]
+      return unless from && to
+
+      workflow.step_edges.create!(from_step: from, to_step: to, kind: kind)
     end
 
     # Compose an ordered list of StepTemplates into a phase: AddToWorkflow wires
@@ -108,66 +154,6 @@ module Pipelines
 
     def template_step_templates(template, kind)
       template.entries_for(kind).includes(:step_template).map(&:step_template)
-    end
-
-    # Pinned define entries in order, with non-pinned define-phase custom
-    # templates ("run late", ordered by name) inserted just before the trailing
-    # pinned critic when there is one, else appended at the end.
-    def define_template_list(template)
-      pinned = template_step_templates(template, "define")
-      late = StepTemplate.available_to(@project).for_phase("define")
-        .where.not(id: pinned.map(&:id)).order(:name).to_a
-
-      if pinned.any? && pinned.last.type_critic?
-        pinned[0..-2] + late + [ pinned.last ]
-      else
-        pinned + late
-      end
-    end
-
-    # --- fallback (project without a pipeline_template) ---------------------
-
-    def compose_from_pack_defaults(pipeline)
-      templates_by_name = StepTemplate.available_to(@project).index_by(&:name)
-
-      compose_phase(pipeline.phases.find_by!(kind: "define"),
-        define_specs, templates_by_name)
-      compose_phase(pipeline.phases.find_by!(kind: "plan"),
-        plan_specs, templates_by_name)
-    end
-
-    def compose_phase(phase, specs, templates_by_name)
-      created = {}
-      specs.each do |spec|
-        template = templates_by_name[spec[:template]]
-        next unless template
-
-        route_to_id = spec[:route_to] && created[spec[:route_to]]&.id
-        result = Steps::AddToWorkflow.call(phase: phase, attributes: {},
-          template: template, route_to_step_id: route_to_id)
-        created[spec[:template]] = result.value if result.success?
-      end
-    end
-
-    def define_specs
-      specs = [ { template: "Requirements Writer" },
-                { template: "Clarifying Questions Writer" } ]
-      custom_define_names.each { |name| specs << { template: name } }
-      specs << { template: "Requirements Completeness Critic",
-                 route_to: "Requirements Writer" }
-      specs
-    end
-
-    def custom_define_names
-      StepTemplate.available_to(@project).for_phase("define")
-        .where.not(name: CORE_DEFINE_NAMES).order(:name).pluck(:name)
-    end
-
-    def plan_specs
-      [ { template: "Workflow Composer" },
-        { template: "Design Writer" },
-        { template: "Guide Alignment Critic", route_to: "Design Writer" },
-        { template: "Design Coverage Critic", route_to: "Design Writer" } ]
     end
 
     def generate_public_id

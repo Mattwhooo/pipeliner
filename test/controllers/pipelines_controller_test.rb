@@ -3,15 +3,51 @@ require "test_helper"
 class PipelinesControllerTest < ActionDispatch::IntegrationTest
   setup { sign_in users(:dev) }
 
-  test "show renders the define pre-phase panel and the three downstream columns" do
+  test "show hides the downstream columns until planning, showing a placeholder" do
+    # Onboarding fixtures have steps only in Define — Plan/Build/Review are empty
+    # until the Workflow Planner materializes them, so they must not show yet.
     get pipeline_url(pipelines(:onboarding))
     assert_response :success
     assert_select "h1", pipelines(:onboarding).title
     assert_select "h2", /Definition/       # define is a full-width panel, not a column
-    assert_select "h3", /Plan/
-    assert_select "h3", /Build/
-    assert_select "h3", /Review/
+    assert_match "Phases appear after planning", @response.body
+    assert_select "h3", { text: /^Plan$/, count: 0 }
+    assert_select "h3", { text: /^Build$/, count: 0 }
     assert_select "h3", { text: /^Define$/, count: 0 } # no Define column
+  end
+
+  test "show renders the Human Feedback form with one field per open question" do
+    define = phases(:onboarding_define)
+    define.update!(status: "running")
+    workflow = define.workflows.first
+    # Clarifying Questions raised structured questions...
+    steps(:completeness_critic).step_runs.create!(state: "succeeded", iteration: 1,
+      required_role: "review",
+      result: { "artifacts" => { "open_questions_structured" =>
+        [ { "question" => "Which auth provider?", "default" => "OAuth" } ] } })
+    # ...and the Human Feedback step is awaiting the human's answers.
+    human = workflow.steps.create!(slug: "human-feedback", step_type: "human",
+      role: "human", position: 9)
+    human.step_runs.create!(state: "awaiting_input", iteration: 1, required_role: "human")
+
+    get pipeline_url(pipelines(:onboarding))
+
+    assert_response :success
+    assert_select "form[action=?]", submit_feedback_phase_path(define)
+    assert_match "Which auth provider?", @response.body
+    assert_select "input[name=?]", "answer[]"
+    assert_select "textarea[name=notes]"
+  end
+
+  test "show renders a downstream column once the Workflow Planner has materialized it" do
+    plan = phases(:onboarding_plan)
+    plan.workflows.create!(slug: "main").steps.create!(slug: "design-writer",
+      step_type: "builder", role: "code", position: 1)
+
+    get pipeline_url(pipelines(:onboarding))
+    assert_response :success
+    assert_select "h3", /Plan/
+    assert_no_match "Phases appear after planning", @response.body
   end
 
   test "show renders the define open questions read-only, pointing to the dashboard to answer" do

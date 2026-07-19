@@ -18,6 +18,28 @@ module DefineHelper
     define_artifact(phase, "business_requirements")
   end
 
+  # The Define Review's summary — the document the human approves the phase on.
+  def define_summary(phase)
+    define_artifact(phase, "define_summary")
+  end
+
+  # The Human Feedback step's run currently awaiting the human's answers, or nil.
+  # When present, the define panel renders the per-question answer form.
+  def define_pending_human_feedback(phase)
+    phase.workflows.flat_map(&:steps).select(&:type_human?)
+      .filter_map(&:latest_run)
+      .find { |run| run.state == "awaiting_input" }
+  end
+
+  # True once Define's Workflow Planner has produced a plan — i.e. the downstream
+  # Plan/Build/Review phases have been materialized and their columns may show
+  # (docs/execution-model.md — downstream columns hidden until planning).
+  def define_planning_done?(pipeline)
+    pipeline.phases.reject(&:define_phase?).any? do |phase|
+      phase.workflows.any? { |w| w.steps.exists? }
+    end
+  end
+
   # The most recent failed/stuck run across Define's steps — while paused, the
   # only steps that ever run are ones the human just triggered from the menu,
   # so this is always "my re-run failed," never Manager-triggered noise (R26).

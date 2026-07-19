@@ -120,6 +120,10 @@ Implications:
 - **Step selection is itself a step** (a Planner). Its output artifact *is* a
   workflow DAG — which a Critic can then check ("did we include the steps this
   task needs? any missing/redundant?") before the phase runs in earnest.
+- **The composing Planner runs at the end of Define** (the Workflow Planner step,
+  see "Define decision tree"): it reads the settled requirements and composes the
+  Plan, Build and Review phases together, so those phases start empty and are
+  materialized by `Workflows::MaterializePlan` when its plan merges.
 - Templates carry a **required | conditional** flag; conditional templates are
   candidates the Planner includes on demand.
 - Compiling a workflow (resolving the DAG) therefore happens **after** composition.
@@ -234,28 +238,67 @@ Configured routing edges (explicit "C1 fail → re-run A2") remain available as 
 override/fallback and as guardrails the Manager operates within. **[OPEN]** how
 much routing is fixed config vs. left to Manager discretion.
 
-## Worked example — Phase 1 (Define), non-technical
+## Define decision tree
+
+Define is a **fixed decision tree** (not a freely-composed workflow), wired with
+explicit `depends_on` and `route_to` edges. It runs the minimum work: nothing
+outside the clarification loop re-runs, and discovery happens exactly once.
 
 ```
-Workspace: discovery_notes, business_requirements, documentation
+Workspace: discovery_notes, open_questions, human_answers,
+           business_requirements, workflow_plan, define_summary
 
-Steps:
-  A1 Explore       builder reads: initial_prompt, codebase   writes: discovery_notes
-  A2 Requirements  builder reads: discovery_notes, feedback  writes: business_requirements
-                            format: atomic, testable "When X, then Y"
-  A3 Docs Updater  builder reads: business_requirements       writes: documentation
-  C1 Completeness  critic  reads: business_requirements        verdict + findings
-  C2 Docs Match    critic  reads: business_requirements, documentation  verdict + findings
-  G1 Human Gate    gate    human approval before Phase 2
+Steps (type/role):
+  1 Code Explorer        builder/code   reads: initial_prompt, codebase
+                                        writes: discovery_notes
+                                        Runs ONCE per pipeline. Human answers
+                                        never re-run it.
+  2 Clarifying Questions critic/review  reads: ask, discovery_notes, prior answers
+                                        writes: open_questions (+_structured)
+                                        verdict: needs_work (has questions) | pass
+                                        (fully defined)
+  3 Human Feedback       human/human    the HUMAN answers the open questions in
+                                        the UI (never claimed by a worker)
+                                        writes: human_answers
+  4 Requirements Writer  builder/req    reads: ask, discovery, answers
+                                        writes: business_requirements
+  5 Workflow Planner     planner/code   reads: requirements, discovery
+                                        writes: workflow_plan → materializes the
+                                        Plan/Build/Review phases
+  6 Define Review        builder/review reads: answers, requirements, plan
+                                        writes: define_summary
+  G1 Human Gate          gate           approves off define_summary → Phase 2
 
-Loop: A1 → A2 → A3 → C1 → C2
-  C1 needs_work → route to A2 (with findings)
-  C2 needs_work → route to A3 (or A2 if requirements are the problem)
-  Repeat until C1 & C2 pass → G1 (human) approves → advance to Phase 2
+Edges:
+  depends_on:  1 → 2 → 4 → 5 → 6        (the forward chain)
+  route_to:    2 → 3   (needs_work: ask the human)
+               3 → 2   (answered: re-assess)
+
+Loop (2 ⇄ 3): Clarifying Questions raises open questions → Human Feedback →
+  Clarifying Questions re-runs with every answer so far → repeat until it emits a
+  `pass` verdict (task fully defined). ONLY THEN does the forward chain advance
+  past step 2 (a critic predecessor unblocks its dependents only when it passes —
+  see "consensus loop"). Requirements → Workflow Planner → Define Review then run
+  in order; the human approves Define off the summary.
 ```
 
-Constraint: **Phase 1 stays non-technical.** Enforce via step system prompts and
-optionally a critic that flags technical leakage.
+The **Human Feedback step** (`step_type: "human"`) is dispatched by the Manager
+into an `awaiting_input` run the product UI owns: no worker claims it (it is not
+`ready`), and the sweeper ignores it (it neither leases nor lease-expires).
+Submitting it (`Phases::SubmitHumanFeedback`) stores the answers as the run's
+`human_answers` artifact and marks it succeeded; the Manager's `route_to` edge
+(`ManagerTick#route_human_feedback`) then re-runs Clarifying Questions with the
+answers as feedback.
+
+The **Workflow Planner moved out of Plan into Define** (it runs at step 5): once
+the requirements are settled it composes ALL three downstream phases at once, so
+`Workflows::MaterializePlan` now materializes Plan, Build and Review. Until it has
+run, the Plan/Build/Review columns are hidden in the UI (empty, and misleading if
+shown).
+
+Constraint: **Phase 1 stays non-technical.** Enforce via step system prompts.
+Clarifying Questions must not ask about implementation details — those belong to
+Plan.
 
 ## Open questions
 

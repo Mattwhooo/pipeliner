@@ -6,15 +6,16 @@ module Steps
   class AddToWorkflow
     DEFAULT_WORKFLOW_SLUG = "main".freeze
 
-    def self.call(phase:, attributes:, template: nil, route_to_step_id: nil)
-      new(phase:, attributes:, template:, route_to_step_id:).call
+    def self.call(phase:, attributes:, template: nil, route_to_step_id: nil, wire_linear: true)
+      new(phase:, attributes:, template:, route_to_step_id:, wire_linear:).call
     end
 
-    def initialize(phase:, attributes:, template:, route_to_step_id:)
+    def initialize(phase:, attributes:, template:, route_to_step_id:, wire_linear: true)
       @phase = phase
       @attributes = attributes.to_h.symbolize_keys
       @template = template
       @route_to_step_id = route_to_step_id
+      @wire_linear = wire_linear
     end
 
     def call
@@ -27,7 +28,10 @@ module Steps
 
         step = workflow.steps.create!(step_attributes(workflow))
 
-        if previous_last
+        # A caller composing a non-linear DAG (e.g. Define's decision tree) wires
+        # its own depends_on edges; skip the automatic "depends on the previous
+        # step" ordering for them.
+        if @wire_linear && previous_last
           workflow.step_edges.create!(from_step: previous_last, to_step: step,
             kind: "depends_on")
         end

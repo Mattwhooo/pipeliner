@@ -53,6 +53,23 @@ class PhasesController < ApplicationController
     end
   end
 
+  def submit_feedback
+    phase = membership_scoped_phase
+    result = Phases::SubmitHumanFeedback.call(
+      phase: phase,
+      user: current_user,
+      answers: feedback_answers,
+      notes: params[:notes].to_s.strip
+    )
+
+    if result.success?
+      redirect_to pipeline_path(phase.pipeline),
+        notice: "Answers submitted — Define is picking the loop back up."
+    else
+      redirect_to pipeline_path(phase.pipeline), alert: feedback_alert(result.error)
+    end
+  end
+
   def pause
     phase = membership_scoped_phase
     result = Phases::Pause.call(phase: phase, user: current_user)
@@ -102,6 +119,25 @@ class PhasesController < ApplicationController
     when :blank_answers then "Add your answers before sending."
     when :busy          then "Define is still running — wait for the current pass to finish."
     else "This phase can't take answers right now."
+    end
+  end
+
+  # Pair each submitted answer with its question (parallel arrays from the form),
+  # dropping fully-blank rows. Kept out of the service so the service takes clean
+  # structured data, not raw params.
+  def feedback_answers
+    questions = Array(params[:question])
+    answers = Array(params[:answer])
+    questions.each_with_index.map do |question, i|
+      { question: question.to_s, answer: answers[i].to_s }
+    end
+  end
+
+  def feedback_alert(error)
+    case error
+    when :no_pending_step then "There are no open questions to answer right now."
+    when :blank_answers   then "Add at least one answer or a note before submitting."
+    else "This phase can't take feedback right now."
     end
   end
 

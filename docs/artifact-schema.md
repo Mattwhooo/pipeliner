@@ -175,9 +175,11 @@ critic may bounce work back to. **`shared_paths` (M4)** are files only the fan-i
   `output/` file is written. `path` may be omitted or used as a scope hint.
   Domain-neutral so non-code projects (wiki/docs) fit without special-casing.
 Two separate axes (see [execution-model.md](./execution-model.md)):
-- **`type`** — behavior in the loop (`planner|builder|critic|manager|gate`).
+- **`type`** — behavior in the loop (`planner|builder|critic|manager|gate|human`).
   Only `planner|builder|critic` are pulled by Workers; `manager|gate` are
-  controllers.
+  controllers; **`human`** is executed by a person in the UI (Define's Human
+  Feedback step) — the Manager dispatches it into an `awaiting_input` run no
+  worker claims, and `Phases::SubmitHumanFeedback` completes it.
 - **`role`** — an **arbitrary** capability label used for **worker matching only**.
   A Worker may claim a step **iff it supports the step's `role`** (see
   [worker.md](./worker.md)). Roles can mean anything: `code`, `review`,
@@ -293,7 +295,7 @@ them (custom steps may add more):
 
 | Phase       | Canonical artifacts                                             | Kind     |
 |-------------|----------------------------------------------------------------|----------|
-| `01-define` | `discovery_notes`, `business_requirements`, `documentation`, `open_questions`, `open_questions_structured` | artifact |
+| `01-define` | `discovery_notes`, `open_questions`, `open_questions_structured`, `human_answers`, `business_requirements`, `workflow_plan`, `define_summary`, `documentation` | artifact |
 | `02-plan`   | `technical_approach`, `technical_design`, `build_task_plan`, `documentation` | artifact |
 | `03-build`  | repo changes (git diff); optional `build_notes`                | repo / artifact |
 | `04-review` | `review_report`                                                | artifact |
@@ -309,6 +311,24 @@ assumed default as placeholder text, without parsing free-form markdown. A
 step whose run predates this artifact simply has none — callers must degrade
 gracefully (empty list), never error, since `open_questions` (the prose form)
 remains the source of truth presented at the phase gate.
+
+`human_answers` (Define, `output/human_answers.md`) is the Human Feedback step's
+output: the human's answers to the open questions plus optional notes. Its run
+also carries `human_answers_structured` in `result.json` (an array of
+`{ "question", "answer" }`). The answers live in the DB (the step pushes no
+branch), so the Manager delivers them to the re-running Clarifying Questions step
+as `feedback` (input.json), not as an on-branch artifact.
+
+`define_summary` (Define, `output/define_summary.md`) is the Define Review step's
+output and the last artifact produced in Define: a plain-language record of what
+was decided (from the Q&A) plus the full numbered requirements. The human
+approves the Define gate off this summary.
+
+`workflow_plan` (Define, `output/workflow_plan.json`) is the Workflow Planner's
+output: the composed DAG for the Plan, Build and Review phases (top-level `plan`,
+`build`, `review` arrays of `{ "template", "route_to" }`). It moved to Define — a
+single planner now composes all three downstream phases (see
+[execution-model.md](./execution-model.md) → "Define decision tree").
 
 ## Finalization (end of Review)
 

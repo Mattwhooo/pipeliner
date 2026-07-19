@@ -9,7 +9,12 @@ class StepRun < ApplicationRecord
     running: "running",
     succeeded: "succeeded",
     failed: "failed",
-    stuck: "stuck"
+    stuck: "stuck",
+    # A human-executed step (Step#type_human?) dispatched by the Manager and
+    # waiting for the human to submit it in the UI. Deliberately NOT "ready": no
+    # worker may claim it (StepRuns::ClaimableFor filters state: "ready") and the
+    # sweeper leaves it alone (it neither leases nor lease-expires).
+    awaiting_input: "awaiting_input"
   }
 
   validates :iteration, numericality: { greater_than: 0 }

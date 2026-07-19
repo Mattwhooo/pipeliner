@@ -11,7 +11,7 @@ module StatusHelper
     # needs attention → amber
     "awaiting_human" => :attention, "needs_setup" => :attention,
     "reworking" => :attention, "draining" => :attention,
-    "paused" => :attention,
+    "paused" => :attention, "awaiting_input" => :attention,
     # stuck / failed → red (reserved for error stops needing intervention)
     "stuck" => :danger, "failed" => :danger, "blocked" => :danger,
     # pending / idle / deliberately canceled → gray. `aborted` is a deliberate

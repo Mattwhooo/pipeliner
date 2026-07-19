@@ -53,34 +53,40 @@ module Pipelines
       assert_equal "human", modes["review"]
     end
 
-    test "auto-composes the Define core and Plan chain from available templates" do
-      seed_composition_templates
-      pipeline = Pipelines::Create.call(project: projects(:pipeliner), title: "Compose").value
+    test "composes the Define decision tree from the canonical templates" do
+      seed_define_tree_templates
+      pipeline = Pipelines::Create.call(project: projects(:pipeliner), title: "Tree").value
 
       define = pipeline.phases.find_by!(kind: "define").workflows.first
-      assert_equal %w[requirements-writer clarifying-questions-writer threat-model-writer
-                      requirements-completeness-critic],
+      assert_equal %w[code-explorer clarifying-questions human-feedback
+                      requirements-writer workflow-planner define-review],
         define.steps.order(:position).map(&:slug)
-      writer = define.steps.find_by!(slug: "requirements-writer")
-      critic = define.steps.find_by!(slug: "requirements-completeness-critic")
-      assert define.step_edges.exists?(from_step: critic, to_step: writer, kind: "route_to"),
-        "completeness critic routes back to the requirements writer"
 
-      plan = pipeline.phases.find_by!(kind: "plan").workflows.first
-      assert_equal %w[workflow-composer design-writer guide-alignment-critic design-coverage-critic],
-        plan.steps.order(:position).map(&:slug)
-      designer = plan.steps.find_by!(slug: "design-writer")
-      assert_equal 2,
-        plan.step_edges.where(to_step: designer, kind: "route_to").count,
-        "both plan critics route back to the design writer"
-    end
+      by = define.steps.index_by(&:slug)
+      # Linear depends_on chain — and it deliberately SKIPS the human step, which
+      # is reached only via route_to and never blocks the forward path.
+      { "code-explorer" => "clarifying-questions",
+        "clarifying-questions" => "requirements-writer",
+        "requirements-writer" => "workflow-planner",
+        "workflow-planner" => "define-review" }.each do |from, to|
+        assert define.step_edges.exists?(from_step: by[from], to_step: by[to], kind: "depends_on"),
+          "#{from} -> #{to} depends_on edge"
+      end
+      # Clarifying Questions ⇄ Human Feedback clarification loop.
+      assert define.step_edges.exists?(from_step: by["clarifying-questions"],
+        to_step: by["human-feedback"], kind: "route_to")
+      assert define.step_edges.exists?(from_step: by["human-feedback"],
+        to_step: by["clarifying-questions"], kind: "route_to")
+      # Human Feedback sits off the depends_on chain entirely.
+      assert_equal 0, define.step_edges.where(kind: "depends_on")
+        .where("from_step_id = :id OR to_step_id = :id", id: by["human-feedback"].id).count,
+        "human step has no depends_on edges"
 
-    test "leaves Build and Review empty for the composer to fill" do
-      seed_composition_templates
-      pipeline = Pipelines::Create.call(project: projects(:pipeliner), title: "Compose").value
-
-      assert pipeline.phases.find_by!(kind: "build").workflows.none? { |w| w.steps.exists? }
-      assert pipeline.phases.find_by!(kind: "review").workflows.none? { |w| w.steps.exists? }
+      # Plan/Build/Review start empty — the Workflow Planner fills them later.
+      %w[plan build review].each do |kind|
+        assert pipeline.phases.find_by!(kind: kind).workflows.none? { |w| w.steps.exists? },
+          "#{kind} is empty at creation"
+      end
     end
 
     test "creates only phases (no steps) when no templates are available" do
@@ -93,32 +99,24 @@ module Pipelines
 
     # --- pipeline_template-driven composition -------------------------------
 
-    test "composes Define and Plan from the pipeline_template, leaving build/review empty" do
-      seed_composition_templates
-      pin_template(allow_additions: true,
-        "define" => [ "Requirements Writer", "Clarifying Questions Writer",
-                      "Requirements Completeness Critic" ],
-        "plan" => [ "Workflow Composer", "Design Writer",
-                    "Guide Alignment Critic", "Design Coverage Critic" ])
+    test "Define is the fixed tree regardless of pipeline_template; downstream stays empty when additions allowed" do
+      seed_define_tree_templates
+      # A pipeline_template exists but allows additions, so Plan is materialized
+      # later by the Define Workflow Planner, not composed at creation.
+      pin_template(allow_additions: true)
 
       pipeline = Pipelines::Create.call(project: projects(:pipeliner), title: "FromTemplate").value
 
       define = pipeline.phases.find_by!(kind: "define").workflows.first
-      assert_equal %w[requirements-writer clarifying-questions-writer threat-model-writer
-                      requirements-completeness-critic],
+      assert_equal %w[code-explorer clarifying-questions human-feedback
+                      requirements-writer workflow-planner define-review],
         define.steps.order(:position).map(&:slug),
-        "pinned define order with the custom late step inserted before the trailing critic"
-      writer = define.steps.find_by!(slug: "requirements-writer")
-      critic = define.steps.find_by!(slug: "requirements-completeness-critic")
-      assert define.step_edges.exists?(from_step: critic, to_step: writer, kind: "route_to"),
-        "define critic routes to the first builder"
+        "the Define decision tree ignores pinned define composition"
 
-      plan = pipeline.phases.find_by!(kind: "plan").workflows.first
-      assert_equal %w[workflow-composer design-writer guide-alignment-critic design-coverage-critic],
-        plan.steps.order(:position).map(&:slug)
-
-      assert pipeline.phases.find_by!(kind: "build").workflows.none? { |w| w.steps.exists? }
-      assert pipeline.phases.find_by!(kind: "review").workflows.none? { |w| w.steps.exists? }
+      %w[plan build review].each do |kind|
+        assert pipeline.phases.find_by!(kind: kind).workflows.none? { |w| w.steps.exists? },
+          "#{kind} is empty at creation"
+      end
     end
 
     test "composes build/review at creation when the template forbids manager additions" do
@@ -158,6 +156,23 @@ module Pipelines
         end
       end
       pt
+    end
+
+    # The six canonical Define decision-tree templates (Pipelines::Create wires
+    # them by these exact names).
+    def seed_define_tree_templates
+      StepTemplate.create!(name: "Code Explorer", step_type: "builder", role: "code",
+        phase: "define", requirement: "required")
+      StepTemplate.create!(name: "Clarifying Questions", step_type: "critic", role: "review",
+        phase: "define", requirement: "required")
+      StepTemplate.create!(name: "Human Feedback", step_type: "human", role: "human",
+        phase: "define", requirement: "required")
+      StepTemplate.create!(name: "Requirements Writer", step_type: "builder", role: "requirements",
+        phase: "define", requirement: "required")
+      StepTemplate.create!(name: "Workflow Planner", step_type: "planner", role: "code",
+        phase: "define", requirement: "required")
+      StepTemplate.create!(name: "Define Review", step_type: "builder", role: "review",
+        phase: "define", requirement: "required")
     end
 
     def seed_build_review_templates

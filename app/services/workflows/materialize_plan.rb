@@ -1,20 +1,23 @@
 require "json"
 
 module Workflows
-  # Materializes the Workflow Composer's plan (a planner step's `workflow_plan`
-  # artifact) into real Build and Review steps (docs/execution-model.md —
-  # "Workflow composition (configurable + agentic)"). The composer decides which
-  # steps this task needs and in what order; this service turns that decision
-  # into Steps wired with linear `depends_on` edges and critic `route_to` edges.
+  # Materializes the Workflow Planner's plan (a planner step's `workflow_plan`
+  # artifact) into real Plan, Build and Review steps (docs/execution-model.md —
+  # "Workflow composition (configurable + agentic)"). The planner runs LAST in
+  # Define (it was moved out of the Plan phase) and composes every downstream
+  # phase at once; this service turns that decision into Steps wired with linear
+  # `depends_on` edges and critic `route_to` edges. It composes only phases that
+  # are still empty, so it never touches Define (which is composed at creation)
+  # and is safe to re-run.
   #
-  # Input: the composer's succeeded+merged step_run. Its plan is read from
+  # Input: the planner's succeeded+merged step_run. Its plan is read from
   # `run.result["artifacts"]["workflow_plan"]` (the worker mirrors declared
   # output artifacts there), so no git access is needed.
   #
   # The project's pipeline_template constrains the result:
-  #   * Pinned build/review entries are always materialized (in pinned order),
-  #     even if the plan omits them — the plan's extras follow, duplicates
-  #     skipped.
+  #   * Pinned plan/build/review entries are always materialized (in pinned
+  #     order), even if the plan omits them — the plan's extras follow,
+  #     duplicates skipped.
   #   * When allow_manager_additions is false, plan entries beyond the pinned
   #     set are ignored (pinned-only materialization).
   #
@@ -24,8 +27,9 @@ module Workflows
   # materializes NOTHING and records a ManagerDecision "escalate" on the Plan
   # phase explaining the bad plan.
   class MaterializePlan
-    # Ordering of the two composed phases (the plan's top-level keys).
-    PHASE_KEYS = { "build" => "build", "review" => "review" }.freeze
+    # Ordering of the composed phases (the plan's top-level keys). The Define
+    # planner composes all three downstream phases.
+    PHASE_KEYS = { "plan" => "plan", "build" => "build", "review" => "review" }.freeze
 
     # Raised internally to roll the materialization transaction back and fail.
     class Rollback < StandardError; end
@@ -37,8 +41,10 @@ module Workflows
     def initialize(step_run:)
       @step_run = step_run
       @step = step_run.step
-      @plan_phase = @step.workflow.phase
-      @pipeline = @plan_phase.pipeline
+      # The phase HOSTING the planner (now Define). Decisions/escalations about a
+      # bad plan are recorded here.
+      @planner_phase = @step.workflow.phase
+      @pipeline = @planner_phase.pipeline
       @project = @pipeline.project
       @pipeline_template = @project.pipeline_template
       @allow_additions = @pipeline_template.nil? || @pipeline_template.allow_manager_additions
@@ -46,7 +52,7 @@ module Workflows
 
     def call
       plan = parse_plan
-      return invalid_plan("Workflow Composer plan is missing or not valid JSON.") if plan.nil?
+      return invalid_plan("Workflow Planner plan is missing or not valid JSON.") if plan.nil?
 
       templates_by_name = StepTemplate.available_to(@project).index_by(&:name)
       targets = []       # [[phase, specs], ...]
@@ -68,7 +74,7 @@ module Workflows
       # be unknown, so a pinned-only (additions-disabled) materialization never
       # trips this.
       if unknown.any?
-        return invalid_plan("Workflow Composer plan names unknown templates: " \
+        return invalid_plan("Workflow Planner plan names unknown templates: " \
           "#{unknown.uniq.join(", ")}.")
       end
 
@@ -85,7 +91,7 @@ module Workflows
       broadcast(created.map { |step| step.workflow.phase }.uniq)
       Result.success(@step_run)
     rescue Rollback
-      invalid_plan("Workflow Composer plan could not be materialized " \
+      invalid_plan("Workflow Planner plan could not be materialized " \
         "(duplicate or invalid step definition).")
     end
 
@@ -182,15 +188,15 @@ module Workflows
     # --- outcomes -----------------------------------------------------------
 
     def record_success(created, ignored)
-      build_count = created.count { |step| step.workflow.phase.build_phase? }
-      review_count = created.size - build_count
-      rationale = "Workflow Composer materialized #{build_count} build + " \
-        "#{review_count} review step(s)."
+      counts = created.group_by { |step| step.workflow.phase.kind }
+        .transform_values(&:size)
+      parts = PHASE_KEYS.values.filter_map { |kind| "#{counts[kind]} #{kind}" if counts[kind] }
+      rationale = "Workflow Planner materialized #{parts.join(" + ")} step(s)."
       if ignored.positive?
         rationale += " Ignored #{ignored} manager addition(s) beyond the pinned " \
           "set (additions are disabled for this project)."
       end
-      @plan_phase.manager_decisions.create!(
+      @planner_phase.manager_decisions.create!(
         decision: "route_to",
         iteration: @step_run.iteration,
         route_to: created.map(&:slug),
@@ -199,11 +205,11 @@ module Workflows
     end
 
     def invalid_plan(reason)
-      @plan_phase.manager_decisions.create!(
+      @planner_phase.manager_decisions.create!(
         decision: "escalate",
         iteration: @step_run.iteration,
         rationale: "#{reason} Nothing was materialized; the Plan phase needs a " \
-          "human to fix or re-run the Workflow Composer."
+          "human to fix or re-run the Workflow Planner."
       )
       Result.failure(:invalid_plan, record: @step_run)
     end

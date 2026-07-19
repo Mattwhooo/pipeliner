@@ -6,7 +6,8 @@ class StepTemplate < ApplicationRecord
     builder: "builder",
     critic: "critic",
     manager: "manager",
-    gate: "gate"
+    gate: "gate",
+    human: "human" # executed by a human in the UI (see Step#type_human?)
   }, prefix: :type
 
   enum :requirement, { required: "required", conditional: "conditional" }, suffix: true

@@ -30,6 +30,7 @@ Rails.application.routes.draw do
     member do
       post :send_back
       post :answers
+      post :submit_feedback
       post :pause
       post :rerun_step
       post :restart

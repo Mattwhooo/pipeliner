@@ -213,6 +213,35 @@ class PhasesControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "submit_feedback completes the pending human step and redirects to the board" do
+    @define.update!(status: "running")
+    human = @define.workflows.first.steps.create!(slug: "human-feedback", step_type: "human",
+      role: "human", position: 3,
+      outputs: [ { "artifact" => "human_answers", "kind" => "artifact", "path" => "output/human_answers.md" } ])
+    run = human.step_runs.create!(state: "awaiting_input", iteration: 1, required_role: "human")
+
+    post submit_feedback_phase_url(@define),
+      params: { question: [ "Scope?" ], answer: [ "just the API" ], notes: "small" }
+
+    assert_redirected_to pipeline_url(@pipeline)
+    assert_equal "succeeded", run.reload.state
+    assert_equal "just the API", run.result.dig("artifacts", "human_answers_structured").first["answer"]
+  end
+
+  test "submit_feedback redirects with an alert when there is nothing to answer" do
+    @define.update!(status: "running")
+    post submit_feedback_phase_url(@define),
+      params: { question: [ "Q?" ], answer: [ "A" ], notes: "" }
+
+    assert_redirected_to pipeline_url(@pipeline)
+    assert_match "no open questions", flash[:alert]
+  end
+
+  test "cannot submit feedback on other users' pipelines" do
+    post submit_feedback_phase_url(foreign_phase), params: { notes: "x" }
+    assert_response :not_found
+  end
+
   test "cannot view phases of other users' pipelines" do
     get phase_url(foreign_phase)
     assert_response :not_found

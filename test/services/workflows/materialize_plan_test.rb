@@ -161,6 +161,33 @@ module Workflows
       assert_equal %w[implementer], @build_phase.workflows.first.steps.map(&:slug)
     end
 
+    test "a Define-hosted planner also composes the Plan phase" do
+      # In the real flow the planner lives in Define and Plan starts empty; the
+      # shared setup parks a composer in Plan, so clear it here.
+      @plan_phase.workflows.destroy_all
+      StepTemplate.create!(name: "Design Writer", step_type: "builder", role: "code",
+        phase: "plan", requirement: "required")
+      define = phases(:onboarding_define)
+      planner = define.workflows.create!(slug: "planner-wf").steps.create!(
+        slug: "workflow-planner", step_type: "planner", role: "code", position: 1)
+      run = planner.step_runs.create!(state: "succeeded", iteration: 1, required_role: "code",
+        merged_at: Time.current, result: { "artifacts" => { "workflow_plan" => {
+          "plan" => [ { "template" => "Design Writer" } ],
+          "build" => [ { "template" => "Implementer" } ],
+          "review" => [ { "template" => "Requirements Conformance Critic" } ]
+        }.to_json } })
+
+      result = MaterializePlan.call(step_run: run)
+
+      assert result.success?
+      assert_equal %w[design-writer], @plan_phase.workflows.reload.first.steps.map(&:slug)
+      assert_equal %w[implementer], @build_phase.workflows.reload.first.steps.map(&:slug)
+      assert_equal %w[requirements-conformance-critic], @review_phase.workflows.reload.first.steps.map(&:slug)
+      # The decision is recorded on the phase that HOSTS the planner (Define).
+      decision = define.manager_decisions.order(:created_at).last
+      assert_match(/1 plan \+ 1 build \+ 1 review/, decision.rationale)
+    end
+
     private
 
     def composer_run(plan)

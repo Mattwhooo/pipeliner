@@ -64,6 +64,7 @@ module Phases
             dispatch_ready_steps(workflow)
             escalate_failed_steps(workflow)
             route_critic_feedback(workflow)
+            route_human_feedback(workflow)
           end
           settle_convergence
         end
@@ -115,10 +116,7 @@ module Phases
         next if step.active_run?
 
         predecessors = step.worker_predecessors
-        # A predecessor only unblocks a dependent once its branch has MERGED —
-        # a merely-succeeded run's artifacts aren't on the pipeline branch yet,
-        # so the dependent's worktree wouldn't contain them.
-        next unless predecessors.all? { |p| p.latest_run&.succeeded? && p.latest_run.merged? }
+        next unless predecessors.all? { |p| predecessor_satisfied?(p) }
 
         target_iteration = predecessors.filter_map { |p| p.latest_run.iteration }.max || 1
         next unless current_iteration(step) < target_iteration
@@ -132,6 +130,23 @@ module Phases
     # RestartDefine already seeded directly) — R18.
     def restart_carry_feedback
       @phase.restart_in_progress? ? @phase.restart_feedback : []
+    end
+
+    # A predecessor unblocks its dependents only once its latest run has
+    # succeeded AND merged — a merely-succeeded run's artifacts aren't on the
+    # pipeline branch yet, so the dependent's worktree wouldn't contain them.
+    # A CRITIC predecessor additionally gates on its verdict: dependents wait
+    # until the critic actually PASSES (pass/not_applicable), so a decision-tree
+    # edge past a critic advances only when its check is satisfied — this is what
+    # lets Define's Clarifying-Questions critic hold the loop until the task is
+    # fully defined ("its pass lets the DAG continue"). A needs_work critic
+    # routes elsewhere and never unblocks what depends on it.
+    def predecessor_satisfied?(step)
+      run = step.latest_run
+      return false unless run&.succeeded? && run.merged?
+      return true unless step.type_critic?
+
+      Convergence::RESOLVED_VERDICTS.include?(run.verdict_status)
     end
 
     # --- 2. Route feedback --------------------------------------------------
@@ -231,6 +246,7 @@ module Phases
     end
 
     def route_to_target(workflow, critic, critic_run, target)
+      return dispatch_human_feedback(critic, critic_run, target) if target.type_human?
       return unless target.worker_executed?
       return if target.active_run?
       # Already routed for this verdict once the target moved past the critic.
@@ -250,6 +266,75 @@ module Phases
             "to #{target.slug} for iteration #{new_iteration}."
         )
       end
+    end
+
+    # A critic whose route_to target is a HUMAN step (Define's Clarifying
+    # Questions → Human Feedback): a needs_work verdict hands the findings (the
+    # open questions) to the human to answer in the UI, exactly once per verdict.
+    # The run is created at the critic's own iteration so it sits level with the
+    # verdict that raised it; once the human submits, route_human_feedback re-runs
+    # the critic at iteration+1 (moving it past this ask, which closes the guard).
+    def dispatch_human_feedback(critic, critic_run, human_step)
+      return if human_step.active_run?
+      # One ask per verdict: a human run already at/after this critic's iteration
+      # was raised for this verdict (or a later one) — don't stack another.
+      return if current_iteration(human_step) >= critic_run.iteration
+
+      create_run(human_step, iteration: critic_run.iteration, feedback: critic_run.findings)
+      record_decision(
+        decision: "route_to",
+        iteration: critic_run.iteration,
+        route_to: [ human_step.slug ],
+        rationale: "Critic #{critic.slug} returned needs_work at iteration " \
+          "#{critic_run.iteration}; awaiting the human's answers to " \
+          "#{critic_run.findings.size} open question(s) before continuing."
+      )
+    end
+
+    # The mirror of route_critic_feedback for human steps: once a human submits
+    # their feedback run (Phases::SubmitHumanFeedback marks it succeeded), send
+    # control along the human step's route_to edge — re-running the critic (Define's
+    # Clarifying Questions) at the next iteration with every answer given so far as
+    # feedback, so it can decide whether the task is now fully defined.
+    def route_human_feedback(workflow)
+      workflow.steps.select(&:type_human?).each do |human_step|
+        run = human_step.latest_run
+        next unless run&.succeeded?
+
+        human_step.route_targets.each do |target|
+          next unless target.worker_executed?
+          next if target.active_run?
+          # Re-run once per answer: skip once the target has already advanced to
+          # (or past) this human run's iteration.
+          next unless current_iteration(target) <= run.iteration
+
+          new_iteration = current_iteration(target) + 1
+          create_run(target, iteration: new_iteration, feedback: human_feedback_so_far(workflow))
+          record_decision(
+            decision: "route_to",
+            iteration: new_iteration,
+            route_to: [ target.slug ],
+            rationale: "Human answered #{human_step.slug}; re-running #{target.slug} " \
+              "at iteration #{new_iteration} with the answers to reassess whether the " \
+              "task is fully defined."
+          )
+        end
+      end
+    end
+
+    # Every answer the human has submitted to this workflow's human steps so far,
+    # as feedback entries — a re-run of Clarifying Questions is given the full
+    # history, not just the latest answer (the worker reads it from input.json;
+    # the answers live in the DB, not on the branch, so feedback is the delivery
+    # channel — same convention as Phases::AnswerQuestions).
+    def human_feedback_so_far(workflow)
+      workflow.steps.select(&:type_human?).flat_map(&:step_runs)
+        .select { |r| r.succeeded? && r.result.is_a?(Hash) }
+        .sort_by { |r| [ r.iteration, r.id ] }
+        .filter_map do |r|
+          answers = r.result.dig("artifacts", "human_answers").presence
+          answers && { "from" => "human", "issue" => answers, "severity" => "info" }
+        end
     end
 
     def escalate(workflow, critic, critic_run, attempted_iteration)
@@ -319,8 +404,10 @@ module Phases
     # --- helpers ------------------------------------------------------------
 
     def create_run(step, iteration:, feedback: [])
+      # A human step is dispatched into a run the product owns — no worker claims
+      # it — so it starts in awaiting_input, not ready (see StepRun state enum).
       run = step.step_runs.create!(
-        state: "ready",
+        state: step.type_human? ? "awaiting_input" : "ready",
         iteration: iteration,
         required_role: step.role,
         feedback: feedback
