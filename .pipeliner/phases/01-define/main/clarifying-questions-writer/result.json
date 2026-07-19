@@ -2,10 +2,10 @@
   "schema_version": "1.0",
   "step": "clarifying-questions-writer",
   "status": "succeeded",
-  "iteration": 2,
+  "iteration": 3,
   "worker": {
-    "id": "wk_sonnet",
+    "id": "wk_sonnet2",
     "backend": "claude-code"
   },
-  "summary": "Updated `open_questions.md` for iteration 2, incorporating the facts the refreshed discovery notes surfaced (F1–F4 from the requirements-completeness critic). Two new questions were added — whether fresh output from a menu action should be shown inline before the person decides what's next (F1), and what the person should see if a menu-triggered re-run fails (F3) — and two existing questions were sharpened: \"Repeat from the Beginning\" now asks whether the multi-step restart runs automatically to completion or pauses after each internal step (F2), and \"Done\" now asks whether it can force-finish an unconverged pause or must wait for Define to settle first, given the existing approval action's hard precondition (F4). F5 (a requirements-drafting atomicity issue, not a human decision) wasn't turned into a question. The set is now 13 items, each with a plain-language framing and an assumed default, ready for the phase gate."
+  "summary": "Updated `open_questions.md` for iteration 3, growing it from 13 to 15 questions. The two additions target the specific ambiguities the requirements-completeness critic flagged after re-grounding in fresh discovery notes: (11) whether there's a distinct \"Resume\" action that hands the automatic loop back control without ending Define, versus Done being the only real exit — flagged major, since the drafted requirements' language (\"until you resume or finish\") implied a control that doesn't exist anywhere in the codebase and no precedent for it was found; and (7) what the paused view shows while a single-step re-run (Explore or Clarifying Questions) is still in flight, mirroring the already-answered multi-step restart case. Both carry an assumed default consistent with the existing patterns discovery turned up, and all 13 original questions carry forward unchanged."
 }
