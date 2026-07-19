@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "clarifying-questions-writer",
+  "status": "failed",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_personal-macbook-local",
+    "backend": "claude-code"
+  },
+  "summary": "claude exited 1: I have the ask and the draft requirements. Now let me write the open questions."
+}
