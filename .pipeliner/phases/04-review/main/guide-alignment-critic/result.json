@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "guide-alignment-critic",
+  "status": "succeeded",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_personal-macbook-local",
+    "backend": "claude-code"
+  },
+  "summary": "I reviewed the \"Live pipeline status summary\" change set against `guides/backend-guide.md` and `guides/ui-style-guide.md`. The work is strongly guide-aware: `Pipelines::StatusSummary` is a pure derivation PORO correctly homed in `app/lib` with a query-style `.for`; all tone/color is sourced from the single `StatusHelper::STATUS_TONES` table so the summary dot and the status badge can never diverge; broadcasts target the smallest DOM unit via stable `dom_id`s; both the board and detail pages render true state on load with streams as pure enhancement; the dot is `aria-hidden` with the sentence carrying meaning inside an `aria-live=\"polite\"` region; and the Tailwind type scale, eyebrow label, Card, and semantic status colors all match the UI guide — with the `aborted → gray` reclassification landed as a coherent same-PR guide update. I emitted a **needs_work** verdict on three findings: two `major` backend deviations — `Phases::Advance` does multi-write work without owning a transaction (atomicity rule), and `BroadcastColumn`/`Advance` broadcasts fire inside `ManagerTick`'s open transaction rather than after commit (Turbo after-commit rule) — plus one `minor` UI drift where the gate approve button and note input are styled ad hoc instead of from the guide's shared button/form component specs. Each finding cites the specific guide rule, and the verdict is written to `.pipeliner/phases/04-review/main/guide-alignment-critic/verdict.json`."
+}
