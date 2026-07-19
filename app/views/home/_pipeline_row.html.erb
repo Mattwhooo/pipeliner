@@ -7,13 +7,13 @@
     define_open_questions_structured(define_phase).present?
 %>
 <div id="<%= dom_id(pipeline, :dashboard_row) %>"
-     class="relative px-6 py-4 hover:bg-gray-50 <%= row.attention ? "border-l-4 #{row.attention_reason == :awaiting_human ? "border-amber-500" : "border-red-500"}" : "border-l-4 border-transparent" %>">
+     class="relative px-6 py-4 hover:bg-surface-hover <%= row.attention ? "border-l-4 #{row.attention_reason == :awaiting_human ? "border-amber-500" : "border-red-500"}" : "border-l-4 border-transparent" %>">
   <%= link_to "", pipeline_path(pipeline), class: "absolute inset-0 z-0", "aria-label": pipeline.title %>
 
   <div class="relative z-[1] flex items-center justify-between gap-4">
     <div class="min-w-0 flex-1">
       <div class="flex flex-wrap items-center gap-2">
-        <p class="truncate text-sm font-medium text-gray-900"><%= pipeline.title %></p>
+        <p class="truncate text-sm font-medium text-default"><%= pipeline.title %></p>
         <% if row.attention %>
           <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium
                        <%= row.attention_reason == :awaiting_human ? "bg-amber-50 text-amber-700 ring-1 ring-amber-600/20" : "bg-red-50 text-red-700 ring-1 ring-red-600/20" %>">
@@ -22,19 +22,19 @@
           </span>
         <% end %>
       </div>
-      <p class="mt-0.5 truncate text-xs text-gray-500"><%= pipeline.project.name %></p>
+      <p class="mt-0.5 truncate text-xs text-muted"><%= pipeline.project.name %></p>
 
       <div class="mt-2 flex items-center gap-1" title="<%= pipeline.current_phase.humanize %>">
         <% Phase::KINDS_IN_ORDER.each_with_index do |kind, index| %>
-          <span class="h-1.5 w-6 rounded-full <%= index < current_index ? "bg-green-500" : (index == current_index ? "bg-indigo-600" : "bg-gray-200") %>"></span>
+          <span class="h-1.5 w-6 rounded-full <%= index < current_index ? "bg-green-500" : (index == current_index ? "bg-indigo-600" : "bg-surface-hover") %>"></span>
         <% end %>
-        <span class="ml-1 text-xs text-gray-500"><%= pipeline.current_phase.humanize %></span>
+        <span class="ml-1 text-xs text-muted"><%= pipeline.current_phase.humanize %></span>
       </div>
     </div>
 
     <div class="flex shrink-0 flex-col items-end gap-1 text-right">
       <%= status_badge(pipeline.status) %>
-      <time class="text-xs text-gray-500" title="<%= row.last_active_at %>">
+      <time class="text-xs text-muted" title="<%= row.last_active_at %>">
         <%= time_ago_in_words(row.last_active_at) %> ago
       </time>
     </div>
@@ -43,7 +43,7 @@
   <% if offer_answers %>
     <div class="relative z-[1] mt-3" data-controller="dialog">
       <button type="button" data-action="click->dialog#open"
-              class="rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-gray-900 ring-1 ring-gray-300 hover:bg-gray-50">
+              class="rounded-md bg-surface px-3 py-1.5 text-xs font-semibold text-default ring-1 ring-default hover:bg-surface-hover">
         Answer open questions
       </button>
       <%= render "home/answer_questions_modal", phase: define_phase %>

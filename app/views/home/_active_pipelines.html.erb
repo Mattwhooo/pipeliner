@@ -1,21 +1,21 @@
-<div class="rounded-lg border border-gray-200 bg-white shadow-sm">
-  <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-    <h2 class="text-lg font-semibold text-gray-900">Active pipelines</h2>
+<div class="rounded-lg border border-default bg-surface shadow-sm">
+  <div class="flex items-center justify-between border-b border-default px-6 py-4">
+    <h2 class="text-lg font-semibold text-default">Active pipelines</h2>
     <% if active.total_count > active.rows.size %>
       <%= link_to "See all →", pipelines_path, class: "text-sm font-medium text-indigo-600 hover:text-indigo-700" %>
     <% end %>
   </div>
 
   <% if active.rows.any? %>
-    <div class="divide-y divide-gray-100">
+    <div class="divide-y divide-default">
       <% active.rows.each do |row| %>
         <%= render "home/pipeline_row", row: row %>
       <% end %>
     </div>
   <% else %>
     <div class="py-12 text-center">
-      <p class="text-sm font-medium text-gray-900">No active pipelines</p>
-      <p class="mt-1 text-xs text-gray-500">Pipelines you start will appear here while they're running.</p>
+      <p class="text-sm font-medium text-default">No active pipelines</p>
+      <p class="mt-1 text-xs text-muted">Pipelines you start will appear here while they're running.</p>
     </div>
   <% end %>
 </div>
