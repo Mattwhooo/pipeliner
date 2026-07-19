@@ -8,11 +8,13 @@ worker-fleet health — plus an in-place modal for answering a pipeline's open
 questions when it is waiting on a person. Live updates arrive over Turbo Streams
 without a manual reload.
 
-**Review status: approved with follow-ups.** Two of three review critics passed
-outright; the code-quality critic returned `needs_work` on performance/quality
-grounds only — it found **no correctness or security defects**. The findings are
-scalability and consistency issues on the broadcast/activity paths and are captured
-below as open follow-ups; none block the feature's behavior.
+**Review status: approved with follow-ups.** Requirements conformance passes on all
+50 requirements, and tests/lint are green. The code-quality critic's `needs_work`
+verdict was driven purely by performance/consistency findings (no correctness or
+security defects); **all four were fixed in the review-rework iteration** and are
+now resolved. What remains open are **five minor UI style-guide conformance items**
+(palette drift, badge-helper reuse, a helper-vs-PORO placement, empty-state actions,
+and one deliberate polling deviation) — none change behavior, none block merge.
 
 ---
 
@@ -35,8 +37,8 @@ the one supported action (answering open questions).
 **Backend (POROs + thin controllers, per `guides/backend-guide.md`)**
 - `Dashboard::ActivePipelines`, `Dashboard::RecentActivity`, `Dashboard::FleetHealth`
   — three query objects that assemble the panels' data.
-- `Dashboard::Broadcast` — a per-user broadcast service wired into 8 post-commit
-  call sites (approve, rework, finalize, step completion, manager tick, sweep, card
+- `Dashboard::Broadcast` — a per-user broadcast service wired into post-commit call
+  sites (approve, rework, finalize, step completion, manager tick, sweep, card
   broadcast, column broadcast) so panels update live.
 - `HomeController` (dashboard root + `fleet_health` polling endpoint) and a
   `PhasesController#answers` Turbo Stream branch driving `Phases::AnswerQuestions`.
@@ -51,9 +53,13 @@ the one supported action (answering open questions).
 - Three Stimulus controllers: `dialog`, `answer_questions_form`, `poll_frame`;
   native `<dialog>` overlay for the modal.
 
-**Size:** app/config/db **+703 / −29** (33 files); tests **+552 / −5** (11 files);
-docs/guides **+22 / −1** (2 guide additions appended as CLAUDE.md requires:
-presentation-boundary rescue, per-user-stream pattern).
+**Review-rework iteration (performance/consistency hardening):** in response to the
+code-quality critic, `StepRuns::BroadcastCard.call` gained a `dashboard:` flag so
+per-worker progress ticks (`RecordProgress`) skip the full dashboard fan-out;
+`Dashboard::RecentActivity`'s four source queries each gained a DB-level
+`ORDER … LIMIT`; `Phases::ManagerTick#broadcast_affected` now fires one dashboard
+broadcast per tick instead of one per decision; and `StepRuns::Sweep` now broadcasts
+both stuck **and** recovered (unstuck) pipelines.
 
 ---
 
@@ -93,51 +99,67 @@ All **50 requirements (R1–R50) satisfied with concrete evidence.** Highlights:
   typed input; focus-trap/Escape/focus-return via native dialog; shared
   Tailwind styling.
 
-### Tests & lint — **PASS** (Build `test-critic`)
+### Tests & lint — **PASS** (Build `test-critic`, re-run this iteration)
 
-- Full non-system suite green: **213 tests / 738 assertions, 0 failures/errors**
-  (implementer reported 217/754 after its fixes); covers the new dashboard queries,
-  the broadcast service, controllers, and view partials.
-- `bin/rubocop` clean (rubocop-rails-omakase), no offenses.
-- System tests (`dashboard_test.rb`, `answer_questions_modal_test.rb`) were green in
-  the implementer's environment against real headless Chrome; the Build test-critic
-  could not re-run them due to a **local chromedriver v122 / Chrome v150 mismatch**
-  (unrelated tooling issue, not an app defect). *Follow-up: confirm the system tests
-  run in CI.*
+- Full non-system suite green: **213 tests / 738 assertions, 0 failures/errors**;
+  covers the new dashboard queries, the broadcast service, controllers, and view
+  partials.
+- `bin/rubocop` clean (rubocop-rails-omakase) across 152 files, no offenses.
+- System tests (`dashboard_test.rb`, `answer_questions_modal_test.rb`) could not be
+  re-run due to a **local chromedriver v122 / Chrome v150 mismatch** (Selenium
+  `SessionNotCreatedError` — an unrelated tooling issue, not an app defect).
+  *Follow-up: confirm the system tests run in CI.*
 
-### Code quality & security — **NEEDS_WORK** (`code-quality-critic`)
+### Code quality & security — **NEEDS_WORK on record, all findings now RESOLVED** (`code-quality-critic`)
 
-No correctness-breaking or security defects. Verified: all dashboard queries are
-correctly membership-scoped, `PhasesController#answers` stays authorized via
-`membership_scoped_phase`, the fleet `html_safe` output is pre-escaped via
+No correctness-breaking or security defects were found. Verified: all dashboard
+queries are correctly membership-scoped, `PhasesController#answers` stays authorized
+via `membership_scoped_phase`, the fleet `html_safe` output is pre-escaped via
 `content_tag`, all referenced model enums/methods exist, and the sweep's
-capture-ids-before-`update_all` ordering is sound. The verdict is driven entirely by
-the performance/consistency findings below.
+capture-ids-before-`update_all` ordering is sound. The `needs_work` verdict was
+driven entirely by four performance/consistency findings — **all four were addressed
+in the review-rework iteration** (see Resolved findings below).
 
 ---
 
-## Open findings
+## Resolved findings (code-quality critic — fixed this iteration)
 
-These are follow-ups, not blockers — the feature behaves as specified. Two majors
-concern scalability under load; two minors concern broadcast consistency/redundancy.
+| ID | Severity | Location | Finding | How it was resolved |
+|----|----------|----------|---------|---------------------|
+| **CQ-1** | major | `app/services/step_runs/broadcast_card.rb` | Write-amplification: `Dashboard::Broadcast` ran on every card update, including `RecordProgress` progress ticks, recomputing the full active-pipeline tree + fleet health per project member. | `BroadcastCard.call` now takes `dashboard:` (default true); `RecordProgress` and the already-explicit `Complete` path pass `dashboard: false`, so progress ticks no longer trigger the dashboard fan-out. |
+| **CQ-2** | major | `app/queries/dashboard/recent_activity.rb` | Unbounded reads: the four event sources queried with no DB `LIMIT`/window, materialized every row, merged, then kept `first(15)` — working set grew with total history. | Each source query now carries `ORDER BY <ts> DESC LIMIT LIMIT` at the DB before the Ruby merge; the global top-N can never need more than `LIMIT` rows from any single source. |
+| **CQ-3** | minor | `app/services/step_runs/sweep.rb` | Asymmetric broadcasting: newly-stuck pipelines were broadcast, but pipelines flipped stuck→ready via `unstuck` were not, so a recovered pipeline kept a stale "Stuck" row until an unrelated event. | Sweep now captures `unstuck_pipeline_ids` before its `update_all` and broadcasts the union of stuck + unstuck ids (`broadcast_stuck_state_changed`). |
+| **CQ-4** | minor | `app/services/phases/manager_tick.rb` | Redundant fan-out: `@affected_decisions.each { Dashboard::Broadcast.call(...) }` fired the identical per-member broadcast once per decision. | Replaced with a single `Dashboard::Broadcast.call(...) if @affected_decisions.any?`. |
+
+---
+
+## Open findings (UI style-guide conformance — all minor, non-blocking)
+
+These are the five conformance items raised against `guides/ui-style-guide.md` /
+`guides/backend-guide.md`. All are **minor** and none affect behavior; they are
+consistency/placement cleanups. They remain open in the current build.
 
 | ID | Severity | Location | Issue | Suggested fix |
 |----|----------|----------|-------|---------------|
-| **F1** | major | `app/services/step_runs/broadcast_card.rb:17` | Write-amplification on a hot path: `Dashboard::Broadcast` runs on every card update — including `RecordProgress` progress ticks — recomputing the full active-pipeline tree (eager-loading phases→workflows→steps→step_runs) plus fleet health **for each project member**. Frequent progress with several members re-runs the whole aggregation many times per second. | Debounce/throttle dashboard broadcasts, gate them to state-changing transitions rather than progress ticks, or move the recompute off the request path. |
-| **F2** | major | `app/queries/dashboard/recent_activity.rb:35` | Unbounded reads: the four event sources query with no DB `LIMIT`/time window, materialize every matching row, concatenate, sort in Ruby, then keep `first(15)`. `step_completion_events` grows with every completed run for the lifetime of every project — memory/CPU per load grows without bound, recomputed per member on each activity broadcast. | Bound each source query at the DB (`ORDER BY ts DESC LIMIT 15`, or a `created_at` window) before merging. |
-| **F3** | minor | `app/services/step_runs/sweep.rb:65` | Asymmetric broadcasting: `refresh_stuck_state` broadcasts newly-**stuck** pipelines but not those it just flipped stuck→ready via `unstuck` `update_all`. A recovered-but-unclaimed pipeline keeps its red "Stuck" row/count until the next event (usually a Claim) triggers a broadcast. | Capture and broadcast the unstuck pipeline ids the same way as the stuck ones. |
-| **F4** | minor | `app/services/phases/manager_tick.rb:282` | Redundant fan-out: `@affected_decisions.each { Dashboard::Broadcast.call(...) }` ignores the loop variable and fires the identical full per-member fan-out once per decision, multiplying F1's cost for no added information. | Fire once: `Dashboard::Broadcast.call(...) if @affected_decisions.any?`. |
-
-**Also noted (non-blocking):** the "Workers online" summary tile refreshes on
-pipeline-scoped broadcasts rather than on every isolated worker status flip; the
-fleet panel itself stays current via its 30s poll, so R31's intent is met.
+| **UI-1** | minor | `app/views/home/_pipeline_row.html.erb` | Palette drift from the reserved status scale: the attention border uses `border-red-500` and completed-phase progress segments use `bg-green-500`, but the guide's status table mandates `red-600` (stuck/failed) and `green-600` (success/converged). The sibling `border-amber-500` / `bg-indigo-600` are correct. | Use `border-red-600` and `bg-green-600` for the semantic status fills. |
+| **UI-2** | minor | `app/views/home/_pipeline_row.html.erb` | The "Needs your input" / "Stuck" attention pill hand-rolls the full soft-badge class string instead of the shared `status_badge` helper — "one source of truth per component." `status_badge("awaiting_human", label: "Needs your input")` and `status_badge("stuck")` produce the same pill (the only extras are `gap-1` + a decorative ● dot). | Render via `status_badge`, extending the helper if the dot/gap is desired, so the two can't drift. |
+| **UI-3** | minor | `app/helpers/define_helper.rb` | Business logic in a view helper: `define_open_questions_structured` / `latest_structured_questions_run` select the authoritative `StepRun` across phases/workflows (`flat_map` + `max_by` on iteration/attempt/id) and JSON-parse the payload — and duplicate the near-identical run-selection in `latest_open_questions_run`. Per backend-guide, this belongs in a reusable PORO callable from controllers/jobs/console/tests. | Extract the run-selection + parse into a query/domain object; have both helpers delegate to it. |
+| **UI-4** | minor | `_active_pipelines.html.erb`, `_recent_activity.html.erb`, `_fleet_health_content.html.erb` | Empty states omit the primary action the guide requires ("icon + one sentence + primary action; never a bare empty table"). "No projects yet" in `index.html.erb` includes an action, but "No active pipelines", "No recent activity", and "No workers connected" are text-only — an inconsistency within the same PR. | Add a primary action (or an intentional, guide-consistent rationale) to each of the three bare empty states. |
+| **UI-5** | minor | `app/views/home/_fleet_health.html.erb` | The worker-fleet panel stays current via fixed-interval client polling (`turbo_frame_tag src:` + `poll_frame_controller.js`, 30s) rather than Turbo Stream broadcasts, a departure from the stream-first "Live by default" principle. **Deliberate, documented deviation:** worker heartbeats don't broadcast to the dashboard and per-heartbeat fan-out would storm; it still avoids a manual refresh. | Borderline — a **manager decision** on whether to keep the documented polling or move worker-state to stream-driven updates. |
 
 ---
 
 ## Recommendation
 
-Merge the feature. It satisfies all 50 requirements with tests and lint green.
-Track **F1** and **F2** as fast-follow performance work before the dashboard is
-exercised under production-scale history and broadcast volume; **F3** and **F4** are
-small consistency cleanups suitable for the same follow-up. Confirm the two system
-tests execute in CI (the local chromedriver/Chrome mismatch was environmental).
+**Merge the feature.** It satisfies all 50 requirements with tests and lint green,
+and the four performance/consistency findings that drove the code-quality
+`needs_work` verdict have been fixed and verified this iteration (no correctness or
+security defects at any point).
+
+The five remaining items are all **minor UI style-guide conformance** cleanups that
+don't affect behavior. UI-1 (palette) and UI-2 (badge helper) are quick, low-risk
+edits worth folding in; UI-3 (helper→PORO) is a small refactor; UI-4 (empty-state
+actions) is a consistency pass across three partials; **UI-5 (fleet polling vs
+streams) needs a manager decision** — it is a deliberate, documented deviation, not
+an oversight. Confirm the two system tests execute in CI (the local
+chromedriver/Chrome mismatch was environmental).

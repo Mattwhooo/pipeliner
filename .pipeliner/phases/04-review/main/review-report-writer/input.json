@@ -1,6 +1,37 @@
 {
   "schema_version": "1.0",
-  "iteration": 1,
+  "iteration": 2,
   "resolved_inputs": [],
-  "feedback": []
+  "feedback": [
+    {
+      "id": "F1",
+      "issue": "Semantic status colors deviate from the reserved scale in ui-style-guide.md > Color. The attention border uses `border-red-500` and the completed-phase progress segments use `bg-green-500`, but the guide's status table mandates `red-600` for stuck/failed and `green-600` for success/converged. (The `border-amber-500` / `bg-indigo-600` uses on the same lines are correct.) No existing view uses solid `-500` status fills, so this is newly introduced drift from the defined palette. Severity: minor.",
+      "severity": "minor",
+      "target_artifact": "app/views/home/_pipeline_row.html.erb"
+    },
+    {
+      "id": "F2",
+      "issue": "The 'Needs your input' / 'Stuck' attention pill hand-rolls the full soft-badge class string (`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-amber-50 text-amber-700 ring-1 ring-amber-600/20`) instead of the shared `status_badge` helper (app/helpers/status_helper.rb). ui-style-guide.md > Core components requires 'one source of truth per component'; `status_badge(\"awaiting_human\", label: \"Needs your input\")` and `status_badge(\"stuck\")` would produce the same pill (the only additions here are `gap-1` + a decorative ● dot). Duplicating the badge markup risks the two drifting. Severity: minor.",
+      "severity": "minor",
+      "target_artifact": "app/views/home/_pipeline_row.html.erb"
+    },
+    {
+      "id": "F3",
+      "issue": "Business logic lives in a view helper rather than a reusable PORO. `define_open_questions_structured` / `latest_structured_questions_run` select the authoritative StepRun across phases/workflows (flat_map + max_by on iteration/attempt/id) and JSON-parse the artifact payload. backend-guide.md > 'Business logic lives in reusable POROs' says such logic belongs in plain Ruby objects (a query/domain object) 'callable from controllers, jobs, the console, tests', not in a helper module mixed into views; it also duplicates the near-identical run-selection logic already in `latest_open_questions_run`. Severity: minor.",
+      "severity": "minor",
+      "target_artifact": "app/helpers/define_helper.rb"
+    },
+    {
+      "id": "F4",
+      "issue": "Empty states omit the primary action the guide requires. ui-style-guide.md > Core components: 'Empty states: icon + one sentence + primary action. Never a bare empty table.' The 'No projects yet' state in index.html.erb correctly includes a primary action, but 'No active pipelines', 'No recent activity', and 'No workers connected' provide only text with no action, an inconsistency within the same PR. Severity: minor.",
+      "severity": "minor",
+      "target_artifact": "app/views/home/_active_pipelines.html.erb, app/views/home/_recent_activity.html.erb, app/views/home/_fleet_health_content.html.erb"
+    },
+    {
+      "id": "F5",
+      "issue": "The worker-fleet panel is kept current by fixed-interval client polling (`turbo_frame_tag ... src:` + poll_frame_controller.js reloading every 30s) rather than Turbo Stream broadcasts. ui-style-guide.md > Principles #3 ('Live by default … updates in place via Turbo Streams') and Real-time behavior push for stream-driven updates on worker state. This is a deliberate, documented deviation (worker heartbeats don't broadcast to the dashboard, and per-heartbeat fan-out would storm), and it does avoid a manual refresh — so it is borderline and low-severity, but it is a departure from the stated stream-first convention worth a manager decision. Severity: minor.",
+      "severity": "minor",
+      "target_artifact": "app/views/home/_fleet_health.html.erb"
+    }
+  ]
 }
