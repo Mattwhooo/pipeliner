@@ -82,7 +82,6 @@ module Phases
       @phase.update!(status: "running")
       add_builder(phases(:onboarding_define))
       _workflow, critic = add_lone_critic(@phase, verdict: { "verdict" => "needs_work", "findings" => [] })
-      # A rework from this phase already happened after the verdict — no move left.
       ReworkEvent.create!(pipeline: @pipeline, from_phase: @phase,
         target_phase: phases(:onboarding_define), reason: "prior rework", mode: "automated",
         raised_by: "agent", feedback: [], created_at: critic.latest_run.finished_at + 1.minute)
@@ -316,37 +315,94 @@ module Phases
       succeed(builder, iteration: 1)
       succeed(critic, iteration: 1, verdict: { "verdict" => "needs_work", "findings" => [] })
 
-      # The escalate path collects the phase and broadcasts it only after
-      # commit; the dashboard fan-out (Dashboard::Broadcast) renders
-      # synchronously, so only the original phase-column replace is enqueued.
+      # The escalate path collects the phase and broadcasts it only after commit;
+      # no run is created, so exactly one column broadcast is enqueued.
       assert_enqueued_jobs 1, only: Turbo::Streams::ActionBroadcastJob do
         run!
       end
       assert_equal "awaiting_human", @phase.reload.status
     end
 
-    # F3 regression guard (see Dashboard::BroadcastTest): the consensus/
-    # escalate dashboard broadcast must fire only after ManagerTick's own
-    # transaction commits, never from inside it. Uses the human-gate path
-    # (no Advance.call involved) to isolate ManagerTick's own transaction
-    # boundary from Advance's separate one.
-    test "the consensus dashboard broadcast fires only after the transaction commits" do
-      @phase.update!(status: "running", gate_mode: "human")
-      _workflow, builder, critic = build_loop(@phase)
+    # --- Pause -----------------------------------------------------------
+
+    test "pause_requested holds the phase running and dispatches nothing while a step is in flight" do
+      @phase.update!(status: "running", pause_requested: true, pause_requested_at: Time.current)
+      _workflow, builder, _critic = build_loop(@phase)
+      builder.step_runs.create!(state: "running", iteration: 1, required_role: builder.role)
+
+      run!
+
+      assert_equal "running", @phase.reload.status
+      assert @phase.pause_requested?
+      assert_equal 1, builder.reload.step_runs.count, "no new run dispatched"
+    end
+
+    test "pause_requested settles into paused once every step is idle" do
+      @phase.update!(status: "running", pause_requested: true, pause_requested_at: Time.current)
+
+      run!
+
+      @phase.reload
+      assert_equal "paused", @phase.status
+      assert_not @phase.pause_requested?
+      assert_nil @phase.pause_requested_at
+    end
+
+    # --- Restart -----------------------------------------------------------
+
+    test "restart_in_progress carries the phase's restart_feedback onto steps the cascade dispatches" do
+      @phase.update!(status: "running", restart_in_progress: true,
+        restart_feedback: [ { "from" => "human", "issue" => "Use OAuth.", "severity" => "major" } ])
+      _workflow, builder, _critic = build_loop(@phase)
+
+      run!
+
+      assert_equal [ { "from" => "human", "issue" => "Use OAuth.", "severity" => "major" } ],
+        builder.reload.latest_run.feedback
+    end
+
+    test "a converged restart lands back on paused, not the normal gate" do
+      @phase.update!(status: "running", gate_mode: "human", restart_in_progress: true,
+        restart_feedback: [ { "from" => "human", "issue" => "note", "severity" => "major" } ])
+      workflow, builder, critic = build_loop(@phase)
       succeed(builder, iteration: 1)
-      succeed(critic, iteration: 1, verdict: { "verdict" => "pass", "findings" => [] })
-      boom = Class.new(StandardError)
-      original = Dashboard::Broadcast.method(:call)
+      succeed(critic, iteration: 1, verdict: { "verdict" => "pass" })
 
-      Dashboard::Broadcast.define_singleton_method(:call) { |**| raise boom }
-      begin
-        assert_raises(boom) { run! }
-      ensure
-        Dashboard::Broadcast.define_singleton_method(:call, original)
-      end
+      run!
 
-      assert_equal "consensus", @phase.reload.status
-      assert @phase.manager_decisions.consensus_decision.exists?
+      assert_equal "converged", workflow.reload.status
+      @phase.reload
+      assert_equal "paused", @phase.status
+      assert_not @phase.restart_in_progress?
+      assert_empty @phase.restart_feedback
+      assert @phase.manager_decisions.restart_complete_decision.exists?
+      assert_not @pipeline.reload.awaiting_human?, "restart completing doesn't touch the pipeline gate"
+    end
+
+    test "a failed step during a restart aborts back to paused instead of stalling" do
+      @phase.update!(status: "running", restart_in_progress: true)
+      _workflow, builder, _critic = build_loop(@phase)
+      builder.step_runs.create!(state: "failed", iteration: 1, required_role: builder.role,
+        finished_at: Time.current)
+
+      run!
+
+      @phase.reload
+      assert_equal "paused", @phase.status
+      assert_not @phase.restart_in_progress?
+    end
+
+    test "escalating during a restart clears restart_in_progress instead of leaving it stale" do
+      @phase.update!(status: "running", restart_in_progress: true)
+      _workflow, builder, critic = build_loop(@phase, max_iterations: 1)
+      succeed(builder, iteration: 1)
+      succeed(critic, iteration: 1, verdict: { "verdict" => "needs_work", "findings" => [] })
+
+      run!
+
+      @phase.reload
+      assert_equal "awaiting_human", @phase.status
+      assert_not @phase.restart_in_progress?
     end
   end
 end

@@ -53,6 +53,40 @@ class PhasesController < ApplicationController
     end
   end
 
+  def pause
+    phase = membership_scoped_phase
+    result = Phases::Pause.call(phase: phase, user: current_user)
+
+    if result.success?
+      redirect_to pipeline_path(phase.pipeline), notice: pause_notice(phase.reload)
+    else
+      redirect_to pipeline_path(phase.pipeline), alert: "Define can't be paused right now."
+    end
+  end
+
+  def rerun_step
+    phase = membership_scoped_phase
+    result = Phases::RerunMenuStep.call(phase: phase, artifact: params[:artifact])
+
+    if result.success?
+      redirect_to pipeline_path(phase.pipeline),
+        notice: "Re-running — you'll see fresh results here shortly."
+    else
+      redirect_to pipeline_path(phase.pipeline), alert: menu_alert(result.error)
+    end
+  end
+
+  def restart
+    phase = membership_scoped_phase
+    result = Phases::RestartDefine.call(phase: phase, user: current_user)
+
+    if result.success?
+      redirect_to pipeline_path(phase.pipeline), notice: "Restarting Define from the beginning…"
+    else
+      redirect_to pipeline_path(phase.pipeline), alert: menu_alert(result.error)
+    end
+  end
+
   private
 
   def send_back_alert(error)
@@ -68,6 +102,18 @@ class PhasesController < ApplicationController
     when :blank_answers then "Add your answers before sending."
     when :busy          then "Define is still running — wait for the current pass to finish."
     else "This phase can't take answers right now."
+    end
+  end
+
+  def pause_notice(phase)
+    phase.paused? ? "Define is paused." : "Pausing — finishing the current step first."
+  end
+
+  def menu_alert(error)
+    case error
+    when :busy       then "Define is still finishing something — wait for it to settle."
+    when :not_paused then "Define isn't paused."
+    else "Could not start that."
     end
   end
 

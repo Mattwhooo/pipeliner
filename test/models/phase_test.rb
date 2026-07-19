@@ -10,4 +10,22 @@ class PhaseTest < ActiveSupport::TestCase
   test "phases are ordered by position on the pipeline" do
     assert_equal %w[define plan build review], pipelines(:onboarding).phases.map(&:kind)
   end
+
+  test "paused is a valid status" do
+    define = phases(:onboarding_define)
+    define.update!(status: "paused")
+    assert define.reload.paused?
+  end
+
+  test "any_step_active? is true when a step has a ready/claimed/running run" do
+    define = phases(:onboarding_define)
+    step_runs(:requirements_ready).update!(state: "ready")
+    assert define.any_step_active?
+  end
+
+  test "any_step_active? is false once every run has settled" do
+    define = phases(:onboarding_define)
+    step_runs(:requirements_ready).update!(state: "succeeded")
+    assert_not define.any_step_active?
+  end
 end

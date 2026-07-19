@@ -18,13 +18,13 @@ module Phases
   # │ This service is the *deterministic* half of the hybrid Manager. It decides │
   # │ consensus by unanimous critic pass and routes strictly along `route_to`    │
   # │ edges. The LLM half (decision M5) will plug in at two clearly-marked       │
-  # │ points below — `consensus_reached?` (declare consensus despite minor       │
-  # │ dissent / weigh severity) and `route_critic_feedback` (choose a target     │
-  # │ when the edge is ambiguous or absent). Keep this path as the fallback.     │
+  # │ points — `Phases::Convergence.workflow_converged?` (declare consensus      │
+  # │ despite minor dissent / weigh severity) and `route_critic_feedback` below  │
+  # │ (choose a target when the edge is ambiguous or absent). Keep this path as  │
+  # │ the fallback.                                                              │
   # └────────────────────────────────────────────────────────────────────────────┘
   class ManagerTick
     ACTIVE_STATES = %w[ready claimed running].freeze
-    RESOLVED_VERDICTS = %w[pass not_applicable].freeze
 
     def self.call(phase:)
       new(phase:).call
@@ -40,6 +40,23 @@ module Phases
 
     def call
       return Result.failure(:not_running) unless @phase.running?
+
+      # A restart step failed/got stuck — don't leave the phase stalled at
+      # "running" forever; hand it back to the paused menu with the failure
+      # visible (R25, R26).
+      if @phase.restart_in_progress? && restart_step_failed?
+        abort_restart
+        broadcast_affected
+        return Result.success(@phase)
+      end
+
+      # Pause was requested while a step was in flight — wait for it to
+      # finish, dispatch nothing new in the meantime (R2, R3, R27).
+      if @phase.pause_requested? && !@phase.restart_in_progress?
+        settle_pause
+        broadcast_affected
+        return Result.success(@phase)
+      end
 
       ApplicationRecord.transaction do
         catch(:halt) do
@@ -63,6 +80,25 @@ module Phases
 
     private
 
+    # --- Pause / restart -----------------------------------------------------
+
+    def restart_step_failed?
+      @phase.workflows.flat_map(&:steps)
+        .any? { |s| s.latest_run&.state&.in?(%w[failed stuck]) }
+    end
+
+    def abort_restart
+      @phase.update!(status: "paused", restart_in_progress: false, restart_feedback: [])
+      @affected_phases << @phase
+    end
+
+    def settle_pause
+      return if @phase.any_step_active?
+
+      @phase.update!(status: "paused", pause_requested: false, pause_requested_at: nil)
+      @affected_phases << @phase
+    end
+
     # --- 1. Dispatch --------------------------------------------------------
 
     # Create a ready run for every worker-executed step whose predecessors have
@@ -83,8 +119,15 @@ module Phases
         target_iteration = predecessors.filter_map { |p| p.latest_run.iteration }.max || 1
         next unless current_iteration(step) < target_iteration
 
-        create_run(step, iteration: target_iteration)
+        create_run(step, iteration: target_iteration, feedback: restart_carry_feedback)
       end
+    end
+
+    # Carry a restart's human-tagged feedback (RestartDefine#carried_feedback)
+    # onto every step the cascade dispatches, not just the first (which
+    # RestartDefine already seeded directly) — R18.
+    def restart_carry_feedback
+      @phase.restart_in_progress? ? @phase.restart_feedback : []
     end
 
     # --- 2. Route feedback --------------------------------------------------
@@ -206,7 +249,7 @@ module Phases
     end
 
     def escalate(workflow, critic, critic_run, attempted_iteration)
-      @phase.update!(status: "awaiting_human")
+      @phase.update!(status: "awaiting_human", restart_in_progress: false)
       @phase.pipeline.update!(status: "awaiting_human")
       @affected_phases << @phase
       record_decision(
@@ -223,30 +266,24 @@ module Phases
 
     def settle_convergence
       @phase.workflows.each do |workflow|
-        workflow.update!(status: "converged") if workflow_converged?(workflow)
+        workflow.update!(status: "converged") if Convergence.workflow_converged?(workflow)
       end
       return unless @phase.workflows.all? { |w| w.status == "converged" }
 
-      reach_consensus
+      @phase.restart_in_progress? ? settle_restart : reach_consensus
     end
 
-    def workflow_converged?(workflow)
-      worker_steps = workflow.steps.select(&:worker_executed?)
-      return false if worker_steps.empty?
-      # Require merged, not just succeeded: a phase can't reach consensus while a
-      # step's work is still sitting unmerged on its step branch.
-      return false unless worker_steps.all? { |s| s.latest_run&.succeeded? && s.latest_run.merged? }
-
-      # LLM-judgment seam: consensus here is a mechanical unanimous critic pass.
-      # The hybrid Manager may declare consensus despite minor dissent (weighing
-      # finding severity) or withhold it despite a nominal pass.
-      consensus_reached?(worker_steps)
-    end
-
-    def consensus_reached?(worker_steps)
-      worker_steps.select(&:type_critic?).all? do |critic|
-        RESOLVED_VERDICTS.include?(critic.latest_run.verdict_status)
-      end
+    # "Repeat from the Beginning" converged — land back on the paused menu
+    # (with fresh results already on the pipeline branch) instead of the
+    # normal gate (R19).
+    def settle_restart
+      @phase.update!(status: "paused", restart_in_progress: false, restart_feedback: [])
+      record_decision(
+        decision: "restart_complete",
+        iteration: phase_iteration,
+        rationale: "Repeat-from-the-Beginning converged; returned to the paused menu with fresh results."
+      )
+      @affected_phases << @phase
     end
 
     def reach_consensus

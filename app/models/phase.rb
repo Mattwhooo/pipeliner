@@ -14,6 +14,7 @@ class Phase < ApplicationRecord
   enum :status, {
     pending: "pending",
     running: "running",
+    paused: "paused",           # Human-requested hold mid-loop (R2-R6).
     consensus: "consensus",
     approved: "approved",
     reworking: "reworking",
@@ -28,4 +29,12 @@ class Phase < ApplicationRecord
   validates :kind, uniqueness: { scope: :pipeline_id }
   validates :position, presence: true, uniqueness: { scope: :pipeline_id },
     inclusion: { in: 1..4 }
+
+  # Any worker-executed step of this phase already has a live run (ready/
+  # claimed/running) — used to gate pause/menu actions so a manual trigger
+  # never overlaps the Manager's own dispatch or a previous menu action
+  # (R29, R30).
+  def any_step_active?
+    workflows.flat_map(&:steps).any?(&:active_run?)
+  end
 end

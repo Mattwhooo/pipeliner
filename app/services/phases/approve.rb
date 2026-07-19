@@ -3,8 +3,11 @@ module Phases
   # consensus, the Gate ratifies it). Valid from:
   #   - consensus       — the normal human gate
   #   - awaiting_human  — the max-iterations escalation ("approve anyway")
+  #   - paused          — "Done" from the paused menu, only once settled (R20,
+  #                       R21) — checked live via Convergence since a paused
+  #                       phase's workflow status is never refreshed by a tick.
   class Approve
-    APPROVABLE_STATUSES = %w[consensus awaiting_human].freeze
+    APPROVABLE_STATUSES = %w[consensus awaiting_human paused].freeze
 
     # Optional `context` is the human's answer/guidance for the next phase (e.g.
     # answers to the Define phase's open-questions artifact). When present, we
@@ -24,6 +27,9 @@ module Phases
     def call
       unless @phase.status.in?(APPROVABLE_STATUSES)
         return Result.failure(:not_approvable, record: @phase)
+      end
+      if @phase.paused? && !Convergence.phase_settled?(@phase)
+        return Result.failure(:not_settled, record: @phase)
       end
 
       ApplicationRecord.transaction do
