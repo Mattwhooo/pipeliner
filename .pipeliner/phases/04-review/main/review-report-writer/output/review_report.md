@@ -2,19 +2,27 @@
 
 ## Overall verdict
 
-**Landable — one minor open finding recommended before merge.** Two independent
-review critics examined the change: the **requirements-conformance-critic**
-returned **pass** (all 13 business requirements satisfied), and the
-**code-quality-critic** returned **needs_work** for a single *minor* finding
-(F1), which the merged branch already remediates. A subsequent
-guide-alignment pass surfaced one further *minor*, still-open finding (F2): the
-theme-toggle button's focus indicator uses the `outline` pattern instead of the
-`ring` pattern mandated by `ui-style-guide.md` §Accessibility baseline and used
-by every other interactive element in the app. F2 is a cosmetic guide-consistency
-deviation, **not** an accessibility regression (a visible focus indicator is
-present), so it does not block landing — but a one-line class change is
-recommended to conform. See [Open findings](#open-findings). The build-phase test
-suite is green (185 runs, 0 failures) and RuboCop is clean.
+**Landable — two minor, non-blocking open findings recommended before merge.**
+Three independent review critics examined the change:
+
+- **requirements-conformance-critic → pass** — all 13 business requirements
+  satisfied, 0 findings.
+- **code-quality-critic → needs_work** — one *minor* finding (a `matchMedia`
+  listener teardown), which the merged branch **already remediates**.
+- **guide-alignment-critic → needs_work** — two *minor*, still-open
+  `ui-style-guide.md` conformance deviations: (**F1**) the neutral fallback
+  branch of `_flash.html.erb` still uses raw `bg-gray-*/text-gray-*/ring-gray-*`
+  utilities instead of the semantic tokens the same PR mandated; and (**F2**) the
+  theme-toggle button's focus indicator uses the `outline` pattern instead of the
+  guide's canonical `ring` pattern.
+
+Both open findings are **guide-consistency deviations, not functional or
+accessibility regressions** — the flash renders correctly in both themes (it
+carries hand-rolled `dark:` variants), and the toggle presents a visible indigo
+focus indicator on keyboard focus. Neither blocks landing; each is a one-line
+class change recommended for a follow-up builder step. See
+[Open findings](#open-findings). The build-phase test suite is green (185 runs,
+0 failures) and RuboCop is clean.
 
 ---
 
@@ -82,8 +90,9 @@ column.
 - `app/views/layouts/application.html.erb` & `auth.html.erb` — render the init
   script first in `<head>`; `<html>` carries `bg-app` + `dark` (from
   `dark_theme?`).
-- **25 view templates** converted from raw `bg-white`/`gray-*` utilities to the
-  semantic tokens (mechanical "token sweep").
+- **View templates** converted from raw `bg-white`/`gray-*` utilities to the
+  semantic tokens (mechanical "token sweep"). One holdout remains — the neutral
+  fallback branch of `_flash.html.erb` (see open finding **F1**).
 - `guides/ui-style-guide.md` — §Color updated with the token table, the
   `@custom-variant` rule, and a mandate that new UI use the semantic tokens
   rather than raw grays (per CLAUDE.md's "update the guide alongside the code").
@@ -99,7 +108,7 @@ column.
 | R8, R9 | `toggle()` writes `theme` cookie (`max-age=31536000`); init script and `dark_theme?` both treat the cookie as source of truth over `matchMedia`. |
 | R10 | `connect()` attaches the `matchMedia` change listener **only** when `!hasStoredPreference()`. |
 | R11 | Once a choice exists, `connect()` never attaches the listener; and `toggle()` calls `stopWatchingSystemTheme()` to stop following the OS mid-session. |
-| R12 | Token layer redeclared under `.dark`; **25 views** converted; a scan for orphaned `bg-white`/`gray-*`/`border-gray-*` in `app/views` returns **none**. |
+| R12 | Token layer redeclared under `.dark`; the view token sweep is complete except the `_flash.html.erb` neutral fallback, which still carries **its own** `dark:` variants — so **every surface, including that one, renders correctly in dark**. R12 (dark coverage) is met; the raw-neutral utilities there are a §Color *style* deviation tracked as **F1**, not a coverage gap. |
 | R13 | `StatusHelper::TONE_CLASSES` carry dark variants for all five tones; the status word is always rendered as text, so meaning survives independent of color. |
 
 **Quality gates (build phase):**
@@ -115,71 +124,101 @@ CSP is enabled later, the inline script must switch to a nonce'd
 
 ## Open findings
 
-**F1 — OS-preference listener teardown after a manual toggle** · severity: minor
-· source: code-quality-critic (`needs_work`) · status: **already remediated**
+Two minor, non-blocking guide-conformance findings remain open on the merged
+branch. Both are cosmetic/consistency deviations — neither is a functional or
+accessibility regression — and each is a one-line class change. The report
+writer does not own view files, so both are flagged for a follow-up builder step
+rather than applied here.
 
-> *As reported:* `connect()` attaches a `matchMedia` `change` listener when no
-> cookie exists; the critic flagged that `toggle()` writes the cookie but never
-> removes that listener, so a mid-session OS theme change could override the
-> user's manual choice (contradicting R11).
+**F1 — Flash neutral fallback still uses raw neutral utilities**
+· severity: minor · source: guide-alignment-critic (`ui-style-guide.md` §Color)
+· status: **open** · target: `app/views/shared/_flash.html.erb`
 
-**Status on the merged branch: already remediated.** The recommended fix —
-"remove the listener in `toggle()` once a preference is stored" — is present in
-the current code:
+> *As reported:* the `else` (neutral) flash branch renders
+> `bg-gray-50 text-gray-700 ring-gray-600/20` (with hand-rolled `dark:`
+> variants). This is the sole view left carrying raw neutrals, and this PR edited
+> that exact line — so the conversion was in-hand. It violates §Color **as
+> amended by this same PR**: "Never write raw
+> `bg-white`/`bg-gray-*`/`text-gray-*`/`border-gray-*`/`divide-gray-*`/`ring-gray-*`
+> in a view — use the semantic utilities."
 
-- `toggle()` calls `this.stopWatchingSystemTheme()`, which
-  `removeEventListener`s and nulls `this.media`, so the OS-change handler is torn
-  down the moment the user makes a manual choice (in-session, no navigation
-  needed).
-- `disconnect()` independently removes the listener on teardown.
-- `connect()` never attaches the listener in the first place when
-  `hasStoredPreference()` is true.
-
-The requirements-conformance-critic independently confirmed R11 as satisfied on
-the same code. The finding reads as a stale/false-positive against an earlier
-iteration (the controller's `stopWatchingSystemTheme` teardown landed in
-implementer iteration 4). **No code change required for F1.**
+- **Scope:** the `notice` (green) and `alert` (red) branches legitimately use
+  reserved status colors and are **not** in scope; only the neutral fallback
+  deviates.
+- **Impact:** functionally correct in **both** themes — the branch already ships
+  `dark:` variants, so nothing renders wrong. This is purely a §Color style/
+  single-source-of-truth violation: the one spot in the app where a neutral is
+  hand-rolled instead of tokenized.
+- **Recommended fix (one-line):** route the neutral branch through a semantic
+  utility (e.g. `bg-surface-hover text-default ring-default` or equivalent), or
+  reuse `StatusHelper`'s `muted` tone, dropping the raw `gray-*` utilities and
+  their now-redundant `dark:` variants.
 
 ---
 
 **F2 — Toggle focus indicator deviates from the app-wide `ring` convention**
-· severity: minor · source: guide-alignment (ui-style-guide.md §Accessibility
-baseline, §Buttons) · status: **open**
+· severity: minor · source: guide-alignment-critic (`ui-style-guide.md`
+§Accessibility baseline, §Buttons) · status: **open** · target:
+`app/views/shared/_theme_toggle.html.erb`
 
-> *As reported:* `app/views/shared/_theme_toggle.html.erb` styles the button's
-> keyboard focus state with
+> *As reported:* the toggle button styles its keyboard focus state with
 > `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600`.
-> `ui-style-guide.md` §Accessibility baseline mandates a visible focus ring
+> §Accessibility baseline mandates a visible focus ring
 > (`focus-visible:ring-2 ring-indigo-600`), and every other interactive element
 > in the app uses that ring pattern — the sign-in button
 > (`focus-visible:ring-2 focus-visible:ring-indigo-600`) and all form inputs
 > (`focus:ring-2 focus:ring-indigo-600`). The toggle is the lone element using
 > `outline`.
 
-**Status on the merged branch: open (unremediated).** The toggle's `class`
-attribute still carries the `outline` utilities. This is **not** an accessibility
-regression — a visible focus indicator *is* rendered on keyboard focus — so it
-does not block landing. It is a guide-conformance and visual-consistency
-deviation.
-
-- **Impact:** cosmetic only; the focus affordance works, but its shape (outline
-  vs. ring) differs from every other focusable control, so keyboard focus on the
-  toggle looks subtly inconsistent with the rest of the UI.
-- **Recommended fix (one-line class change, for a follow-up builder step):**
-  replace
+- **Impact:** **not** an accessibility regression — a visible indigo focus
+  indicator *is* rendered on keyboard focus. It is a guide-conformance and
+  visual-consistency deviation: focus on the toggle looks subtly different
+  (outline vs. ring) from every other focusable control. *(Nuance: the `outline`
+  pattern does already pre-exist on `main` in `phases/show.html.erb` buttons, so
+  the codebase is itself inconsistent; the guide's literal token is `ring`.)*
+- **Recommended fix (one-line):** replace
   `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600`
   with `focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-600`
-  to match §Accessibility baseline and the app-wide pattern. (The report writer
-  does not own view files, so this is flagged rather than applied.)
+  to match §Accessibility baseline and the app-wide pattern.
+
+---
+
+**Remediated — OS-preference listener teardown after a manual toggle**
+· severity: minor · source: code-quality-critic (`needs_work`) · status:
+**already remediated on the branch** · target:
+`app/javascript/controllers/theme_controller.js`
+
+> *As reported:* `connect()` attaches a `matchMedia` `change` listener when no
+> cookie exists; the critic flagged that `toggle()` writes the cookie but might
+> not remove that listener, so a mid-session OS theme change could override the
+> user's manual choice (contradicting R11).
+
+**No code change required.** The recommended fix is already present in the merged
+code:
+
+- `toggle()` calls `this.stopWatchingSystemTheme()`, which `removeEventListener`s
+  and nulls `this.media`, tearing the OS-change handler down the moment the user
+  makes a manual choice (in-session, no navigation needed).
+- `disconnect()` independently removes the listener on teardown.
+- `connect()` never attaches the listener when `hasStoredPreference()` is true.
+
+The requirements-conformance-critic independently confirmed R11 as satisfied on
+the same code. The finding reads as a stale/false-positive against an earlier
+iteration (the `stopWatchingSystemTheme` teardown landed in implementer
+iteration 4).
 
 ## Requirements traceability summary
 
-- **13 / 13 requirements** satisfied (requirements-conformance-critic: pass, 0 findings).
-- **Code quality:** 1 minor finding (F1), already remediated on the branch.
-- **Guide alignment:** 1 minor finding (F2), **open** — toggle focus indicator
-  should switch from `outline` to the mandated `ring` pattern. Cosmetic
-  consistency, not an a11y regression; non-blocking, one-line fix recommended.
-- **Tests & lint:** green.
+- **13 / 13 requirements** satisfied (requirements-conformance-critic: **pass**,
+  0 findings).
+- **Code quality:** 1 minor finding (listener teardown), already remediated on
+  the branch.
+- **Guide alignment:** 2 minor findings, **both open** — F1 (flash neutral
+  fallback should use semantic tokens, not raw grays) and F2 (toggle focus
+  indicator should switch from `outline` to the mandated `ring` pattern). Both
+  cosmetic/consistency, neither a functional or a11y regression; non-blocking,
+  one-line fixes recommended.
+- **Tests & lint:** green (185 runs, 0 failures; RuboCop clean).
 - Out of scope by design (D4): mailers, PWA `theme_color`, service worker.
   Cross-device sync (D1) intentionally deferred; the cookie→column seam is
   documented for a future ask.
