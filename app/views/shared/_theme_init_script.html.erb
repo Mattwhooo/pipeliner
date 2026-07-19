@@ -1,0 +1,7 @@
+<script>
+  (function () {
+    var match = document.cookie.match(/(?:^|; )theme=(dark|light)/);
+    var dark = match ? match[1] === "dark" : window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.classList.toggle("dark", !!dark);
+  })();
+</script>

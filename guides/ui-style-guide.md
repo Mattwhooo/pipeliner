@@ -43,11 +43,32 @@
 
 ## Color
 
-- **Neutrals do the work.** Backgrounds `white` / `gray-50`; borders `gray-200`;
-  text `gray-900` / `gray-500`. Dark mode later — don't hand-roll it per view.
+- **Neutrals are semantic tokens, not raw grays.** The app supports light and
+  dark themes (manual toggle, defaults to system preference — see
+  `app/javascript/controllers/theme_controller.js`). Never write raw
+  `bg-white`/`bg-gray-*`/`text-gray-*`/`border-gray-*`/`divide-gray-*`/
+  `ring-gray-*` in a view — use the semantic utilities below, defined in
+  `app/assets/tailwind/application.css`. They repaint automatically under the
+  `.dark` class; a view using them needs zero `dark:` variants of its own.
+
+  | Utility | Light | Dark | Use for |
+  |---|---|---|---|
+  | `bg-app` | `gray-50` | `gray-950` | page/root background, recessed panels |
+  | `bg-surface` | `white` | `gray-900` | cards, sidebar, auth panel |
+  | `bg-surface-hover` | `gray-50` | `gray-800` | table row / nav hover, neutral chips |
+  | `border-default` / `divide-default` / `ring-default` | `gray-200` | `gray-700` | borders, dividers, input rings |
+  | `text-default` | `gray-900` | `gray-100` | primary text |
+  | `text-muted` | `gray-500` | `gray-400` | secondary/meta text |
+  | `text-subtle` | `gray-400`/`gray-300` | `gray-600` | disabled ("coming soon") items |
+  | `bg-nav-active` / `text-nav-active` | `indigo-50`/`indigo-700` | `indigo-500/15`/`indigo-300` | active sidebar nav item |
+
 - **One brand accent:** `indigo-600` (hover `indigo-700`). Used for primary
-  buttons, links, active nav, focus rings.
-- **Status colors are semantic and reserved** — never used decoratively:
+  buttons, links, active nav, focus rings — unchanged across themes (it has
+  sufficient contrast on both `bg-app`/`bg-surface` backgrounds).
+- **Status colors are semantic and reserved** — never used decoratively. They
+  keep their light-mode hue in dark mode but shift to a translucent/lighter
+  variant for contrast (see `StatusHelper::TONE_CLASSES` for the canonical
+  pattern: `dark:bg-{color}-500/10 dark:text-{color}-400 dark:ring-{color}-400/20`):
 
   | State | Color | Usage |
   |---|---|---|
@@ -57,7 +78,11 @@
   | stuck / failed / blocked | `red-600` | stuck steps, failed runs |
   | pending / idle | `gray-400` | queued steps, offline workers |
 
-- Badges use the soft form: `bg-{color}-50 text-{color}-700 ring-1 ring-{color}-600/20`.
+- Badges use the soft form: `bg-{color}-50 text-{color}-700 ring-1 ring-{color}-600/20`,
+  with the dark pattern above layered on top.
+- The `dark:` variant is class-based (`@custom-variant dark (&:where(.dark, .dark *));`
+  in `app/assets/tailwind/application.css`), not Tailwind's default media-query
+  variant — it only activates when `<html>` carries the `dark` class.
 
 ## Core components (conventions)
 
@@ -66,19 +91,19 @@ Build as ViewComponents or partials — one source of truth per component.
 - **Status badge** (`StatusBadge`): pill, `rounded-full px-2 py-0.5 text-xs
   font-medium`, soft colors above. Always paired with the status word — color
   alone never carries meaning (a11y).
-- **Card:** `rounded-lg border border-gray-200 bg-white p-6 shadow-sm`. No heavy
+- **Card:** `rounded-lg border border-default bg-surface p-6 shadow-sm`. No heavy
   shadows; elevation is for menus/modals only.
 - **Buttons:**
   - Primary: `bg-indigo-600 text-white hover:bg-indigo-700 rounded-md px-3 py-2 text-sm font-semibold`
-  - Secondary: `bg-white ring-1 ring-gray-300 hover:bg-gray-50 ...`
+  - Secondary: `bg-surface ring-1 ring-default hover:bg-surface-hover ...`
   - Danger: red equivalents, only for destructive actions (+ confirm).
   - Icon-only buttons get `aria-label` + tooltip.
-- **Tables:** `divide-y divide-gray-100`, header `text-xs font-semibold
-  text-gray-500`, row hover `hover:bg-gray-50`, whole row clickable when it
+- **Tables:** `divide-y divide-default`, header `text-xs font-semibold
+  text-muted`, row hover `hover:bg-surface-hover`, whole row clickable when it
   navigates.
 - **Forms:** labels above inputs (`text-sm font-medium`), help text below
-  (`text-xs text-gray-500`), errors inline in `red-600` attached to the field
-  (not only a flash). Inputs: `rounded-md ring-1 ring-gray-300
+  (`text-xs text-muted`), errors inline in `red-600` attached to the field
+  (not only a flash). Inputs: `rounded-md ring-1 ring-default
   focus:ring-2 focus:ring-indigo-600`.
 - **Empty states:** icon + one sentence + primary action. Never a bare empty table.
 - **Timestamps:** relative ("3m ago") with absolute on hover/`title`; `local-time`
