@@ -1,0 +1,13 @@
+<%# Must render as the first child of <head>, before any CSS, so the correct
+    theme class is applied before first paint (no flash of the wrong theme).
+    Reads the "theme" cookie if present (a manual choice); otherwise follows
+    the device's system setting. Never writes the cookie itself. %>
+<script>
+  (function () {
+    var match = document.cookie.match(/(?:^|; )theme=(light|dark)/);
+    var isDark = match
+      ? match[1] === "dark"
+      : !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    document.documentElement.classList.toggle("dark", isDark);
+  })();
+</script>

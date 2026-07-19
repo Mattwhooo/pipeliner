@@ -1,1 +1,79 @@
 @import "tailwindcss";
+
+/* Dark mode is class-based (not the OS-media default) so a manual toggle can
+   override the system preference. See guides/ui-style-guide.md §Color. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --app: var(--color-gray-50);
+  --surface: var(--color-white);
+  --surface-hover: var(--color-gray-50);
+  --border-default: var(--color-gray-200);
+  --divide-default: var(--color-gray-100);
+  --text-default: var(--color-gray-900);
+  --text-muted: var(--color-gray-500);
+  --text-subtle: var(--color-gray-400);
+  --nav-active-bg: var(--color-indigo-50);
+  --nav-active-text: var(--color-indigo-700);
+}
+
+/* :root and .dark both target <html>; declared after :root so it wins the
+   cascade tie (equal specificity, later wins). */
+.dark {
+  --app: var(--color-gray-950);
+  --surface: var(--color-gray-900);
+  --surface-hover: var(--color-gray-800);
+  --border-default: var(--color-gray-800);
+  --divide-default: var(--color-gray-800);
+  --text-default: var(--color-gray-100);
+  --text-muted: var(--color-gray-400);
+  --text-subtle: var(--color-gray-600);
+  --nav-active-bg: color-mix(in oklch, var(--color-indigo-500) 15%, transparent);
+  --nav-active-text: var(--color-indigo-300);
+}
+
+@utility bg-app {
+  background-color: var(--app);
+}
+
+@utility bg-surface {
+  background-color: var(--surface);
+}
+
+@utility bg-surface-hover {
+  background-color: var(--surface-hover);
+}
+
+@utility bg-nav-active {
+  background-color: var(--nav-active-bg);
+}
+
+@utility text-default {
+  color: var(--text-default);
+}
+
+@utility text-muted {
+  color: var(--text-muted);
+}
+
+@utility text-subtle {
+  color: var(--text-subtle);
+}
+
+@utility text-nav-active {
+  color: var(--nav-active-text);
+}
+
+@utility border-default {
+  border-color: var(--border-default);
+}
+
+@utility ring-default {
+  --tw-ring-color: var(--border-default);
+}
+
+@utility divide-default {
+  & > :not([hidden]) ~ :not([hidden]) {
+    border-color: var(--divide-default);
+  }
+}

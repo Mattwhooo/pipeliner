@@ -6,34 +6,34 @@
 <% at_human_gate = @phase.status.in?(%w[consensus awaiting_human]) && @phase.gate_human? %>
 
 <div class="mx-auto max-w-3xl">
-  <nav class="text-xs text-gray-500">
-    <%= link_to @pipeline.project.name, @pipeline.project, class: "hover:text-gray-900" %>
+  <nav class="text-xs text-muted">
+    <%= link_to @pipeline.project.name, @pipeline.project, class: "hover:text-default" %>
     <span class="mx-1">/</span>
-    <%= link_to @pipeline.title, pipeline_path(@pipeline), class: "hover:text-gray-900" %>
+    <%= link_to @pipeline.title, pipeline_path(@pipeline), class: "hover:text-default" %>
     <span class="mx-1">/</span>
-    <span class="text-gray-900"><%= @phase.kind.humanize %></span>
+    <span class="text-default"><%= @phase.kind.humanize %></span>
   </nav>
 
   <div class="mt-2 flex items-center justify-between">
     <div class="flex items-center gap-3">
-      <h1 class="text-2xl font-semibold text-gray-900"><%= @phase.kind.humanize %> phase</h1>
+      <h1 class="text-2xl font-semibold text-default"><%= @phase.kind.humanize %> phase</h1>
       <%= status_badge(@phase.status) %>
     </div>
-    <span class="text-xs uppercase tracking-wide text-gray-400">
+    <span class="text-xs uppercase tracking-wide text-subtle">
       <%= @phase.gate_human? ? "Human gate" : "Auto gate" %>
     </span>
   </div>
 
   <% if at_human_gate %>
-    <section class="mt-6 rounded-lg border border-amber-300 bg-amber-50/60 p-6 shadow-sm">
-      <h2 class="text-lg font-semibold text-gray-900">
+    <section class="mt-6 rounded-lg border border-amber-300 bg-amber-50/60 p-6 shadow-sm dark:border-amber-500/40 dark:bg-amber-500/10">
+      <h2 class="text-lg font-semibold text-default">
         <% if @phase.consensus? %>
           Consensus reached — awaiting your approval
         <% else %>
           Iteration cap hit — needs your guidance
         <% end %>
       </h2>
-      <p class="mt-1 text-sm text-gray-600">
+      <p class="mt-1 text-sm text-muted">
         Approve to advance the pipeline, or send it back with feedback for another pass.
       </p>
 
@@ -41,12 +41,12 @@
         <%= form_with url: phase_approval_path(@phase), class: "space-y-3" do |f| %>
           <div>
             <%= f.label :context, "Context / answers for the next phase (optional)",
-                  class: "block text-sm font-medium text-gray-900" %>
-            <p class="mt-0.5 text-xs text-gray-500">
+                  class: "block text-sm font-medium text-default" %>
+            <p class="mt-0.5 text-xs text-muted">
               Answers or guidance seeded into the next phase's first steps.
             </p>
             <%= f.text_area :context, rows: 4,
-                  class: "mt-2 block w-full rounded-md border-0 px-3 py-2 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 bg-white" %>
+                  class: "mt-2 block w-full rounded-md border-0 px-3 py-2 text-sm text-default ring-1 ring-inset ring-default focus:ring-2 focus:ring-indigo-600 bg-surface" %>
           </div>
           <%= f.submit @phase.consensus? ? "Approve #{@phase.kind.humanize}" : "Approve anyway",
                 class: "w-full rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600" %>
@@ -55,46 +55,46 @@
         <%= form_with url: send_back_phase_path(@phase), class: "space-y-3" do |f| %>
           <div>
             <%= f.label :feedback, "Feedback (required)",
-                  class: "block text-sm font-medium text-gray-900" %>
-            <p class="mt-0.5 text-xs text-gray-500">
+                  class: "block text-sm font-medium text-default" %>
+            <p class="mt-0.5 text-xs text-muted">
               What needs another pass? Routed to the chosen step as feedback.
             </p>
             <%= f.text_area :feedback, rows: 4, required: true,
-                  class: "mt-2 block w-full rounded-md border-0 px-3 py-2 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 bg-white" %>
+                  class: "mt-2 block w-full rounded-md border-0 px-3 py-2 text-sm text-default ring-1 ring-inset ring-default focus:ring-2 focus:ring-indigo-600 bg-surface" %>
           </div>
           <% if worker_steps.any? %>
             <div>
               <%= f.label :target_step_id, "Send back to step",
-                    class: "block text-sm font-medium text-gray-900" %>
+                    class: "block text-sm font-medium text-default" %>
               <%= f.select :target_step_id,
                     worker_steps.map { |s| [ s.slug.humanize, s.id ] },
                     {},
-                    class: "mt-2 block w-full rounded-md border-0 px-3 py-2 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 bg-white" %>
+                    class: "mt-2 block w-full rounded-md border-0 px-3 py-2 text-sm text-default ring-1 ring-inset ring-default focus:ring-2 focus:ring-indigo-600 bg-surface" %>
             </div>
           <% end %>
           <%= f.submit "Send back",
-                class: "w-full rounded-md bg-white px-3 py-2 text-sm font-semibold text-red-700 ring-1 ring-inset ring-red-300 hover:bg-red-50 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600" %>
+                class: "w-full rounded-md bg-surface px-3 py-2 text-sm font-semibold text-red-700 ring-1 ring-inset ring-red-300 hover:bg-red-50 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 dark:text-red-400 dark:ring-red-500/40 dark:hover:bg-red-500/10" %>
         <% end %>
       </div>
     </section>
   <% end %>
 
-  <section class="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-    <h2 class="text-lg font-semibold text-gray-900">Steps</h2>
+  <section class="mt-6 rounded-lg border border-default bg-surface p-6 shadow-sm">
+    <h2 class="text-lg font-semibold text-default">Steps</h2>
     <% if steps.any? %>
-      <ul class="mt-4 divide-y divide-gray-100">
+      <ul class="mt-4 divide-y divide-default">
         <% steps.each do |step| %>
           <% run = step.latest_run %>
           <li class="flex items-center justify-between gap-3 py-3">
             <div class="min-w-0">
-              <p class="truncate text-sm font-medium text-gray-900"><%= step.slug.humanize %></p>
-              <div class="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                <span class="rounded bg-gray-100 px-1.5 py-0.5 font-medium"><%= step.step_type %></span>
+              <p class="truncate text-sm font-medium text-default"><%= step.slug.humanize %></p>
+              <div class="mt-1 flex items-center gap-2 text-xs text-muted">
+                <span class="rounded bg-surface-hover px-1.5 py-0.5 font-medium"><%= step.step_type %></span>
                 <% if step.role.present? %>
                   <span class="font-mono"><%= step.role %></span>
                 <% end %>
                 <% if run && run.iteration > 1 %>
-                  <span class="rounded-full bg-gray-100 px-1.5 py-0.5 font-medium" title="Iteration <%= run.iteration %>">×<%= run.iteration %></span>
+                  <span class="rounded-full bg-surface-hover px-1.5 py-0.5 font-medium" title="Iteration <%= run.iteration %>">×<%= run.iteration %></span>
                 <% end %>
               </div>
             </div>
@@ -103,33 +103,33 @@
         <% end %>
       </ul>
     <% else %>
-      <p class="mt-4 text-sm text-gray-500">No steps yet.</p>
+      <p class="mt-4 text-sm text-muted">No steps yet.</p>
     <% end %>
   </section>
 
-  <section class="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-    <h2 class="text-lg font-semibold text-gray-900">Critic verdicts</h2>
+  <section class="mt-6 rounded-lg border border-default bg-surface p-6 shadow-sm">
+    <h2 class="text-lg font-semibold text-default">Critic verdicts</h2>
     <% verdicts = critics.filter_map { |c| [ c, c.latest_run ] if c.latest_run&.verdict_status.present? } %>
     <% if verdicts.any? %>
       <div class="mt-4 space-y-4">
         <% verdicts.each do |critic, run| %>
           <div>
             <div class="flex items-center gap-2">
-              <span class="text-sm font-medium text-gray-900"><%= critic.slug.humanize %></span>
+              <span class="text-sm font-medium text-default"><%= critic.slug.humanize %></span>
               <%= verdict_badge(run.verdict_status) %>
               <% if run.iteration > 1 %>
-                <span class="text-xs text-gray-400">iteration <%= run.iteration %></span>
+                <span class="text-xs text-subtle">iteration <%= run.iteration %></span>
               <% end %>
             </div>
             <% if run.findings.any? %>
               <ul class="mt-2 space-y-2">
                 <% run.findings.each do |finding| %>
-                  <li class="rounded-md bg-gray-50 p-3 text-sm text-gray-700 ring-1 ring-inset ring-gray-200">
+                  <li class="rounded-md bg-surface-hover p-3 text-sm text-default ring-1 ring-inset ring-default">
                     <div class="flex items-center gap-2">
                       <%= severity_badge(finding["severity"]) %>
                       <% target = finding["target_artifact"] || finding["target"] %>
                       <% if target.present? %>
-                        <span class="font-mono text-xs text-gray-500"><%= target %></span>
+                        <span class="font-mono text-xs text-muted"><%= target %></span>
                       <% end %>
                     </div>
                     <p class="mt-1"><%= finding["issue"] %></p>
@@ -137,58 +137,58 @@
                 <% end %>
               </ul>
             <% else %>
-              <p class="mt-1 text-xs text-gray-500">No findings.</p>
+              <p class="mt-1 text-xs text-muted">No findings.</p>
             <% end %>
           </div>
         <% end %>
       </div>
     <% else %>
-      <p class="mt-4 text-sm text-gray-500">No critic verdicts yet.</p>
+      <p class="mt-4 text-sm text-muted">No critic verdicts yet.</p>
     <% end %>
   </section>
 
-  <section class="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-    <h2 class="text-lg font-semibold text-gray-900">Manager decisions</h2>
+  <section class="mt-6 rounded-lg border border-default bg-surface p-6 shadow-sm">
+    <h2 class="text-lg font-semibold text-default">Manager decisions</h2>
     <% decisions = @phase.manager_decisions.order(:iteration, :id) %>
     <% if decisions.any? %>
       <ol class="mt-4 space-y-3">
         <% decisions.each do |decision| %>
-          <li class="border-l-2 border-gray-200 pl-4">
+          <li class="border-l-2 border-default pl-4">
             <div class="flex items-center gap-2">
-              <span class="text-sm font-medium text-gray-900"><%= decision.decision.humanize %></span>
-              <span class="rounded-full bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500">iteration <%= decision.iteration %></span>
+              <span class="text-sm font-medium text-default"><%= decision.decision.humanize %></span>
+              <span class="rounded-full bg-surface-hover px-1.5 py-0.5 text-xs font-medium text-muted">iteration <%= decision.iteration %></span>
             </div>
             <% if decision.rationale.present? %>
-              <p class="mt-1 text-sm text-gray-600"><%= decision.rationale %></p>
+              <p class="mt-1 text-sm text-muted"><%= decision.rationale %></p>
             <% end %>
           </li>
         <% end %>
       </ol>
     <% else %>
-      <p class="mt-4 text-sm text-gray-500">No manager decisions yet.</p>
+      <p class="mt-4 text-sm text-muted">No manager decisions yet.</p>
     <% end %>
   </section>
 
-  <section class="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-    <h2 class="text-lg font-semibold text-gray-900">Approval history</h2>
+  <section class="mt-6 rounded-lg border border-default bg-surface p-6 shadow-sm">
+    <h2 class="text-lg font-semibold text-default">Approval history</h2>
     <% approvals = @phase.approvals.includes(:user).order(:id) %>
     <% if approvals.any? %>
-      <ul class="mt-4 divide-y divide-gray-100">
+      <ul class="mt-4 divide-y divide-default">
         <% approvals.each do |approval| %>
           <li class="py-3">
             <div class="flex items-center gap-2">
-              <span class="text-sm font-medium text-gray-900"><%= approval.decision.humanize %></span>
-              <span class="text-xs text-gray-500">by <%= approval.user.email.split("@").first %></span>
-              <time class="ml-auto text-xs text-gray-400" title="<%= approval.created_at %>"><%= time_ago_in_words(approval.created_at) %> ago</time>
+              <span class="text-sm font-medium text-default"><%= approval.decision.humanize %></span>
+              <span class="text-xs text-muted">by <%= approval.user.email.split("@").first %></span>
+              <time class="ml-auto text-xs text-subtle" title="<%= approval.created_at %>"><%= time_ago_in_words(approval.created_at) %> ago</time>
             </div>
             <% if approval.note.present? %>
-              <p class="mt-1 whitespace-pre-line text-sm text-gray-600"><%= approval.note %></p>
+              <p class="mt-1 whitespace-pre-line text-sm text-muted"><%= approval.note %></p>
             <% end %>
           </li>
         <% end %>
       </ul>
     <% else %>
-      <p class="mt-4 text-sm text-gray-500">No approvals yet.</p>
+      <p class="mt-4 text-sm text-muted">No approvals yet.</p>
     <% end %>
   </section>
 </div>

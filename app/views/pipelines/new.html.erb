@@ -1,15 +1,15 @@
 <% content_for :title, "New pipeline · Pipeliner" %>
 
 <div class="mx-auto max-w-3xl">
-  <h1 class="text-2xl font-semibold text-gray-900">New pipeline</h1>
-  <p class="mt-1 text-sm text-gray-500">
-    in <span class="font-medium text-gray-900"><%= @project.name %></span> —
+  <h1 class="text-2xl font-semibold text-default">New pipeline</h1>
+  <p class="mt-1 text-sm text-muted">
+    in <span class="font-medium text-default"><%= @project.name %></span> —
     describes one unit of work that will flow through Define → Plan → Build → Review.
   </p>
 
   <%= form_with model: [ @project, @pipeline ], class: "mt-8 space-y-4" do |f| %>
     <% if @pipeline.errors.any? %>
-      <div class="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-600/20">
+      <div class="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-600/20 dark:bg-red-500/10 dark:text-red-400 dark:ring-red-400/20">
         <ul class="list-inside list-disc">
           <% @pipeline.errors.full_messages.each do |message| %>
             <li><%= message %></li>
@@ -19,23 +19,23 @@
     <% end %>
 
     <div>
-      <%= f.label :title, class: "block text-sm font-medium text-gray-900" %>
+      <%= f.label :title, class: "block text-sm font-medium text-default" %>
       <%= f.text_field :title, placeholder: "Add CSV export to the billing report",
-            class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600" %>
+            class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-default ring-1 ring-inset ring-default focus:ring-2 focus:ring-indigo-600" %>
     </div>
 
     <div>
-      <%= f.label :initial_prompt, "The ask", class: "block text-sm font-medium text-gray-900" %>
+      <%= f.label :initial_prompt, "The ask", class: "block text-sm font-medium text-default" %>
       <%= f.text_area :initial_prompt, rows: 6,
             placeholder: "Describe what you want built, fixed, or changed — the Define phase will iterate on this until it's fully explored.",
-            class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600" %>
-      <p class="mt-1 text-xs text-gray-500">Plain language. The Define phase turns this into business requirements.</p>
+            class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-default ring-1 ring-inset ring-default focus:ring-2 focus:ring-indigo-600" %>
+      <p class="mt-1 text-xs text-muted">Plain language. The Define phase turns this into business requirements.</p>
     </div>
 
     <div class="flex items-center gap-3 pt-2">
       <%= f.submit "Create pipeline",
             class: "rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 cursor-pointer" %>
-      <%= link_to "Cancel", @project, class: "text-sm font-medium text-gray-500 hover:text-gray-900" %>
+      <%= link_to "Cancel", @project, class: "text-sm font-medium text-muted hover:text-default" %>
     </div>
   <% end %>
 </div>

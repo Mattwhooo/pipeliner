@@ -1,17 +1,17 @@
 <div id="<%= dom_id(phase, :column) %>"
-     class="rounded-lg border bg-gray-50/60 p-3
-            <%= phase.kind == current_phase_kind ? "border-indigo-300 ring-1 ring-indigo-100" : "border-gray-200" %>">
+     class="rounded-lg border bg-surface-hover p-3
+            <%= phase.kind == current_phase_kind ? "border-indigo-300 ring-1 ring-indigo-100 dark:border-indigo-500/40 dark:ring-indigo-500/20" : "border-default" %>">
   <div class="flex items-center justify-between px-1">
-    <h3 class="text-sm font-medium text-gray-900">
-      <span class="mr-1 text-xs text-gray-400"><%= phase.position %></span>
+    <h3 class="text-sm font-medium text-default">
+      <span class="mr-1 text-xs text-subtle"><%= phase.position %></span>
       <%= phase.kind.humanize %>
     </h3>
     <%= status_badge(phase.status) %>
   </div>
 
   <% if phase.status.in?(%w[consensus awaiting_human]) && phase.gate_human? %>
-    <div class="mt-3 rounded-md bg-amber-50 p-3 ring-1 ring-inset ring-amber-600/20">
-      <p class="text-xs font-medium text-amber-800">
+    <div class="mt-3 rounded-md bg-amber-50 p-3 ring-1 ring-inset ring-amber-600/20 dark:bg-amber-500/10 dark:ring-amber-400/20">
+      <p class="text-xs font-medium text-amber-800 dark:text-amber-400">
         <% if phase.consensus? %>
           Consensus reached — awaiting your approval
         <% else %>
@@ -20,15 +20,15 @@
       </p>
       <%= form_with url: phase_approval_path(phase), class: "mt-2 space-y-2" do |f| %>
         <%= f.text_field :note, placeholder: "Note (optional)",
-              class: "block w-full rounded-md border-0 px-2 py-1 text-xs text-gray-900 ring-1 ring-inset ring-amber-600/30 focus:ring-2 focus:ring-indigo-600 bg-white" %>
+              class: "block w-full rounded-md border-0 px-2 py-1 text-xs text-default ring-1 ring-inset ring-amber-600/30 focus:ring-2 focus:ring-indigo-600 bg-surface" %>
         <%= f.submit phase.consensus? ? "Approve #{phase.kind.humanize}" : "Approve anyway",
               class: "w-full rounded-md bg-indigo-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 cursor-pointer" %>
       <% end %>
       <%= link_to "Review & approve →", phase_path(phase),
-            class: "mt-2 block text-center text-xs font-medium text-amber-800 hover:text-amber-900" %>
+            class: "mt-2 block text-center text-xs font-medium text-amber-800 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-300" %>
     </div>
   <% elsif phase.approved? && (approval = phase.approvals.order(:id).last) %>
-    <p class="mt-2 px-1 text-xs text-gray-400" title="<%= approval.note %>">
+    <p class="mt-2 px-1 text-xs text-subtle" title="<%= approval.note %>">
       Approved by <%= approval.user.email.split("@").first %>
       <time title="<%= approval.created_at %>"><%= time_ago_in_words(approval.created_at) %> ago</time>
     </p>
@@ -41,10 +41,10 @@
         <%= render "pipelines/step_card", step: step %>
       <% end %>
     <% else %>
-      <p class="px-1 py-4 text-center text-xs text-gray-400">No steps yet</p>
+      <p class="px-1 py-4 text-center text-xs text-subtle">No steps yet</p>
     <% end %>
 
     <%= link_to "+ Add step", new_phase_step_path(phase),
-          class: "block rounded-md border border-dashed border-gray-300 px-3 py-2 text-center text-xs font-medium text-gray-500 hover:border-indigo-300 hover:text-indigo-600" %>
+          class: "block rounded-md border border-dashed border-default px-3 py-2 text-center text-xs font-medium text-muted hover:border-indigo-300 hover:text-indigo-600 dark:hover:border-indigo-500" %>
   </div>
 </div>

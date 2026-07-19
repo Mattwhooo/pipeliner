@@ -1,31 +1,31 @@
 <% content_for :title, "Pipelines · Pipeliner" %>
 
 <div class="flex items-center justify-between">
-  <h1 class="text-2xl font-semibold text-gray-900">Pipelines</h1>
+  <h1 class="text-2xl font-semibold text-default">Pipelines</h1>
 </div>
 
 <% if @pipelines.any? %>
-  <div class="mt-8 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-    <table class="min-w-full divide-y divide-gray-100">
+  <div class="mt-8 overflow-hidden rounded-lg border border-default bg-surface shadow-sm">
+    <table class="min-w-full divide-y divide-default">
       <thead>
         <tr>
-          <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500">Title</th>
-          <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500">Project</th>
-          <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500">Status</th>
-          <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500">Phase</th>
-          <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500">Created</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-muted">Title</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-muted">Project</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-muted">Status</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-muted">Phase</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-muted">Created</th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-gray-100">
+      <tbody class="divide-y divide-default">
         <% @pipelines.each do |pipeline| %>
-          <tr class="hover:bg-gray-50">
-            <td class="px-6 py-4 text-sm font-medium text-gray-900">
+          <tr class="hover:bg-surface-hover">
+            <td class="px-6 py-4 text-sm font-medium text-default">
               <%= link_to pipeline.title, pipeline, class: "hover:text-indigo-600" %>
             </td>
-            <td class="px-6 py-4 text-sm text-gray-500"><%= pipeline.project.name %></td>
+            <td class="px-6 py-4 text-sm text-muted"><%= pipeline.project.name %></td>
             <td class="px-6 py-4"><%= status_badge(pipeline.status) %></td>
-            <td class="px-6 py-4 text-sm text-gray-500"><%= pipeline.current_phase.humanize %></td>
-            <td class="px-6 py-4 text-sm text-gray-500">
+            <td class="px-6 py-4 text-sm text-muted"><%= pipeline.current_phase.humanize %></td>
+            <td class="px-6 py-4 text-sm text-muted">
               <time title="<%= pipeline.created_at %>"><%= time_ago_in_words(pipeline.created_at) %> ago</time>
             </td>
           </tr>
@@ -34,10 +34,10 @@
     </table>
   </div>
 <% else %>
-  <div class="mt-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+  <div class="mt-8 rounded-lg border border-default bg-surface p-6 shadow-sm">
     <div class="py-12 text-center">
-      <p class="text-sm font-medium text-gray-900">No pipelines yet</p>
-      <p class="mt-1 text-xs text-gray-500">Create one from a project page.</p>
+      <p class="text-sm font-medium text-default">No pipelines yet</p>
+      <p class="mt-1 text-xs text-muted">Create one from a project page.</p>
       <%= link_to "Projects", projects_path,
             class: "mt-4 inline-block rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700" %>
     </div>

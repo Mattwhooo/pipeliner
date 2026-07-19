@@ -43,8 +43,31 @@
 
 ## Color
 
-- **Neutrals do the work.** Backgrounds `white` / `gray-50`; borders `gray-200`;
-  text `gray-900` / `gray-500`. Dark mode later — don't hand-roll it per view.
+- **Neutrals are semantic tokens, not raw grays.** Dark mode is implemented as
+  CSS custom-property tokens (`app/assets/tailwind/application.css`), swapped
+  under a `.dark` class on `<html>` via a class-based dark variant:
+  ```css
+  @custom-variant dark (&:where(.dark, .dark *));
+  ```
+  New UI **must** use these token utilities instead of raw `gray-*`/`white`
+  utilities, so it repaints correctly in both themes automatically:
+
+  | Utility | Purpose | Light | Dark |
+  |---|---|---|---|
+  | `bg-app` | root/body background | `gray-50` | `gray-950` |
+  | `bg-surface` | cards, sidebar, auth panel | `white` | `gray-900` |
+  | `bg-surface-hover` | table row / nav hover, subtle inset panels | `gray-50` | `gray-800` |
+  | `border-default`, `divide-default`, `ring-default` | borders, dividers, input rings | `gray-200`/`gray-100` | `gray-800` |
+  | `text-default` | primary text | `gray-900` | `gray-100` |
+  | `text-muted` | secondary/meta text | `gray-500` | `gray-400` |
+  | `text-subtle` | disabled / "coming soon" items | `gray-400`/`gray-300` | `gray-600` |
+  | `bg-nav-active` / `text-nav-active` | active sidebar nav item | `indigo-50`/`indigo-700` | `indigo-500/15` / `indigo-300` |
+
+  Status colors (below) and the brand accent are **not** tokenized — they're
+  already a small, closed set and get explicit `dark:` variants instead (see
+  `StatusHelper::TONE_CLASSES` for the pattern: soft badge, `dark:bg-{hue}-500/10
+  dark:text-{hue}-400 dark:ring-{hue}-400/20`). Ad-hoc semantic callouts (e.g.
+  amber "awaiting human" panels) follow the same soft-badge-on-dark pattern.
 - **One brand accent:** `indigo-600` (hover `indigo-700`). Used for primary
   buttons, links, active nav, focus rings.
 - **Status colors are semantic and reserved** — never used decoratively:
@@ -66,20 +89,27 @@ Build as ViewComponents or partials — one source of truth per component.
 - **Status badge** (`StatusBadge`): pill, `rounded-full px-2 py-0.5 text-xs
   font-medium`, soft colors above. Always paired with the status word — color
   alone never carries meaning (a11y).
-- **Card:** `rounded-lg border border-gray-200 bg-white p-6 shadow-sm`. No heavy
+- **Card:** `rounded-lg border border-default bg-surface p-6 shadow-sm`. No heavy
   shadows; elevation is for menus/modals only.
 - **Buttons:**
   - Primary: `bg-indigo-600 text-white hover:bg-indigo-700 rounded-md px-3 py-2 text-sm font-semibold`
-  - Secondary: `bg-white ring-1 ring-gray-300 hover:bg-gray-50 ...`
-  - Danger: red equivalents, only for destructive actions (+ confirm).
+  - Secondary: `bg-surface ring-1 ring-default hover:bg-surface-hover ...`
+  - Danger: red equivalents (with `dark:` variants), only for destructive
+    actions (+ confirm).
   - Icon-only buttons get `aria-label` + tooltip.
-- **Tables:** `divide-y divide-gray-100`, header `text-xs font-semibold
-  text-gray-500`, row hover `hover:bg-gray-50`, whole row clickable when it
+- **Tables:** `divide-y divide-default`, header `text-xs font-semibold
+  text-muted`, row hover `hover:bg-surface-hover`, whole row clickable when it
   navigates.
 - **Forms:** labels above inputs (`text-sm font-medium`), help text below
-  (`text-xs text-gray-500`), errors inline in `red-600` attached to the field
-  (not only a flash). Inputs: `rounded-md ring-1 ring-gray-300
-  focus:ring-2 focus:ring-indigo-600`.
+  (`text-xs text-muted`), errors inline in `red-600`/`dark:text-red-400`
+  attached to the field (not only a flash). Inputs: `rounded-md ring-1
+  ring-default focus:ring-2 focus:ring-indigo-600`.
+- **Theme toggle** (`shared/_theme_toggle`): icon-only button, two-state
+  (light ⇄ dark), `aria-pressed` + `aria-label="Toggle dark mode"`. Rendered
+  wherever there's persistent chrome (sidebar, auth layout header) so it's
+  reachable on every screen. Backed by `theme_controller.js` — see
+  `app/views/shared/_theme_init_script.html.erb` for the zero-flash
+  first-paint logic.
 - **Empty states:** icon + one sentence + primary action. Never a bare empty table.
 - **Timestamps:** relative ("3m ago") with absolute on hover/`title`; `local-time`
   behavior via a small Stimulus controller.

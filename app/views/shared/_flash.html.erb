@@ -2,9 +2,9 @@
   <% next if message.blank? %>
   <%
     styles = case type.to_sym
-             when :notice then "bg-green-50 text-green-700 ring-green-600/20"
-             when :alert  then "bg-red-50 text-red-700 ring-red-600/20"
-             else              "bg-gray-50 text-gray-700 ring-gray-600/20"
+             when :notice then "bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-500/10 dark:text-green-400 dark:ring-green-400/20"
+             when :alert  then "bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-500/10 dark:text-red-400 dark:ring-red-400/20"
+             else              "bg-gray-50 text-gray-700 ring-gray-600/20 dark:bg-gray-400/10 dark:text-gray-300 dark:ring-gray-400/20"
              end
   %>
   <div class="mx-auto max-w-7xl px-6 pt-4">

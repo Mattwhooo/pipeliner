@@ -1,6 +1,6 @@
 <%= form_with model: template, class: "mt-8 space-y-4" do |f| %>
   <% if template.errors.any? %>
-    <div class="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-600/20">
+    <div class="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-600/20 dark:bg-red-500/10 dark:text-red-400 dark:ring-red-400/20">
       <ul class="list-inside list-disc">
         <% template.errors.full_messages.each do |message| %>
           <li><%= message %></li>
@@ -10,61 +10,61 @@
   <% end %>
 
   <div>
-    <%= f.label :name, class: "block text-sm font-medium text-gray-900" %>
+    <%= f.label :name, class: "block text-sm font-medium text-default" %>
     <%= f.text_field :name,
-          class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600" %>
+          class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-default ring-1 ring-inset ring-default focus:ring-2 focus:ring-indigo-600" %>
   </div>
 
   <div class="grid grid-cols-3 gap-4">
     <div>
-      <%= f.label :step_type, "Type", class: "block text-sm font-medium text-gray-900" %>
+      <%= f.label :step_type, "Type", class: "block text-sm font-medium text-default" %>
       <%= f.select :step_type,
             StepTemplate.step_types.keys.map { |t| [ t.humanize, t ] }, {},
-            class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600" %>
-      <p class="mt-1 text-xs text-gray-500">What it does in the loop.</p>
+            class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-default ring-1 ring-inset ring-default focus:ring-2 focus:ring-indigo-600" %>
+      <p class="mt-1 text-xs text-muted">What it does in the loop.</p>
     </div>
     <div>
-      <%= f.label :role, class: "block text-sm font-medium text-gray-900" %>
+      <%= f.label :role, class: "block text-sm font-medium text-default" %>
       <%= f.text_field :role, placeholder: "code, review, ui-tests…",
-            class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 font-mono text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600" %>
-      <p class="mt-1 text-xs text-gray-500">Which workers can run it.</p>
+            class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 font-mono text-sm text-default ring-1 ring-inset ring-default focus:ring-2 focus:ring-indigo-600" %>
+      <p class="mt-1 text-xs text-muted">Which workers can run it.</p>
     </div>
     <div>
-      <%= f.label :requirement, class: "block text-sm font-medium text-gray-900" %>
+      <%= f.label :requirement, class: "block text-sm font-medium text-default" %>
       <%= f.select :requirement, [ [ "Required", "required" ], [ "Conditional", "conditional" ] ], {},
-            class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600" %>
-      <p class="mt-1 text-xs text-gray-500">Always included, or as needed.</p>
+            class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-default ring-1 ring-inset ring-default focus:ring-2 focus:ring-indigo-600" %>
+      <p class="mt-1 text-xs text-muted">Always included, or as needed.</p>
     </div>
   </div>
 
   <div class="grid grid-cols-2 gap-4">
     <div>
-      <%= f.label :phase, class: "block text-sm font-medium text-gray-900" %>
+      <%= f.label :phase, class: "block text-sm font-medium text-default" %>
       <%= f.select :phase,
             Phase::KINDS_IN_ORDER.map { |k| [ k.humanize, k ] },
             { include_blank: "Any phase" },
-            class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600" %>
-      <p class="mt-1 text-xs text-gray-500">Which phase this step belongs to.</p>
+            class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-default ring-1 ring-inset ring-default focus:ring-2 focus:ring-indigo-600" %>
+      <p class="mt-1 text-xs text-muted">Which phase this step belongs to.</p>
     </div>
     <div>
-      <%= f.label :project_id, "Scope", class: "block text-sm font-medium text-gray-900" %>
+      <%= f.label :project_id, "Scope", class: "block text-sm font-medium text-default" %>
       <%= f.select :project_id,
             current_user.projects.order(:name).map { |p| [ p.name, p.id ] },
             { include_blank: "Global (all projects)" },
-            class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600" %>
-      <p class="mt-1 text-xs text-gray-500">Global, or limited to one project.</p>
+            class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-default ring-1 ring-inset ring-default focus:ring-2 focus:ring-indigo-600" %>
+      <p class="mt-1 text-xs text-muted">Global, or limited to one project.</p>
     </div>
   </div>
 
   <div>
-    <%= f.label :system_prompt, class: "block text-sm font-medium text-gray-900" %>
+    <%= f.label :system_prompt, class: "block text-sm font-medium text-default" %>
     <%= f.text_area :system_prompt, rows: 5,
-          class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600" %>
+          class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-default ring-1 ring-inset ring-default focus:ring-2 focus:ring-indigo-600" %>
   </div>
 
   <% if template.default_inputs.present? || template.default_outputs.present? %>
-    <div class="rounded-md bg-gray-50 px-4 py-3 text-xs text-gray-600 ring-1 ring-gray-200">
-      <p class="font-medium text-gray-900">Artifacts (fixed contract)</p>
+    <div class="rounded-md bg-surface-hover px-4 py-3 text-xs text-muted ring-1 ring-default">
+      <p class="font-medium text-default">Artifacts (fixed contract)</p>
       <% if template.default_inputs.present? %>
         <p class="mt-1">Reads:
           <% template.default_inputs.each do |input| %>
@@ -75,21 +75,21 @@
       <% if template.default_outputs.present? %>
         <p class="mt-1">Writes:
           <% template.default_outputs.each do |output| %>
-            <span class="font-mono"><%= output["artifact"] %></span><span class="text-gray-400"> (<%= output["kind"] || "artifact" %>)</span>
+            <span class="font-mono"><%= output["artifact"] %></span><span class="text-subtle"> (<%= output["kind"] || "artifact" %>)</span>
           <% end %>
         </p>
       <% end %>
-      <p class="mt-2 text-gray-400">Artifact names/paths are the inter-phase contract (docs/artifact-schema.md) and are not editable here.</p>
+      <p class="mt-2 text-subtle">Artifact names/paths are the inter-phase contract (docs/artifact-schema.md) and are not editable here.</p>
     </div>
   <% end %>
 
   <div class="flex items-center gap-3 pt-2">
     <%= f.submit class: "rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 cursor-pointer" %>
-    <%= link_to "Cancel", step_templates_path, class: "text-sm font-medium text-gray-500 hover:text-gray-900" %>
+    <%= link_to "Cancel", step_templates_path, class: "text-sm font-medium text-muted hover:text-default" %>
     <% if template.persisted? %>
       <%= button_to "Delete", template, method: :delete,
             form: { data: { turbo_confirm: "Delete this template? Existing steps keep their copies." }, class: "ml-auto" },
-            class: "text-sm font-medium text-red-600 hover:text-red-700 bg-transparent cursor-pointer" %>
+            class: "text-sm font-medium text-red-600 hover:text-red-700 bg-transparent cursor-pointer dark:text-red-400 dark:hover:text-red-300" %>
     <% end %>
   </div>
 <% end %>

@@ -1,69 +1,69 @@
 <% content_for :title, "Add step · Pipeliner" %>
 
 <div class="mx-auto max-w-3xl">
-  <nav class="text-xs text-gray-500">
-    <%= link_to @phase.pipeline.title, @phase.pipeline, class: "hover:text-gray-900" %>
+  <nav class="text-xs text-muted">
+    <%= link_to @phase.pipeline.title, @phase.pipeline, class: "hover:text-default" %>
     <span class="mx-1">/</span>
-    <span class="text-gray-900"><%= @phase.kind.humanize %> phase</span>
+    <span class="text-default"><%= @phase.kind.humanize %> phase</span>
   </nav>
-  <h1 class="mt-2 text-2xl font-semibold text-gray-900">Add step to <%= @phase.kind.humanize %></h1>
-  <p class="mt-1 text-sm text-gray-500">
+  <h1 class="mt-2 text-2xl font-semibold text-default">Add step to <%= @phase.kind.humanize %></h1>
+  <p class="mt-1 text-sm text-muted">
     Pick a template and/or fill the fields — anything you type overrides the template's defaults.
   </p>
 
   <% if @phase.define_phase? %>
-    <div class="mt-4 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-inset ring-amber-600/20">
+    <div class="mt-4 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-inset ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-400/20">
       Define runs the same core for every pipeline; custom Define steps run late in the phase.
     </div>
   <% end %>
 
   <%= form_with url: phase_steps_path(@phase), scope: :step, class: "mt-8 space-y-4" do |f| %>
     <div>
-      <%= f.label :step_template_id, "From template", class: "block text-sm font-medium text-gray-900" %>
+      <%= f.label :step_template_id, "From template", class: "block text-sm font-medium text-default" %>
       <%= f.select :step_template_id,
             options_from_collection_for_select(@templates, :id, :name), { include_blank: "— none (custom step) —" },
-            class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600" %>
-      <p class="mt-1 text-xs text-gray-500">Manage templates in the <%= link_to "Step Library", step_templates_path, class: "text-indigo-600 hover:text-indigo-700" %>.</p>
+            class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-default ring-1 ring-inset ring-default focus:ring-2 focus:ring-indigo-600" %>
+      <p class="mt-1 text-xs text-muted">Manage templates in the <%= link_to "Step Library", step_templates_path, class: "text-indigo-600 hover:text-indigo-700" %>.</p>
     </div>
 
     <div class="grid grid-cols-3 gap-4">
       <div>
-        <%= f.label :slug, class: "block text-sm font-medium text-gray-900" %>
+        <%= f.label :slug, class: "block text-sm font-medium text-default" %>
         <%= f.text_field :slug, placeholder: "from template if blank",
-              class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 font-mono text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600" %>
+              class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 font-mono text-sm text-default ring-1 ring-inset ring-default focus:ring-2 focus:ring-indigo-600" %>
       </div>
       <div>
-        <%= f.label :step_type, "Type", class: "block text-sm font-medium text-gray-900" %>
+        <%= f.label :step_type, "Type", class: "block text-sm font-medium text-default" %>
         <%= f.select :step_type, [ [ "From template", "" ] ] + Step.step_types.keys.map { |t| [ t.humanize, t ] }, {},
-              class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600" %>
+              class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-default ring-1 ring-inset ring-default focus:ring-2 focus:ring-indigo-600" %>
       </div>
       <div>
-        <%= f.label :role, class: "block text-sm font-medium text-gray-900" %>
+        <%= f.label :role, class: "block text-sm font-medium text-default" %>
         <%= f.text_field :role, placeholder: "from template if blank",
-              class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 font-mono text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600" %>
+              class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 font-mono text-sm text-default ring-1 ring-inset ring-default focus:ring-2 focus:ring-indigo-600" %>
       </div>
     </div>
 
     <div>
-      <%= f.label :system_prompt, "System prompt (overrides template)", class: "block text-sm font-medium text-gray-900" %>
+      <%= f.label :system_prompt, "System prompt (overrides template)", class: "block text-sm font-medium text-default" %>
       <%= f.text_area :system_prompt, rows: 4,
-            class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600" %>
+            class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-default ring-1 ring-inset ring-default focus:ring-2 focus:ring-indigo-600" %>
     </div>
 
     <% if @existing_steps.any? %>
       <div>
-        <%= f.label :route_to_step_id, "Route feedback to (critics only)", class: "block text-sm font-medium text-gray-900" %>
+        <%= f.label :route_to_step_id, "Route feedback to (critics only)", class: "block text-sm font-medium text-default" %>
         <%= f.select :route_to_step_id,
               options_from_collection_for_select(@existing_steps, :id, :slug), { include_blank: "— none —" },
-              class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600" %>
-        <p class="mt-1 text-xs text-gray-500">When this critic fails, which step gets the feedback and re-runs.</p>
+              class: "mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-default ring-1 ring-inset ring-default focus:ring-2 focus:ring-indigo-600" %>
+        <p class="mt-1 text-xs text-muted">When this critic fails, which step gets the feedback and re-runs.</p>
       </div>
     <% end %>
 
     <div class="flex items-center gap-3 pt-2">
       <%= f.submit "Add step",
             class: "rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 cursor-pointer" %>
-      <%= link_to "Cancel", @phase.pipeline, class: "text-sm font-medium text-gray-500 hover:text-gray-900" %>
+      <%= link_to "Cancel", @phase.pipeline, class: "text-sm font-medium text-muted hover:text-default" %>
     </div>
   <% end %>
 </div>

@@ -3,34 +3,34 @@
 <div id="<%= dom_id(phase, :column) %>">
   <% if phase.approved? %>
     <% approval = phase.approvals.order(:id).last %>
-    <div class="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50/60 px-4 py-2 text-xs text-gray-500">
-      <span class="font-medium text-gray-600">Defined</span>
-      <span class="text-green-600" aria-hidden="true">✓</span>
+    <div class="flex items-center gap-2 rounded-lg border border-default bg-surface-hover px-4 py-2 text-xs text-muted">
+      <span class="font-medium text-muted">Defined</span>
+      <span class="text-green-600 dark:text-green-400" aria-hidden="true">✓</span>
       <% if approval %>
         <span>· approved by <%= approval.user.email.split("@").first %></span>
         <span>·</span>
         <time title="<%= approval.created_at %>"><%= time_ago_in_words(approval.created_at) %> ago</time>
       <% end %>
       <%= link_to "view details →", phase_path(phase),
-            class: "ml-auto font-medium text-gray-500 hover:text-gray-900" %>
+            class: "ml-auto font-medium text-muted hover:text-default" %>
     </div>
   <% else %>
     <% at_gate = phase.status.in?(%w[consensus awaiting_human]) && phase.gate_human? %>
     <% questions = define_open_questions(phase) %>
     <% steps = phase.workflows.flat_map(&:steps) %>
-    <div class="rounded-lg border bg-white p-6 shadow-sm
-                <%= at_gate ? "border-amber-300 ring-1 ring-amber-100" : (phase.kind == current_phase_kind ? "border-indigo-300 ring-1 ring-indigo-100" : "border-gray-200") %>">
+    <div class="rounded-lg border bg-surface p-6 shadow-sm
+                <%= at_gate ? "border-amber-300 ring-1 ring-amber-100 dark:border-amber-500/40 dark:ring-amber-500/20" : (phase.kind == current_phase_kind ? "border-indigo-300 ring-1 ring-indigo-100 dark:border-indigo-500/40 dark:ring-indigo-500/20" : "border-default") %>">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <span class="text-xs uppercase tracking-wide text-gray-400">Pre-phase</span>
-          <h2 class="text-lg font-semibold text-gray-900">Definition</h2>
+          <span class="text-xs uppercase tracking-wide text-subtle">Pre-phase</span>
+          <h2 class="text-lg font-semibold text-default">Definition</h2>
         </div>
         <%= status_badge(phase.status) %>
       </div>
 
       <% if at_gate %>
-        <div class="mt-4 rounded-md bg-amber-50 p-4 ring-1 ring-inset ring-amber-600/20">
-          <p class="text-sm font-medium text-amber-800">
+        <div class="mt-4 rounded-md bg-amber-50 p-4 ring-1 ring-inset ring-amber-600/20 dark:bg-amber-500/10 dark:ring-amber-400/20">
+          <p class="text-sm font-medium text-amber-800 dark:text-amber-400">
             <% if phase.consensus? %>
               Consensus reached — answer any open questions, or approve to move on.
             <% else %>
@@ -41,18 +41,18 @@
             <div class="flex-1">
               <%= f.label :note, "Approval note (optional)", class: "sr-only" %>
               <%= f.text_field :note, placeholder: "Note (optional)",
-                    class: "block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-amber-600/30 focus:ring-2 focus:ring-indigo-600 bg-white" %>
+                    class: "block w-full rounded-md border-0 px-3 py-1.5 text-sm text-default ring-1 ring-inset ring-amber-600/30 focus:ring-2 focus:ring-indigo-600 bg-surface" %>
             </div>
             <%= f.submit phase.consensus? ? "Approve Define" : "Approve anyway",
                   class: "rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 cursor-pointer" %>
           <% end %>
           <%= link_to "Review & approve →", phase_path(phase),
-                class: "mt-2 inline-block text-sm font-medium text-amber-800 hover:text-amber-900" %>
+                class: "mt-2 inline-block text-sm font-medium text-amber-800 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-300" %>
         </div>
       <% end %>
 
       <div class="mt-4">
-        <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-400">Steps</h3>
+        <h3 class="text-xs font-semibold uppercase tracking-wide text-subtle">Steps</h3>
         <% if steps.any? %>
           <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
             <% steps.each do |step| %>
@@ -60,23 +60,23 @@
             <% end %>
           </div>
         <% else %>
-          <p class="mt-2 text-xs text-gray-400">No steps yet.</p>
+          <p class="mt-2 text-xs text-subtle">No steps yet.</p>
         <% end %>
       </div>
 
       <% if questions.present? %>
-        <div class="mt-6 border-t border-gray-100 pt-6">
-          <h3 class="text-sm font-semibold text-gray-900">Open questions</h3>
-          <div class="mt-2 space-y-1 text-sm text-gray-700">
+        <div class="mt-6 border-t border-default pt-6">
+          <h3 class="text-sm font-semibold text-default">Open questions</h3>
+          <div class="mt-2 space-y-1 text-sm text-muted">
             <%= simple_format(questions) %>
           </div>
           <%= form_with url: answers_phase_path(phase), class: "mt-4 space-y-3" do |f| %>
             <div>
-              <%= f.label :answers, "Your answers", class: "block text-sm font-medium text-gray-900" %>
+              <%= f.label :answers, "Your answers", class: "block text-sm font-medium text-default" %>
               <%= f.text_area :answers, rows: 4, required: true,
                     placeholder: "Answer by number — unanswered questions use their stated defaults",
-                    class: "mt-1 block w-full rounded-md border-0 px-3 py-2 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 bg-white" %>
-              <p class="mt-1 text-xs text-gray-500">Sending re-opens the requirements loop for another pass.</p>
+                    class: "mt-1 block w-full rounded-md border-0 px-3 py-2 text-sm text-default ring-1 ring-inset ring-default focus:ring-2 focus:ring-indigo-600 bg-surface" %>
+              <p class="mt-1 text-xs text-muted">Sending re-opens the requirements loop for another pass.</p>
             </div>
             <%= f.submit "Send answers",
                   class: "rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 cursor-pointer",
