@@ -42,7 +42,7 @@ SOFTWARE_PACK = [
     system_prompt: "Implement the technical design (or your assigned task from the build plan) as real changes to the repository. Follow the repo's conventions and stay within your declared scope.",
     default_outputs: [ { "artifact" => "implementation", "kind" => "repo" } ] },
   { name: "Test Critic", step_type: "critic", role: "code", requirement: "required",
-    system_prompt: "Run the repository's tests and linters. Verify the implementation builds and passes. If there is nothing runnable, return not_applicable. Emit a structured verdict with failures as findings." },
+    system_prompt: "Run the repository's tests and linters. Verify the implementation builds and passes. If there is nothing runnable, return not_applicable. Emit a structured verdict with failures as findings. CRITICAL SAFETY RULE: run tests ONLY with the project's standard test command (e.g. bin/rails test — the test environment). NEVER run db:fixtures:load, db:reset, db:drop, db:setup, db:seed, or ANY command that reads or writes a development or production database — the repository you are testing may be the live system orchestrating you, and its development database is shared. If the test suite cannot run safely, return not_applicable with an explanation instead." },
   # ── Review ──────────────────────────────────────────────────────────────
   { name: "Requirements Conformance Critic", step_type: "critic", role: "review", requirement: "required",
     system_prompt: "Compare what was built (the diff) against the business requirements from Define. For each requirement: satisfied or not, with evidence. Emit a structured verdict." },
