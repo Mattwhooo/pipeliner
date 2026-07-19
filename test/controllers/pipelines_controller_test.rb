@@ -113,4 +113,97 @@ class PipelinesControllerTest < ActionDispatch::IntegrationTest
     post project_pipelines_url(projects(:pipeliner)), params: { pipeline: { title: "" } }
     assert_response :unprocessable_entity
   end
+
+  # --- post-finalization actions -----------------------------------------
+
+  test "show renders the actions card with merge and update once a real PR is open" do
+    pipe = pipelines(:onboarding)
+    pipe.update!(status: "completed",
+      pr_url: "https://github.com/acme/widgets/pull/7", pr_number: 7)
+
+    get pipeline_url(pipe)
+
+    assert_response :success
+    assert_select "h2", "Pull request"
+    assert_match "Review changes", @response.body
+    assert_select "form[action=?]", merge_pipeline_path(pipe)
+    assert_select "form[action=?]", update_from_base_pipeline_path(pipe)
+  end
+
+  test "show renders the compare-link fallback without a merge button when there is no real PR" do
+    pipe = pipelines(:onboarding)
+    pipe.update!(status: "completed",
+      pr_url: "https://github.com/acme/widgets/compare/main...b",
+      config: { "pr_note" => "this project has no GitHub remote" })
+
+    get pipeline_url(pipe)
+
+    assert_response :success
+    assert_select "form[action=?]", merge_pipeline_path(pipe), count: 0
+    assert_select "form[action=?]", update_from_base_pipeline_path(pipe)
+    assert_match "compare", @response.body.downcase
+  end
+
+  test "show shows the merged state with no action buttons once merged" do
+    pipe = pipelines(:onboarding)
+    pipe.update!(status: "merged",
+      pr_url: "https://github.com/acme/widgets/pull/7", pr_number: 7)
+
+    get pipeline_url(pipe)
+
+    assert_response :success
+    assert_select "form[action=?]", merge_pipeline_path(pipe), count: 0
+    assert_select "form[action=?]", update_from_base_pipeline_path(pipe), count: 0
+  end
+
+  test "merge delegates to MergePr and redirects with a notice on success" do
+    pipe = pipelines(:onboarding)
+    with_service(Pipelines::MergePr, Result.success(pipe)) do
+      post merge_pipeline_url(pipe)
+    end
+    assert_redirected_to pipeline_url(pipe)
+    assert_equal "Pull request merged.", flash[:notice]
+  end
+
+  test "merge surfaces the service error as an alert on failure" do
+    pipe = pipelines(:onboarding)
+    pipe.update!(config: { "merge_error" => "not mergeable: conflicts" })
+    with_service(Pipelines::MergePr, Result.failure(:merge_failed, record: pipe)) do
+      post merge_pipeline_url(pipe)
+    end
+    assert_redirected_to pipeline_url(pipe)
+    assert_equal "not mergeable: conflicts", flash[:alert]
+  end
+
+  test "update_from_base delegates to UpdateFromBase and redirects with a notice" do
+    pipe = pipelines(:onboarding)
+    with_service(Pipelines::UpdateFromBase, Result.success(pipe)) do
+      post update_from_base_pipeline_url(pipe)
+    end
+    assert_redirected_to pipeline_url(pipe)
+    assert_match(/Updated from/, flash[:notice])
+  end
+
+  test "update_from_base surfaces the service error as an alert on conflict" do
+    pipe = pipelines(:onboarding)
+    pipe.update!(config: { "update_error" => "hit conflicts a human needs to resolve" })
+    with_service(Pipelines::UpdateFromBase, Result.failure(:merge_conflict, record: pipe)) do
+      post update_from_base_pipeline_url(pipe)
+    end
+    assert_redirected_to pipeline_url(pipe)
+    assert_equal "hit conflicts a human needs to resolve", flash[:alert]
+  end
+
+  private
+
+  # No mocking library in this repo — swap the service's `.call` for one that
+  # returns a canned Result, then restore it (mirrors AdvanceTest).
+  def with_service(klass, result)
+    original = klass.method(:call)
+    klass.define_singleton_method(:call) { |**| result }
+    yield
+  ensure
+    klass.singleton_class.send(:remove_method, :call)
+    klass.define_singleton_method(:call, original)
+  end
 end

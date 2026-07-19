@@ -21,7 +21,12 @@ Rails.application.routes.draw do
       end
     end
   end
-  resources :pipelines, only: [ :index, :show ]
+  resources :pipelines, only: [ :index, :show ] do
+    member do
+      post :merge
+      post :update_from_base
+    end
+  end
   resources :workers, only: [ :index ]
   resources :step_templates, path: "step-library"
   resources :phases, only: [ :show ] do

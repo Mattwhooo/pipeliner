@@ -96,7 +96,7 @@ findings are now resolved** — decisions below are recorded in the normative do
 | M6 | Dynamic fan-out breaks static DAG | **Fan-out expansion outcome** returns keys at runtime; control plane mints shard + fan-in runs. |
 | M7 | Stuck runs not recovered | Re-evaluate `stuck → ready` when a capable worker connects. |
 | M8 | No cancellation channel | **`cancel` flag in the heartbeat response**; merges fenced for canceled runs. |
-| M9 | Branch drift from base | **update-from-base** merge (before Review/on demand) + conflict-resolution step. |
+| M9 | Branch drift from base | **update-from-base** merge (on-demand "Update from main"; `Pipelines::UpdateFromBase`) — implemented; auto pre-Review + conflict-resolution step still future. |
 | M10 | LLM steps aren't idempotent | **At-least-once execution, at-most-one merge**; `epoch`/lease-id fences duplicate/late completions. |
 | M11 | History contradiction | Reconciled to **latest-only**. |
 

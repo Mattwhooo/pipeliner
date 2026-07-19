@@ -24,6 +24,14 @@
   <%= render "pipelines/status_summary", pipeline: @pipeline, compact: false %>
 </div>
 
+<%# Post-finalization: a real PR (or compare-link fallback) is open, so surface
+    the Review / Merge / Update-from-main actions. %>
+<% if @pipeline.pr_url.present? %>
+  <div class="mt-6">
+    <%= render "pipelines/actions", pipeline: @pipeline %>
+  </div>
+<% end %>
+
 <% if @pipeline.initial_prompt.present? %>
   <div class="mt-6 rounded-lg border border-default bg-surface p-6 shadow-sm">
     <h2 class="text-xs font-semibold uppercase tracking-wide text-subtle">The ask</h2>

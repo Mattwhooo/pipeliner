@@ -132,14 +132,91 @@ module Pipelines
       assert_nil finalize.send(:compare_url)
     end
 
+    # --- opening the PR (adapter injected; no git or network) ---------------
+
+    # A finalize whose git operations aren't exercised — used to unit-test the
+    # PR-opening branch logic against a github URL without touching git.
+    FakeGithub = Struct.new(:ready, :create_response, keyword_init: true) do
+      attr_reader :create_args
+      def ready? = ready
+      def create_pr(**args)
+        @create_args = args
+        create_response
+      end
+    end
+
+    test "opens a real PR via the adapter for a github project when gh is ready" do
+      created = Github::Response.new(ok: true, url: "https://github.com/acme/widgets/pull/7", number: 7)
+      finalize = build_finalize(repo_url: "https://github.com/acme/widgets", branch: "pipeliner/pl_x",
+        github: FakeGithub.new(ready: true, create_response: created))
+
+      url, number = finalize.send(:open_pull_request)
+
+      assert_equal "https://github.com/acme/widgets/pull/7", url
+      assert_equal 7, number
+      args = finalize.instance_variable_get(:@github).create_args
+      assert_equal "acme/widgets", args[:repo]
+      assert_equal "main", args[:base]
+      assert_equal "pipeliner/pl_x", args[:head]
+      assert_match "🤖 Generated with Pipeliner", args[:body]
+    end
+
+    test "degrades to a nil url with a reason when the project has no github remote" do
+      finalize = build_finalize(repo_url: "/srv/git/widgets.git", branch: "feature")
+      url, number = finalize.send(:open_pull_request)
+      assert_nil url
+      assert_nil number
+      assert_equal "this project has no GitHub remote", finalize.instance_variable_get(:@pr_note)
+    end
+
+    test "degrades to the compare url with a reason when gh is not ready" do
+      finalize = build_finalize(repo_url: "https://github.com/acme/widgets", branch: "feature",
+        github: FakeGithub.new(ready: false))
+      url, number = finalize.send(:open_pull_request)
+      assert_equal "https://github.com/acme/widgets/compare/main...feature", url
+      assert_nil number
+      assert_match(/GitHub CLI/, finalize.instance_variable_get(:@pr_note))
+    end
+
+    test "degrades to the compare url with a reason when opening the PR fails" do
+      failed = Github::Response.new(ok: false, error: "a pull request already exists")
+      finalize = build_finalize(repo_url: "https://github.com/acme/widgets", branch: "feature",
+        github: FakeGithub.new(ready: true, create_response: failed))
+      url, number = finalize.send(:open_pull_request)
+      assert_equal "https://github.com/acme/widgets/compare/main...feature", url
+      assert_nil number
+      assert_match(/already exists/, finalize.instance_variable_get(:@pr_note))
+    end
+
+    test "records why the PR degraded to a compare link for a local-hub project" do
+      seed_pipeline_branch(files: { CODE_FILE => "class Widget; end" })
+
+      assert Finalize.call(pipeline: @pipeline).success?
+
+      assert_equal "this project has no GitHub remote", @pipeline.reload.config["pr_note"]
+    end
+
+    test "pr body prefers the define summary and closes with the attribution line" do
+      define = @pipeline.phases.create!(kind: "define", position: 1, status: "approved")
+      workflow = define.workflows.create!(slug: "main", status: "running")
+      step = workflow.steps.create!(slug: "define-review", step_type: "builder", role: "review", position: 1)
+      step.step_runs.create!(state: "succeeded", iteration: 1, required_role: "review",
+        result: { "artifacts" => { "define_summary" => "Ship the widget exporter." } })
+
+      body = Finalize.new(pipeline: @pipeline).send(:pr_body)
+
+      assert_match "Ship the widget exporter.", body
+      assert body.end_with?("🤖 Generated with Pipeliner"), "closes with the attribution line"
+    end
+
     # --- helpers ------------------------------------------------------------
 
     private
 
-    def build_finalize(repo_url:, branch:, default_branch: "main")
+    def build_finalize(repo_url:, branch:, default_branch: "main", github: Pipelines::Github)
       project = Project.new(repo_url: repo_url, default_branch: default_branch)
       pipeline = Pipeline.new(branch: branch, project: project)
-      Finalize.new(pipeline: pipeline)
+      Finalize.new(pipeline: pipeline, github: github)
     end
 
     def seed_origin

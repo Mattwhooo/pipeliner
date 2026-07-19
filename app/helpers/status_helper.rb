@@ -7,7 +7,7 @@ module StatusHelper
     # success → green
     "ready" => :success, "approved" => :success, "completed" => :success,
     "converged" => :success, "succeeded" => :success, "passed" => :success,
-    "online" => :success, "consensus" => :success,
+    "online" => :success, "consensus" => :success, "merged" => :success,
     # needs attention → amber
     "awaiting_human" => :attention, "needs_setup" => :attention,
     "reworking" => :attention, "draining" => :attention,

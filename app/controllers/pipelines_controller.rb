@@ -34,7 +34,34 @@ class PipelinesController < ApplicationController
     end
   end
 
+  def merge
+    pipeline = authorized_pipeline
+    result = Pipelines::MergePr.call(pipeline: pipeline)
+    if result.success?
+      redirect_to pipeline, notice: "Pull request merged."
+    else
+      redirect_to pipeline, alert: pipeline.config["merge_error"] || "Could not merge the pull request."
+    end
+  end
+
+  def update_from_base
+    pipeline = authorized_pipeline
+    result = Pipelines::UpdateFromBase.call(pipeline: pipeline)
+    if result.success?
+      redirect_to pipeline, notice: "Updated from #{pipeline.project.default_branch}."
+    else
+      redirect_to pipeline, alert: pipeline.config["update_error"] ||
+        "Could not update from #{pipeline.project.default_branch}."
+    end
+  end
+
   private
+
+  def authorized_pipeline
+    Pipeline.joins(project: :memberships)
+      .where(memberships: { user_id: current_user.id })
+      .find(params[:id])
+  end
 
   def pipeline_params
     params.expect(pipeline: [ :title, :initial_prompt ])

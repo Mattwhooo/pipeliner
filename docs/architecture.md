@@ -72,10 +72,13 @@ Workers are outbound-only and Projects bind to an **external GitHub repo**, so:
     branch but can never be *merged*.
 - **Merges are done by the control plane via the GitHub API** (step→pipeline; and
   the final pipeline→master is a human-reviewed PR).
-- **update-from-base (M9):** the control plane merges `master → pipeline branch`
-  before Review (or on demand); a clean merge continues, a conflict spawns a
-  resolution step. Keeps the branch current; forward-only (merge commit, no
-  rewrite).
+- **update-from-base (M9 — implemented):** `Pipelines::UpdateFromBase` merges the
+  project's default branch into the pipeline branch on demand (the "Update from
+  main" action on a finalized pipeline), reusing the per-project clone + flock.
+  A clean merge is pushed; a conflict aborts cleanly and surfaces a message for a
+  human to resolve. Keeps the branch current; forward-only (merge commit, no
+  rewrite). Automatic pre-Review invocation + a dedicated resolution step remain
+  future work.
 - **Worker git credentials (resolves earlier [OPEN]):** a **short-lived GitHub App
   installation token**, scoped to the project repo, delivered in the step context
   bundle and expiring with the lease.

@@ -1,0 +1,63 @@
+<%# Post-finalization actions on a pipeline whose PR is open (Finalize set
+    pr_url). Live-replaced by Pipelines::BroadcastActions, so the root id must be
+    dom_id(pipeline, :actions). %>
+<div id="<%= dom_id(pipeline, :actions) %>" class="rounded-lg border border-default bg-surface p-6 shadow-sm">
+  <% real_pr = pipeline.pr_number.present? %>
+  <% merge_error = pipeline.config["merge_error"] %>
+  <% update_error = pipeline.config["update_error"] %>
+  <% pr_note = pipeline.config["pr_note"] %>
+
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <h2 class="text-lg font-semibold text-default">Pull request</h2>
+      <% if pipeline.merged? %>
+        <%= status_badge("merged") %>
+      <% end %>
+    </div>
+    <%= link_to real_pr ? "Review changes →" : "Open a compare view →", pipeline.pr_url,
+          target: "_blank", rel: "noopener",
+          class: "text-sm font-semibold text-indigo-600 hover:text-indigo-700" %>
+  </div>
+
+  <% unless real_pr %>
+    <p class="mt-1 text-xs text-muted">
+      Opened as a GitHub compare link<%= " — #{pr_note}" if pr_note.present? %>. Merge from here needs a real PR.
+    </p>
+  <% end %>
+
+  <% if pipeline.merged? %>
+    <p class="mt-4 text-sm text-muted">
+      This pipeline's PR was merged with a squash commit. Nothing more to do here.
+    </p>
+  <% else %>
+    <div class="mt-4 flex flex-wrap items-center gap-2">
+      <% if real_pr %>
+        <%= button_to "Merge", merge_pipeline_path(pipeline),
+              class: "rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 cursor-pointer",
+              data: { turbo_confirm: "Merge this PR into #{pipeline.project.default_branch} with a squash commit?",
+                      turbo_submits_with: "Merging…" } %>
+      <% end %>
+      <%= button_to "Update from main", update_from_base_pipeline_path(pipeline),
+            class: "rounded-md bg-surface px-3 py-2 text-sm font-semibold text-default ring-1 ring-inset ring-default hover:bg-surface-hover cursor-pointer",
+            data: { turbo_submits_with: "Updating…" } %>
+    </div>
+    <p class="mt-2 text-xs text-muted">
+      "Update from main" merges <span class="font-mono"><%= pipeline.project.default_branch %></span>
+      into this branch so it isn't behind the base. Merge squashes the PR into <span class="font-mono"><%= pipeline.project.default_branch %></span>.
+    </p>
+  <% end %>
+
+  <% if merge_error.present? %>
+    <div class="mt-4 flex items-start gap-2 text-sm text-red-700 dark:text-red-400">
+      <%= status_badge("failed", label: "Merge failed") %>
+      <span><%= merge_error %></span>
+    </div>
+  <% end %>
+
+  <% if update_error.present? %>
+    <div class="mt-4 flex items-start gap-2 text-sm text-red-700 dark:text-red-400">
+      <%= status_badge("failed", label: "Update failed") %>
+      <span><%= update_error %></span>
+    </div>
+  <% end %>
+</div>

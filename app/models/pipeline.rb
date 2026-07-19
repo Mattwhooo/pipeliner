@@ -12,6 +12,7 @@ class Pipeline < ApplicationRecord
     blocked: "blocked",
     stuck: "stuck",
     completed: "completed",
+    merged: "merged",
     aborted: "aborted"
   }
 

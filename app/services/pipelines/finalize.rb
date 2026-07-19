@@ -18,32 +18,40 @@ module Pipelines
   #      `git rm -r` it, commit the strip, and push. (Already-stripped branches —
   #      e.g. a retry after a mid-flight failure — skip this gracefully.)
   #   4. Persist: create the Archive index row + mark the pipeline completed +
-  #      derive a GitHub compare URL, atomically, after the push commits.
+  #      open the real GitHub PR (or fall back to a compare URL), atomically,
+  #      after the push commits.
   #   5. Broadcast the Review column.
+  #
+  # Opening the PR: once the clean branch is on origin we open a real PR with the
+  # `gh` CLI (Pipelines::Github). It degrades gracefully to the compare-link
+  # behavior — recording *why* in `pipeline.config["pr_note"]` — when the project
+  # is a local hub (no GitHub remote) or gh is missing/unauthenticated. The PR
+  # number is stored so Pipelines::MergePr can later merge it.
   #
   # Local-first: the archive is written to storage/archives/ on local disk with
   # s3_bucket "local"; real S3 upload arrives with cloud hosting.
   #
   # Domain outcomes are Results; genuinely exceptional infra failures (clone,
   # fetch, zip, push) raise FinalizeError so the job surfaces and retries them.
+  # A gh failure is NOT exceptional — it degrades to the compare link.
   #
   # DEFERRED (out of scope here):
   #   * Phase-boundary commit squashing — the branch keeps its per-step merge
   #     commits; collapsing them into per-phase commits is future work.
   #   * Real S3 upload + retention policy (local-first stand-in for now).
-  #   * Opening the PR via the GitHub API — we only derive the compare URL string.
   class Finalize
     GIT_TIMEOUT = 120 # seconds — generous for a clone/fetch/push, bounded for a hang.
 
     class FinalizeError < StandardError; end
 
-    def self.call(pipeline:)
-      new(pipeline:).call
+    def self.call(pipeline:, github: Pipelines::Github)
+      new(pipeline:, github:).call
     end
 
-    def initialize(pipeline:)
+    def initialize(pipeline:, github: Pipelines::Github)
       @pipeline = pipeline
       @project = pipeline.project
+      @github = github
     end
 
     def call
@@ -89,11 +97,15 @@ module Pipelines
     end
 
     # Archive index row + pipeline completion in one transaction, after the push.
+    # The PR is opened (or the fallback derived) BEFORE the transaction so its
+    # network call never holds a DB transaction open.
     def persist_finalization(zip_path)
+      pr_url, pr_number = open_pull_request
       archive = nil
       ApplicationRecord.transaction do
         archive = create_archive_record(zip_path) if zip_path
-        @pipeline.update!(status: "completed", pr_url: compare_url || @pipeline.pr_url)
+        @pipeline.update!(status: "completed", pr_url: pr_url || @pipeline.pr_url,
+          pr_number: pr_number, config: pr_config)
       end
       archive
     end
@@ -137,26 +149,74 @@ module Pipelines
       )
     end
 
-    # --- PR link ------------------------------------------------------------
+    # --- PR opening ---------------------------------------------------------
+
+    # Opens the real GitHub PR and returns [pr_url, pr_number]. Degrades to
+    # [compare_url, nil] (recording the reason in @pr_note) when there is no
+    # GitHub remote, gh isn't ready, or the create call fails. Idempotent: a
+    # pipeline that already carries a PR number keeps it (a retry never opens a
+    # duplicate PR).
+    def open_pull_request
+      return [ @pipeline.pr_url, @pipeline.pr_number ] if @pipeline.pr_number.present?
+      return degrade("this project has no GitHub remote") unless @project.github?
+      return degrade("the GitHub CLI is unavailable or not authenticated") unless @github.ready?
+
+      response = @github.create_pr(repo: @project.github_slug, base: @project.default_branch,
+        head: @pipeline.branch, title: @pipeline.title, body: pr_body)
+      return degrade("opening the PR failed: #{response.error}") unless response.ok?
+
+      @pr_note = nil
+      [ response.url, response.number ]
+    end
+
+    def degrade(reason)
+      @pr_note = reason
+      [ compare_url, nil ]
+    end
+
+    # Merges the pr_note into config without clobbering the pipeline's other
+    # config; a successful open clears any stale note.
+    def pr_config
+      base = @pipeline.config.except("pr_note")
+      @pr_note.present? ? base.merge("pr_note" => @pr_note) : base
+    end
+
+    # PR body: the Define summary if we have one, else the requirements, else the
+    # original ask — always closing with the Pipeliner attribution line.
+    def pr_body
+      body = define_artifact("define_summary").presence ||
+        define_artifact("business_requirements").presence ||
+        @pipeline.initial_prompt.to_s
+      [ body.to_s.strip, "🤖 Generated with Pipeliner" ].reject(&:blank?).join("\n\n")
+    end
+
+    # Reads a Define artifact off its latest succeeded run's mirrored result,
+    # the same way DefineHelper surfaces it in the UI (no git access needed).
+    def define_artifact(name)
+      define = @pipeline.phases.find_by(kind: "define")
+      return nil unless define
+
+      run = define.workflows.flat_map(&:steps).flat_map(&:step_runs)
+        .select { |r| r.succeeded? && artifact_from(r, name).present? }
+        .max_by { |r| [ r.iteration, r.attempt, r.id ] }
+      run && artifact_from(run, name)
+    end
+
+    def artifact_from(run, name)
+      return nil unless run.result.is_a?(Hash)
+
+      artifacts = run.result["artifacts"]
+      artifacts.is_a?(Hash) ? artifacts[name].presence : nil
+    end
 
     # GitHub "compare" URL that pre-fills a PR from the default branch to the
-    # pipeline branch. Only derived for github.com remotes (git@ or https forms);
-    # nil otherwise so pr_url is left untouched.
+    # pipeline branch — the fallback when we can't open a real PR. Only derived
+    # for github.com remotes; nil otherwise so pr_url is left untouched.
     def compare_url
-      slug = github_slug(@project.repo_url)
+      slug = @project.github_slug
       return nil unless slug
 
       "https://github.com/#{slug}/compare/#{@project.default_branch}...#{@pipeline.branch}"
-    end
-
-    def github_slug(url)
-      return nil if url.blank?
-
-      case url
-      when %r{\Agit@github\.com:(?<slug>[^/].*?)(?:\.git)?\z},
-           %r{\Ahttps?://github\.com/(?<slug>[^/].*?)(?:\.git)?\z}
-        Regexp.last_match(:slug)
-      end
     end
 
     # --- git working tree (replicates MergeStepBranch conventions) -----------

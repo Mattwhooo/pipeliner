@@ -46,11 +46,18 @@ module Pipelines
     # First match wins, ordered most operationally salient first. The final
     # branch has no guard, so `build` always returns a non-blank Summary (R12).
     def build
-      completed || failed || canceled || awaiting_human ||
+      merged || completed || failed || canceled || awaiting_human ||
         blocked || working || not_started || default
     end
 
     private
+
+    # --- terminal: the PR was merged (past completed) ----------------------
+    def merged
+      return unless @pipeline.merged?
+
+      summary("Merged", "merged")
+    end
 
     # --- R8: all work finished successfully --------------------------------
     def completed

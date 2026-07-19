@@ -361,6 +361,34 @@ Constraint: **Phase 1 stays non-technical.** Enforce via step system prompts.
 Clarifying Questions must not ask about implementation details — those belong to
 Plan.
 
+## Finalization, PR, and shipping
+
+When Review is approved, `Pipelines::Finalize` archives + strips the `.pipeliner/`
+workspace and pushes a clean pipeline branch (see the service header), then
+**opens a real GitHub PR** with the `gh` CLI (`Pipelines::Github`):
+
+- **PR title** = pipeline title; **body** = the Define summary (or the
+  requirements, or the original ask), closing with `🤖 Generated with Pipeliner`.
+- The PR number is stored on the pipeline so the merge action can find it.
+- **Graceful degradation:** a local-hub project (no GitHub remote) or a missing/
+  unauthenticated `gh` falls back to the compare-link behavior, and the reason is
+  recorded in `pipeline.config["pr_note"]` and shown on the actions card.
+
+The finalized pipeline's show page then offers three actions (`_actions` partial,
+live via `Pipelines::BroadcastActions`):
+
+- **Review changes** — opens the PR (or the compare link) in a new tab.
+- **Merge** (`Pipelines::MergePr`) — `gh pr merge --squash`. **Squash is the
+  default** because finalization strips `.pipeliner/` but does not squash the
+  per-step merge commits, so squashing lands the whole pipeline as one clean
+  commit on the default branch. On success the pipeline moves to status
+  `merged`; a non-mergeable PR surfaces the gh error without crashing.
+- **Update from main** (`Pipelines::UpdateFromBase`) — the update-from-base
+  operation (docs/architecture.md M9): merges the project's default branch INTO
+  the pipeline branch (a forward merge, not a literal rebase — the history is
+  shared with the open PR) and pushes. A conflict aborts cleanly and surfaces a
+  message; nothing is pushed.
+
 ## Open questions
 
 - **Convergence caps (decided).** Default **max-iterations = 10** (configurable
