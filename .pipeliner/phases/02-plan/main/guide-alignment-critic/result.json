@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "guide-alignment-critic",
+  "status": "succeeded",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_opus",
+    "backend": "claude-code"
+  },
+  "summary": "I read `guides/backend-guide.md` and `guides/ui-style-guide.md`, then audited the Plan-phase Dashboard UI design (`design-writer/output/design.md`) against them, cross-checking the referenced existing services (`Phases::Approve`, `StepRuns::Complete`, the two broadcast primitives) and the current `HomeController` stub to ground my findings. The design is largely guide-aligned — query objects in `app/queries/dashboard/`, broadcasts fanned out from a service, status conveyed by word+color, `status_badge`/card/button reuse, Minitest with services as the primary unit, and it proactively proposes guide additions for its two genuinely new patterns. I issued a **needs_work** verdict on five findings: two majors — (F1) `HomeController#safely` is a blind `rescue StandardError`, which the backend guide explicitly forbids and which is acknowledged but not accompanied by the guide amendment CLAUDE.md requires; and (F2) `safely` wraps only the query object's construction, so the three panel reads actually execute in the view, misplacing data access into the view layer and leaving query failures outside the rescue boundary meant to isolate them — plus three minors covering an in-transaction activity broadcast that breaks after-commit ordering (F3), amber/off-palette form-error styling versus the guide's red-600 field-error convention (F4), and an off-scale `mt-1` spacing value (F5). The verdict is written to `.pipeliner/phases/02-plan/main/guide-alignment-critic/verdict.json`."
+}
