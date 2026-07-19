@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "spec-writer",
+  "status": "succeeded",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_personal-macbook-local",
+    "backend": "claude-code"
+  },
+  "summary": "All three files parse cleanly. The specs are written against the real models, fixtures, services, and helpers, and follow the repo's Minitest conventions.\n\n## Summary\n\nI wrote executable Minitest specs for the **live pipeline status summary** feature, deriving the design from the ask plus the existing code and the two mandatory guides (no technical-design artifact was present in `input.json`, so I grounded every choice in current models/services/helpers). Three new spec files define \"done\": `test/services/pipelines/status_summary_test.rb` specs a side-effect-free derivation PORO (`Pipelines::StatusSummary.for(pipeline) → {text, status}`) that maps live state to a plain-language sentence — covering draft, a running phase that names the phase/active step/iteration (\"Define: … iteration 3\"), the \"iteration 1 isn't shouted\" convention, queued-but-idle, the human-gate wording (\"Waiting on human approval at the Plan gate\"), stuck, completed, and aborted — and asserts the exposed status is a semantic keyword the shared `StatusBadge` understands (a11y: never color alone). `test/services/pipelines/broadcast_status_test.rb` specs a `Pipelines::BroadcastStatus` service that Turbo-replaces the smallest DOM unit (`dom_id(pipeline, :status)`) on the pipeline stream and requires the worker-report services (`Claim`, `RecordProgress`, `Complete`) to refresh it as runs progress. `test/integration/pipeline_live_status_test.rb` asserts the board renders true current state on page load without the socket, exposes an `aria-live=\"polite\"` region, and subscribes to the pipeline stream for live updates. All three files pass `ruby -c`; I could not run the suite because the app targets Ruby 4.0.6, which isn't installed in this worker environment, and — as intended for a spec-writer step — these specs will fail until Build implements `Pipelines::StatusSummary`, `Pipelines::BroadcastStatus`, the service wiring, and the status region in `pipelines/show`. No production code was changed; only test"
+}
