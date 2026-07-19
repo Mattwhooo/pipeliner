@@ -49,7 +49,9 @@ module StepRuns
         finished_at: Time.current,
         lease_expires_at: nil
       )
-      BroadcastCard.call(@step_run)
+      # Dashboard fan-out is done explicitly below (with activity: true) —
+      # skip BroadcastCard's own so a completion doesn't recompute it twice.
+      BroadcastCard.call(@step_run, dashboard: false)
       Dashboard::Broadcast.call(pipeline: run_pipeline, activity: true)
       # A success may have pushed a step branch — merge it into the pipeline
       # branch (control-plane-only, serialized per pipeline). Failed completions
@@ -88,7 +90,7 @@ module StepRuns
           finished_at: Time.current,
           lease_expires_at: nil
         )
-        BroadcastCard.call(@step_run)
+        BroadcastCard.call(@step_run, dashboard: false)
         Dashboard::Broadcast.call(pipeline: run_pipeline, activity: true)
         return Result.success(@step_run)
       end

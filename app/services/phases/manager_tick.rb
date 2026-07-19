@@ -279,7 +279,7 @@ module Phases
     def broadcast_affected
       @affected_runs.each { |run| StepRuns::BroadcastCard.call(run) }
       @affected_phases.each { |phase| BroadcastColumn.call(phase) }
-      @affected_decisions.each { Dashboard::Broadcast.call(pipeline: @phase.pipeline, activity: true) }
+      Dashboard::Broadcast.call(pipeline: @phase.pipeline, activity: true) if @affected_decisions.any?
     end
   end
 end

@@ -4,7 +4,11 @@ module StepRuns
   # the step's latest state; pages always render true state on load, so a lost
   # broadcast is cosmetic, never correctness.
   class BroadcastCard
-    def self.call(step_run)
+    # `dashboard: false` skips the per-member dashboard fan-out (row + summary
+    # + fleet health recompute) for callers that aren't a state-changing
+    # transition — e.g. RecordProgress fires on every worker progress tick,
+    # which would otherwise re-run that aggregation many times per second.
+    def self.call(step_run, dashboard: true)
       step = step_run.step
       pipeline = step.workflow.phase.pipeline
 
@@ -14,7 +18,7 @@ module StepRuns
         partial: "pipelines/step_card",
         locals: { step: step }
       )
-      Dashboard::Broadcast.call(pipeline: pipeline)
+      Dashboard::Broadcast.call(pipeline: pipeline) if dashboard
     end
   end
 end
