@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "design-writer",
+  "status": "succeeded",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_sonnet2",
+    "backend": "claude-code"
+  },
+  "summary": "I've written the technical design to `.pipeliner/phases/02-plan/main/design-writer/output/design.md`.\n\n**What I did:** Read the Define-phase requirements (R1–R34), discovery notes, and open questions from the Define phase, then read the actual current codebase (`Phase`, `Pipeline`, `Step`, `StepRun` models; `ManagerTick`, `Approve`, `SendBack`, `AnswerQuestions`, `StepRuns::Queue/Complete/Claim/Sweep` services; controllers, routes, views, helpers) to ground every design decision in real code rather than assumptions.\n\n**Key design decisions:**\n- A new `Phase.status` value `\"paused\"`, which `ManagerTick`'s existing `unless @phase.running?` guard already excludes for free.\n- Two new booleans (`pause_requested`, `restart_in_progress`) plus a `restart_feedback` jsonb column handle the \"hold after in-flight step finishes\" and \"multi-step restart cascade\" cases, reusing `ManagerTick`'s existing dispatch/route/converge engine rather than inventing a new one.\n- A new read-only `Phases::Convergence` PORO (extracted from `ManagerTick`) lets \"Done\" (`Phases::Approve`) check live whether a paused phase is actually settled, since paused phases aren't ticked.\n- Explore/Clarifying Questions menu items resolve their target step by declared output artifact (`discovery_notes`/`open_questions`), not by slug, since slugs vary per project template.\n- Two new services (`Phases::Pause`, `Phases::RerunMenuStep`, `Phases::RestartDefine`) plus small additive extensions to `Approve` and `AnswerQuestions` — all existing gate behavior (R32–R34) is untouched.\n\nThe doc includes full code sketches for every service/model/controller/view change, a complete R1–R34 traceability table, and a file-level plan of new/modified/verified-unchanged files."
+}
