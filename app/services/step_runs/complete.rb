@@ -5,10 +5,20 @@ module StepRuns
   #   2. At-most-one-merge: only one run per (step, iteration, shard) may ever
   #      succeed; a duplicate success (crashed-after-push worker) is rejected
   #      and its branch will not be merged.
-  # The actual branch merge happens in the GitHub integration; this service is
-  # the gate it will sit behind.
+  #
+  # A third status, "transient", is for infrastructure outages the worker can
+  # detect (session/rate limits, API overload): the run is re-queued with
+  # backoff instead of failing, so pipelines pause through an outage and resume
+  # unattended when it lifts.
   class Complete
-    STATUSES = %w[succeeded failed].freeze
+    STATUSES = %w[succeeded failed transient].freeze
+
+    # Transient backoff: attempt * 5min, capped at 30min; give up (fail) after
+    # MAX_TRANSIENT_ATTEMPTS so a permanent problem misclassified as transient
+    # still surfaces to a human.
+    TRANSIENT_BACKOFF_STEP = 5.minutes
+    TRANSIENT_BACKOFF_CAP = 30.minutes
+    MAX_TRANSIENT_ATTEMPTS = 8
 
     def self.call(step_run:, worker:, epoch:, status:, result: nil, verdict: nil, commit_sha: nil)
       new(step_run:, worker:, epoch:, status:, result:, verdict:, commit_sha:).call
@@ -28,6 +38,8 @@ module StepRuns
       return Result.failure(:invalid_status) unless @status.in?(STATUSES)
       return Result.failure(:stale_epoch) unless current_lease?
       return Result.failure(:duplicate_completion) if already_succeeded_elsewhere?
+
+      return requeue_transient if @status == "transient"
 
       @step_run.update!(
         state: @status,
@@ -61,6 +73,43 @@ module StepRuns
           shard_key: @step_run.shard_key,
           state: "succeeded"
         ).where.not(id: @step_run.id).exists?
+    end
+
+    # The outage path: same run, next attempt, claimable only after the backoff
+    # window. The worker discarded its local work; the redo starts fresh
+    # (at-least-once execution).
+    def requeue_transient
+      if @step_run.attempt >= MAX_TRANSIENT_ATTEMPTS
+        @step_run.update!(
+          state: "failed",
+          result: { "summary" => "transient-failure retries exhausted " \
+            "(#{MAX_TRANSIENT_ATTEMPTS} attempts): #{transient_reason}" },
+          finished_at: Time.current,
+          lease_expires_at: nil
+        )
+        BroadcastCard.call(@step_run)
+        return Result.success(@step_run)
+      end
+
+      backoff = [ TRANSIENT_BACKOFF_STEP * @step_run.attempt, TRANSIENT_BACKOFF_CAP ].min
+      @step_run.update!(
+        state: "ready",
+        attempt: @step_run.attempt + 1,
+        worker: nil,
+        epoch: nil,
+        lease_expires_at: nil,
+        started_at: nil,
+        progress: nil,
+        available_at: backoff.from_now,
+        result: { "summary" => "transient (attempt #{@step_run.attempt}, retry in " \
+          "#{(backoff / 60).to_i}m): #{transient_reason}" }
+      )
+      BroadcastCard.call(@step_run)
+      Result.success(@step_run)
+    end
+
+    def transient_reason
+      @result&.dig("summary").presence || "worker reported a transient outage"
     end
   end
 end

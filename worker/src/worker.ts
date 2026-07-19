@@ -15,6 +15,15 @@ export class WorkerLoop {
   private stopping = false;
   /** Currently executing step promises; size is the live concurrency. */
   private readonly inFlight = new Set<Promise<void>>();
+  /** While in the future, don't claim: the backend is limiting/overloaded. */
+  private cooldownUntil = 0;
+
+  /** Pause claiming after a transient outage (default 5 minutes). */
+  private enterCooldown(reason: string): void {
+    const ms = 5 * 60_000;
+    this.cooldownUntil = Math.max(this.cooldownUntil, Date.now() + ms);
+    log(`transient outage — pausing claims for ${ms / 60_000}m (${reason.slice(0, 120)})`);
+  }
 
   constructor(private readonly config: Config, private readonly api: Api) {}
 
@@ -26,8 +35,8 @@ export class WorkerLoop {
     process.on("SIGTERM", () => this.requestStop());
 
     while (!this.stopping) {
-      // At capacity: wait for a slot to free before polling again.
-      if (this.inFlight.size >= this.config.concurrency) {
+      // At capacity, or cooling down after a transient outage: don't claim.
+      if (this.inFlight.size >= this.config.concurrency || Date.now() < this.cooldownUntil) {
         await sleep(this.config.pollIntervalSeconds * 1000);
         continue;
       }
@@ -99,6 +108,19 @@ export class WorkerLoop {
 
       await this.api.progress(runId, epoch, "Running Claude Code");
       const outcome = await executor.run(abort.signal);
+
+      // Infrastructure outage (session/rate limit, API overload): discard the
+      // partial work, hand the run back for a backoff retry, and stop claiming
+      // for a while — every step would hit the same wall.
+      if (!outcome.ok && outcome.transient) {
+        await this.api.complete(runId, epoch, {
+          status: "transient",
+          result: { summary: outcome.summary },
+        });
+        this.enterCooldown(outcome.summary);
+        await workspace.cleanup(true);
+        return;
+      }
 
       const status = outcome.ok ? "succeeded" : "failed";
       await executor.writeResult(status, outcome.summary);

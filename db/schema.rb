@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_18_230007) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_18_230009) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -162,6 +162,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_18_230007) do
 
   create_table "step_runs", force: :cascade do |t|
     t.integer "attempt", default: 1, null: false
+    t.datetime "available_at"
     t.string "commit_sha"
     t.datetime "created_at", null: false
     t.string "epoch"
@@ -183,6 +184,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_18_230007) do
     t.datetime "updated_at", null: false
     t.jsonb "verdict"
     t.bigint "worker_id"
+    t.index ["available_at"], name: "index_step_runs_on_available_at"
     t.index ["lease_expires_at"], name: "index_step_runs_on_lease_expires_at"
     t.index ["state", "required_role"], name: "index_step_runs_on_state_and_required_role"
     t.index ["step_id", "iteration", "attempt", "shard_key"], name: "index_step_runs_unique_with_shard", unique: true, where: "(shard_key IS NOT NULL)"

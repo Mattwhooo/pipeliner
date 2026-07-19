@@ -38,6 +38,14 @@ module StepRuns
       assert_equal :at_capacity, result.error
     end
 
+    test "a run in transient backoff is not claimable until available_at passes" do
+      @run.update!(available_at: 5.minutes.from_now)
+      assert_equal :no_work, Claim.call(worker: @worker).error
+
+      @run.update!(available_at: 1.second.ago)
+      assert Claim.call(worker: @worker).success?
+    end
+
     test "a claimed run is not claimable again" do
       assert Claim.call(worker: @worker).success?
       other = Worker.create!(public_id: "wk_other", auth_token_digest: "x",

@@ -58,5 +58,43 @@ module StepRuns
         status: "exploded")
       assert_equal :invalid_status, result.error
     end
+
+    test "a transient completion re-queues the run with backoff" do
+      result = Complete.call(step_run: @run, worker: @worker, epoch: "abc123",
+        status: "transient", result: { "summary" => "session limit, resets 6pm" })
+
+      assert result.success?
+      @run.reload
+      assert_equal "ready", @run.state
+      assert_equal 2, @run.attempt
+      assert_nil @run.worker_id
+      assert_nil @run.epoch
+      assert @run.available_at > 4.minutes.from_now
+      assert @run.available_at < 6.minutes.from_now
+      assert_match(/session limit/, @run.result["summary"])
+    end
+
+    test "transient backoff grows with attempts and caps at 30 minutes" do
+      @run.update!(attempt: 7)
+      Complete.call(step_run: @run, worker: @worker, epoch: "abc123", status: "transient")
+      assert_in_delta 30.minutes.from_now.to_f, @run.reload.available_at.to_f, 10
+    end
+
+    test "transient retries exhaust into a real failure" do
+      @run.update!(attempt: Complete::MAX_TRANSIENT_ATTEMPTS)
+      result = Complete.call(step_run: @run, worker: @worker, epoch: "abc123",
+        status: "transient", result: { "summary" => "still limited" })
+
+      assert result.success?
+      @run.reload
+      assert_equal "failed", @run.state
+      assert_match(/retries exhausted/, @run.result["summary"])
+    end
+
+    test "a transient completion does not enqueue a merge" do
+      assert_no_enqueued_jobs only: Pipelines::MergeStepBranchJob do
+        Complete.call(step_run: @run, worker: @worker, epoch: "abc123", status: "transient")
+      end
+    end
   end
 end

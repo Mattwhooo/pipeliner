@@ -30,7 +30,7 @@ export interface Bundle {
 }
 
 export interface CompletePayload {
-  status: "succeeded" | "failed";
+  status: "succeeded" | "failed" | "transient";
   commit_sha?: string;
   result?: Record<string, unknown>;
   verdict?: Record<string, unknown>;

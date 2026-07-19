@@ -9,6 +9,10 @@ module StepRuns
 
     def relation
       StepRun.where(state: "ready", required_role: @worker.supported_roles)
+        .where(available_at: nil).or(
+          StepRun.where(state: "ready", required_role: @worker.supported_roles)
+            .where(available_at: ..Time.current)
+        )
         .order(:created_at)
     end
 

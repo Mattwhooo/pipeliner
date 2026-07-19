@@ -23,7 +23,10 @@ default: &default
 development:
   primary: &primary_development
     <<: *default
-    database: pipeliner_development
+    # Agent-run processes (PIPELINER_AGENT set by the worker) are redirected to
+    # a scratch DB so an agent testing this repo can never touch the live
+    # control plane's development data. Hard guard; see docs/worker.md.
+    database: <%= ENV["PIPELINER_AGENT"] ? "pipeliner_agent_scratch" : "pipeliner_development" %>
   queue:
     <<: *primary_development
     database: pipeliner_development_queue

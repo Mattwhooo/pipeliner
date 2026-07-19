@@ -10,7 +10,13 @@ export interface ExecutionResult {
   ok: boolean;
   summary: string;
   verdict?: Record<string, unknown>;
+  /** Infrastructure outage (session/rate limit, API overload) — not the step's fault. */
+  transient?: boolean;
 }
+
+/** Signatures of temporary infrastructure problems worth retrying with backoff. */
+const TRANSIENT_PATTERNS =
+  /session limit|usage limit|rate limit|too many requests|overloaded|capacity constraint|temporarily unavailable|quota|resets at|\b(429|503|529)\b|ETIMEDOUT|ECONNRESET|ECONNREFUSED|fetch failed|network error/i;
 
 /**
  * Runs one step by launching a Claude Code instance headlessly in the step's
@@ -105,7 +111,10 @@ export class Executor {
 
     const child = spawn(this.config.claudeBin, args, {
       cwd: this.worktreeDir,
-      env: { ...process.env, CLAUDE_CODE_ENTRYPOINT: "pipeliner-worker" },
+      // PIPELINER_AGENT marks every process the agent spawns; repos under
+      // pipeline development (like Pipeliner itself) use it to redirect
+      // dangerous defaults (e.g. the dev database) to scratch equivalents.
+      env: { ...process.env, CLAUDE_CODE_ENTRYPOINT: "pipeliner-worker", PIPELINER_AGENT: "1" },
       stdio: ["ignore", "pipe", "pipe"],
       signal,
       timeout: this.config.stepTimeoutSeconds * 1000,
@@ -144,7 +153,12 @@ export class Executor {
     });
 
     if (exitCode !== 0) {
-      return { ok: false, summary: `claude exited ${exitCode}: ${stderrTail.slice(-500) || lastText}` };
+      const evidence = `${stderrTail} ${resultText} ${lastText}`;
+      return {
+        ok: false,
+        transient: TRANSIENT_PATTERNS.test(evidence),
+        summary: `claude exited ${exitCode}: ${stderrTail.slice(-500) || lastText}`,
+      };
     }
 
     const summary = (resultText || lastText).slice(0, 2000);
