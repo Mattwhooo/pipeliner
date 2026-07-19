@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "codebase-explorer",
+  "status": "succeeded",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_personal-macbook-local",
+    "backend": "claude-code"
+  },
+  "summary": "I explored the Pipeliner Rails 8 codebase to scope the \"Add UI for Dashboard\" ask and wrote factual discovery notes to `.pipeliner/phases/01-define/main/codebase-explorer/output/discovery_notes.md`. Key findings: the Dashboard route (`root → HomeController#index`), its view, and the sidebar nav entry **already exist as a stub**, so this is a fill-in rather than a new screen. The three requested panels map cleanly onto existing data — `Pipeline`/`Phase` (status + current_phase enums), `Worker` (online/draining/offline + `last_heartbeat_at`), and `StepRun`/`ManagerDecision`/`Approval`/`ReworkEvent` for activity (there is no dedicated Activity model). Fleet-health semantics are already codified in `StepRuns::Sweep` (2-min offline threshold, role-coverage logic). Reusable UI is in place (`status_badge` covers every status, plus card/table/empty-state patterns and the app shell), and the guides mandate query objects for reporting reads, thin controllers, service-side after-commit broadcasts, and \"live by default.\" I noted the main net-new area is a global Turbo stream for cross-pipeline live updates (existing broadcasts are per-pipeline only), and captured open questions around active-pipeline scoping/user-membership, the definition and window of \"recent activity,\" fleet-health depth, and real-time expectations."
+}
