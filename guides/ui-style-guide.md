@@ -55,7 +55,12 @@
   | success / converged / approved | `green-600` | check icons, pass badges |
   | needs attention / awaiting human | `amber-500` | gates, paused phases |
   | stuck / failed / blocked | `red-600` | stuck steps, failed runs |
-  | pending / idle | `gray-400` | queued steps, offline workers |
+  | pending / idle / canceled | `gray-400` | queued steps, offline workers, deliberately canceled (aborted) pipelines |
+
+- **Red is reserved for error stops** — `stuck` / `failed` / `blocked`, states that
+  need intervention. A *deliberate* cancel (an `aborted` pipeline) is a neutral
+  terminal state, not an error, so it reads **gray (muted)**, never red — keeping
+  the distinction legible by color as well as word.
 
 - Badges use the soft form: `bg-{color}-50 text-{color}-700 ring-1 ring-{color}-600/20`.
 

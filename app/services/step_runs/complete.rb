@@ -38,6 +38,7 @@ module StepRuns
         lease_expires_at: nil
       )
       BroadcastCard.call(@step_run)
+      Pipelines::BroadcastStatus.call(@step_run.step.workflow.phase.pipeline)
       Result.success(@step_run)
     end
 

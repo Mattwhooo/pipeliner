@@ -22,6 +22,12 @@ class Pipeline < ApplicationRecord
     review: "review"
   }, prefix: :in
 
+  # Preloads the whole board tree so the status summary derives with zero extra
+  # queries on show/index (Pipelines::StatusSummary reads it Ruby-side).
+  scope :with_board, -> {
+    includes(phases: { workflows: { steps: { step_runs: :worker } } })
+  }
+
   validates :title, presence: true
   validates :public_id, presence: true, uniqueness: true
   validates :branch, presence: true, uniqueness: { scope: :project_id }

@@ -25,6 +25,10 @@
 
 <%= turbo_stream_from @pipeline %>
 
+<div class="mt-6">
+  <%= render "pipelines/status_summary", pipeline: @pipeline, compact: false %>
+</div>
+
 <div class="mt-8 grid grid-cols-1 gap-4 md:grid-cols-4">
   <% @phases.each do |phase| %>
     <%= render "pipelines/phase_column", phase: phase, current_phase_kind: @pipeline.current_phase %>

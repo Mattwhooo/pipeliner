@@ -23,7 +23,11 @@
               <%= link_to pipeline.title, pipeline, class: "hover:text-indigo-600" %>
             </td>
             <td class="px-6 py-4 text-sm text-gray-500"><%= pipeline.project.name %></td>
-            <td class="px-6 py-4"><%= status_badge(pipeline.status) %></td>
+            <td class="px-6 py-4 max-w-xs">
+              <%# Subscribe per row so the compact summary stays live on the list too. %>
+              <%= turbo_stream_from pipeline %>
+              <%= render "pipelines/status_summary", pipeline: pipeline, compact: true %>
+            </td>
             <td class="px-6 py-4 text-sm text-gray-500"><%= pipeline.current_phase.humanize %></td>
             <td class="px-6 py-4 text-sm text-gray-500">
               <time title="<%= pipeline.created_at %>"><%= time_ago_in_words(pipeline.created_at) %> ago</time>

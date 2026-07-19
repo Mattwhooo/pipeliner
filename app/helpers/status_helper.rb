@@ -11,11 +11,14 @@ module StatusHelper
     # needs attention → amber
     "awaiting_human" => :attention, "needs_setup" => :attention,
     "reworking" => :attention, "draining" => :attention,
-    # stuck / failed → red
+    # stuck / failed → red (reserved for error stops needing intervention)
     "stuck" => :danger, "failed" => :danger, "blocked" => :danger,
-    "aborted" => :danger,
-    # pending / idle → gray
-    "pending" => :muted, "draft" => :muted, "offline" => :muted
+    # pending / idle / deliberately canceled → gray. `aborted` is a cooperative
+    # cancel (a neutral terminal state), not an error stop, so it is muted — this
+    # keeps the summary dot and the status badge in agreement for a canceled
+    # pipeline (see guides/ui-style-guide.md "Color").
+    "pending" => :muted, "draft" => :muted, "offline" => :muted,
+    "aborted" => :muted
   }.freeze
 
   TONE_CLASSES = {

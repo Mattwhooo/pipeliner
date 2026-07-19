@@ -49,6 +49,11 @@ module Phases
       end
 
       broadcast_affected
+      # Phase/gate/pipeline transitions (consensus, gate-wait, escalate, advance)
+      # change no step card, so the summary is refreshed once here — otherwise
+      # "Waiting on human approval…" would never appear live (R7, R14). One
+      # broadcast per tick, not one per affected card.
+      Pipelines::BroadcastStatus.call(@phase.pipeline)
       Result.success(@phase)
     end
 
