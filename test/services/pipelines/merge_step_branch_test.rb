@@ -152,6 +152,41 @@ module Pipelines
       assert_equal :already_merged, result.error
     end
 
+    # --- workflow-plan materialization hook ---------------------------------
+
+    test "merging a run that declares a workflow_plan artifact composes build/review steps" do
+      build_phase = @pipeline.phases.create!(kind: "build", position: 3, status: "pending")
+      @pipeline.phases.create!(kind: "review", position: 4, status: "pending")
+      StepTemplate.create!(name: "Implementer", step_type: "builder", role: "code",
+        phase: "build", requirement: "required",
+        default_outputs: [ { "artifact" => "implementation", "kind" => "repo" } ])
+
+      step = build_step(slug: "workflow-composer", outputs: [
+        { "artifact" => "workflow_plan", "kind" => "artifact", "path" => "output/workflow_plan.json" }
+      ])
+      plan = { "build" => [ { "template" => "Implementer" } ], "review" => [] }
+      artifact_path = "#{pipeliner_prefix(step)}output/workflow_plan.json"
+      run = push_step_branch(step, files: { artifact_path => plan.to_json })
+      run.update!(result: { "artifacts" => { "workflow_plan" => plan.to_json } })
+
+      result = MergeStepBranch.call(step_run: run)
+
+      assert result.success?, "expected merge success, got #{result.error}"
+      assert run.reload.merged?
+      assert build_phase.workflows.first&.steps&.exists?(slug: "implementer"),
+        "Implementer materialized into the build phase after merge"
+    end
+
+    test "a merged run without a workflow_plan output does not compose anything" do
+      build_phase = @pipeline.phases.create!(kind: "build", position: 3, status: "pending")
+
+      step = build_step(outputs: [ { "artifact" => "notes", "kind" => "artifact", "path" => "output/notes.md" } ])
+      run = push_step_branch(step, files: { "#{pipeliner_prefix(step)}output/notes.md" => "notes" })
+
+      assert MergeStepBranch.call(step_run: run).success?
+      assert build_phase.workflows.none? { |w| w.steps.exists? }
+    end
+
     # --- helpers ------------------------------------------------------------
 
     private

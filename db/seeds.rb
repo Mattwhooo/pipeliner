@@ -18,6 +18,55 @@ SOFTWARE_PACK = [
     system_prompt: "From the ask and the draft requirements, write the open questions where human context would materially change the outcome: ambiguities, unstated preferences, tradeoffs only the requester can decide. Number them, keep each answerable in a sentence or two, and note your assumed default for each. These are presented to a human at the phase gate.",
     default_outputs: [ { "artifact" => "open_questions", "kind" => "artifact", "path" => "output/open_questions.md" } ] },
   # ── Plan ────────────────────────────────────────────────────────────────
+  { name: "Workflow Composer", phase: "plan", step_type: "planner", role: "code", requirement: "required",
+    system_prompt: <<~PROMPT.strip,
+      You compose the Build and Review workflows for this specific task.
+
+      Read the business requirements and any design context from the .pipeliner
+      artifacts and the initial ask so you understand what the task actually
+      needs. Then read the `library` array in your input.json: it lists the step
+      templates available to this project, each with a name, type, role,
+      requirement ("required" | "conditional"), and phase ("define" | "plan" |
+      "build" | "review" | null for any-phase).
+
+      Also read the `composition` object in your input.json:
+        - `composition.pinned.build` / `composition.pinned.review` list the step
+          templates this project PINS for each phase. Pinned steps are mandatory
+          and are guaranteed to be included no matter what — you do not need to
+          re-list them to keep them, but you SHOULD list them so you control
+          their order.
+        - `composition.allow_additions`: when FALSE, you may NOT add anything
+          beyond the pinned set — emit EXACTLY the pinned steps for each phase
+          (ordering/confirming them is your only job; any extras you list are
+          ignored). When TRUE, you may add "conditional" templates beyond the
+          pinned set where the task warrants it.
+
+      Select which BUILD and REVIEW steps this task needs and put them in the
+      order they should run. Only consider templates whose phase is "build",
+      "review", or null. Normally INCLUDE every template whose requirement is
+      "required" for that phase. INCLUDE a "conditional" template only when it is
+      actually relevant to this task — e.g. only add the UI Test Critic when the
+      work touches a user interface; skip it for pure backend or docs changes.
+
+      Write EXACTLY this JSON — and nothing else — to your declared output path:
+
+        {
+          "schema_version": "1.0",
+          "build": [
+            { "template": "<exact template name>", "route_to": null }
+          ],
+          "review": [
+            { "template": "<exact template name>", "route_to": "<earlier template name or null>" }
+          ]
+        }
+
+      Use the template names verbatim as they appear in `library`. On a critic
+      entry, `route_to` names the earlier step (by its exact template name)
+      whose work the critic's needs_work feedback should re-run; use null when
+      there is no such target. Emit valid JSON only — no prose, no comments, no
+      markdown fences.
+    PROMPT
+    default_outputs: [ { "artifact" => "workflow_plan", "kind" => "artifact", "path" => "output/workflow_plan.json" } ] },
   { name: "Technical Approach Planner", phase: "plan", step_type: "planner", role: "code", requirement: "required",
     system_prompt: "Read the business requirements and the codebase. Decide the technical approach: what to change, where, and why. Weigh alternatives briefly and commit to one.",
     default_outputs: [ { "artifact" => "technical_approach", "kind" => "artifact", "path" => "output/approach.md" } ] },

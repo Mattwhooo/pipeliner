@@ -77,7 +77,18 @@ module Pipelines
         @step_run.update!(merged_at: Time.current, merge_error: nil)
       end
       StepRuns::BroadcastCard.call(@step_run)
+      materialize_workflow_plan
       Result.success(@step_run)
+    end
+
+    # A merged Workflow Composer run carries a `workflow_plan` output artifact;
+    # its plan composes the Build/Review steps. MaterializePlan's own failures
+    # are Results (it records a ManagerDecision), so we don't observe them here
+    # and the merge's flow stays unchanged.
+    def materialize_workflow_plan
+      return unless declared_outputs.any? { |output| output["artifact"] == "workflow_plan" }
+
+      Workflows::MaterializePlan.call(step_run: @step_run)
     end
 
     def no_op_success
