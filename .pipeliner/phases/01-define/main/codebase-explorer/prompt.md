@@ -1,1 +1,0 @@
-Explore the repository and the initial ask. Produce discovery notes: what exists today, what the ask touches, open questions, and constraints. Stay factual.

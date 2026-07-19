@@ -1,7 +1,0 @@
-{
-  "schema_version": "1.0",
-  "step": "requirements-conformance-critic",
-  "verdict": "pass",
-  "summary": "All 13 business requirements from Define are satisfied by the diff. Default-to-system (R1/R2) is handled by the pre-paint init script using prefers-color-scheme with a light fallback; a visible toggle (R3) appears in the sidebar on every app page and in the auth layout; the Stimulus controller switches themes in place both ways and immediately (R4-R6) and keeps aria-pressed plus the sun/moon icon in sync (R7); the choice is persisted in a 1-year cookie read server-side for SSR (R8) and takes precedence over the system setting (R9); the controller only follows OS changes when no manual choice is stored (R10) and ignores them once a choice exists (R11); dark coverage is comprehensive via semantic CSS tokens redeclared under .dark with all remaining raw gray classes carrying dark: variants (R12); and status/flash colors keep dark variants while always rendering the status word so meaning survives in both themes (R13). Note: the test suite could not be executed in this worktree (bundler gems not installed), but the build-phase test-critic already validated the accompanying unit and system tests.",
-  "findings": []
-}

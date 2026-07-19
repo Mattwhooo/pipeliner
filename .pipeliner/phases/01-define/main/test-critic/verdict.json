@@ -1,7 +1,0 @@
-{
-  "schema_version": "1.0",
-  "step": "test-critic",
-  "verdict": "not_applicable",
-  "summary": "This is the Define phase for 'Add Dark Mode Support'. The phase produced only requirements/discovery documentation artifacts (open_questions.md, discovery_notes.md, requirements) under .pipeliner/ — there is no application code, view, or implementation for the dark mode feature to build or test. The only changes on this branch are Markdown artifacts, which cannot be compiled, run, or unit-tested and cannot affect the existing test suite. Running the full repository suite would exercise only pre-existing, unrelated code while touching the shared development database that this live system depends on, contrary to the step's safety rule, and would tell us nothing about this phase's deliverables. Therefore there is nothing runnable to verify at this stage.",
-  "findings": []
-}
