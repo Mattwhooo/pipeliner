@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "design-writer",
+  "status": "succeeded",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_sonnet",
+    "backend": "claude-code"
+  },
+  "summary": "I wrote the technical design to `.pipeliner/phases/02-plan/main/design-writer/output/design.md`. It specifies moving the existing `shared/_theme_toggle` partial out of the sidebar's header row (`app/views/shared/_sidebar.html.erb`) and into the sidebar's footer block, grouped with \"Sign out\" in a flex row (toggle right-aligned via `ml-auto`, `gap-2` spacing per the style guide) so the pair reads as one related unit. No changes to the toggle partial, Stimulus controller, theme helper, FOUC script, or the auth/sign-in layout — only the sidebar partial and the system test change. The design includes a before/after diff for both the header and footer markup, an accessibility/tab-order note, explicit non-goals (no new top bar, no page-header changes), and a two-file change list, each tied back to requirements R1–R7 from the requirements doc."
+}
