@@ -1,11 +1,11 @@
 {
   "schema_version": "1.0",
   "step": "implementer",
-  "status": "succeeded",
-  "iteration": 1,
+  "status": "failed",
+  "iteration": 2,
   "worker": {
     "id": "wk_personal-macbook-local",
     "backend": "claude-code"
   },
-  "summary": "Implementation complete and fully verified. Here's a summary of what I did.\n\n## Summary\n\nI implemented the **live pipeline status summary** per the iteration-3 technical design and the executable specs. The core is a new pure derivation PORO, `Pipelines::StatusSummary` (`app/lib/pipelines/status_summary.rb`), a *total* function that turns whole-pipeline state into a single plain-language `Summary` value (`text`/`tone`/`phase_label`) via an ordered branch cascade — completed, failed (names the phase/step), canceled, awaiting-human (gate vs. escalation), blocked/stuck, actively-working (1 step named with iteration only on 2nd+ pass, 2 steps both named, 3+ collapsed to \"Build: N steps are running\"), not-started, and an unconditional catch-all so it is never blank. Every branch sources its `tone` from the shared `StatusHelper::STATUS_TONES` table so the summary dot and the pipeline status badge can never disagree, which required the one-line F1 retone of `aborted` from `:danger`→`:muted` (plus the matching row added to `guides/ui-style-guide.md`). Live delivery goes through a new after-commit `Pipelines::BroadcastStatus` service that replaces the stable `dom_id(pipeline, :summary)` region on the existing pipeline stream, wired into `StepRuns::Claim/RecordProgress/Complete` and `Phases::ManagerTick` (the last essential so gate-waits and escalations surface live). The shared `_status_summary` partial (full + compact variants, `aria-live=\"polite\"`, dot-plus-word via the new `summary_dot_class` helper) renders prominently in the show header and in each index row; both controllers use a new `Pipeline.with_board` preload scope for N+1-free load-time truth, and the index now subscribes per row. All tests pass — the 18 `status_summary` unit specs, the 5 integration board specs, the 5 broadcast specs, and the extended `manager_tick` specs — and the full suite is green (112 runs, 0 failures) with rubocop clean. (Note: running the suite locally needs Homebrew's ruby@4.0 with the m"
+  "summary": "claude exited 1: The test files `require \"test_helper\"` — I need `test/` on the load path."
 }

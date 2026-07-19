@@ -119,7 +119,7 @@ module Phases
     def escalate(workflow, critic, critic_run, attempted_iteration)
       @phase.update!(status: "awaiting_human")
       @phase.pipeline.update!(status: "awaiting_human")
-      BroadcastColumn.call(@phase)
+      broadcast_column_after_commit(@phase)
       record_decision(
         decision: "escalate",
         iteration: attempted_iteration,
@@ -176,7 +176,7 @@ module Phases
       else
         # Human gate: park for approval (surfaced by the board's gate banner).
         @phase.pipeline.update!(status: "awaiting_human")
-        BroadcastColumn.call(@phase)
+        broadcast_column_after_commit(@phase)
       end
     end
 
@@ -216,6 +216,14 @@ module Phases
 
     def broadcast_affected
       @affected_runs.each { |run| StepRuns::BroadcastCard.call(run) }
+    end
+
+    # Phase/pipeline status changes made inside the tick transaction must not
+    # repaint the board until that transaction commits — otherwise the async
+    # broadcast job can render (or, on rollback, wrongly render) stale state
+    # (guide: broadcasts only after the write commits).
+    def broadcast_column_after_commit(phase)
+      ActiveRecord.after_all_transactions_commit { BroadcastColumn.call(phase) }
     end
   end
 end

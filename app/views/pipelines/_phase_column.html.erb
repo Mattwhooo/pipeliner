@@ -20,9 +20,9 @@
       </p>
       <%= form_with url: phase_approval_path(phase), class: "mt-2 space-y-2" do |f| %>
         <%= f.text_field :note, placeholder: "Note (optional)",
-              class: "block w-full rounded-md border-0 px-2 py-1 text-xs text-gray-900 ring-1 ring-inset ring-amber-600/30 focus:ring-2 focus:ring-indigo-600 bg-white" %>
+              class: "block w-full rounded-md border-0 bg-white px-3 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600" %>
         <%= f.submit phase.consensus? ? "Approve #{phase.kind.humanize}" : "Approve anyway",
-              class: "w-full rounded-md bg-indigo-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 cursor-pointer" %>
+              class: "w-full rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 cursor-pointer" %>
       <% end %>
     </div>
   <% elsif phase.approved? && (approval = phase.approvals.order(:id).last) %>
