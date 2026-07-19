@@ -1,0 +1,7 @@
+{
+  "schema_version": "1.0",
+  "step": "test-critic",
+  "verdict": "pass",
+  "summary": "Full Minitest suite passes (112 runs, 408 assertions, 0 failures, 0 errors, 0 skips) and rubocop-rails-omakase reports no offenses across 115 files. Tests were run with the project's standard test command (bin/rails test env) via a runner script that works around a known local ActionCable/Turbo boot-order load quirk; no development/production database commands were used.",
+  "findings": []
+}
