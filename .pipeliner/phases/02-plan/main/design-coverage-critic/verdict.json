@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "step": "design-coverage-critic",
+  "verdict": "needs_work",
+  "summary": "The design is well-structured and carries an explicit R1-R34 traceability table; 32 of 34 requirements are cleanly and defensibly satisfied, and there is essentially no gold-plating (the only elements no requirement asks for are the speculative `pause_requested_at` column and the unpersisted `user:` params, both trivial, additive, and explicitly acknowledged as future-audit hooks). Two coverage gaps remain. (F1, major) R19 and the requirements' restart-output assumption require the completed restart's fresh output to be shown inline before the person chooses their next action, but a restart re-runs the whole Define DAG and regenerates `business_requirements` (the primary Define deliverable) in addition to `discovery_notes` and `open_questions`; the design surfaces only the latter two inline (its own R19 row says fresh output is shown 'via R9/R11's same inline blocks'), so after a restart the person is returned to the paused menu and asked to decide Done (R20/R21) without ever seeing the regenerated requirements they'd be approving. Per discovery-notes F1, `business_requirements` has no rendering path in the UI today, so this surfacing is net-new work the design does not include. (F2, minor) R13/R14's 'Ask Human' is wired only as a same-page anchor into the existing `questions.present?` block; when a paused Define has no current `open_questions` (e.g. paused right after Explore, before the conditional Clarifying-Questions step has produced any), the anchor targets nothing and no answer form is rendered, leaving R14's free-form-notes-as-feedback path unreachable in that empty state — exactly the 'design-level empty-state detail' the requirements-completeness critic deferred to the design phase and which the design does not resolve.",
+  "findings": [
+    {
+      "id": "F1",
+      "target_artifact": ".pipeliner/phases/02-plan/main/design-writer/output/design.md (§6.2/§6.3, traceability row R19)",
+      "issue": "R19 and the requirements' restart-output assumption require a completed 'Repeat from the Beginning' restart to show its fresh, replaced results inline in the paused view before the person chooses their next action. A restart re-runs the entire Define DAG and regenerates business_requirements (the primary Define deliverable) alongside discovery_notes and open_questions, but the design only surfaces discovery_notes (new define_discovery_notes helper) and open_questions (existing block) inline — the R19 traceability row itself states fresh output is shown 'via R9/R11's same inline blocks'. Per discovery-notes F1, business_requirements is surfaced nowhere in the UI today and would need net-new surfacing, which the design does not add. Result: after a restart the person lands on the paused menu and is asked to decide Done (R20/R21) without ever seeing the regenerated requirements inline.",
+      "severity": "major"
+    },
+    {
+      "id": "F2",
+      "target_artifact": ".pipeliner/phases/02-plan/main/design-writer/output/design.md (§6.3, 'Ask Human is a same-page anchor')",
+      "issue": "R13/R14's 'Ask Human' action is implemented purely as an anchor (#define-ask-human) that scrolls to the existing open-questions/answer form, which renders only when `questions.present?`. When a paused Define currently has no open_questions (e.g. paused immediately after Explore, before the conditional Clarifying-Questions step has run), the Ask Human button targets a non-existent anchor and no answer form is shown, so R14's free-form notes have no submission path in that state. The requirements-completeness critic explicitly deferred this empty-state to the design phase, and the design does not address it.",
+      "severity": "minor"
+    }
+  ]
+}
