@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "guide-alignment-critic",
+  "status": "succeeded",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_opus",
+    "backend": "claude-code"
+  },
+  "summary": "I read `guides/backend-guide.md` and `guides/ui-style-guide.md`, then checked the plan-phase work under review — primarily `design-writer/output/design.md` (with `workflow_plan.json`) — against them, verifying the design's claims against the actual codebase (`Result` PORO, `status_badge` helper signature, existing `_define_panel.html.erb` button classes, and the `send_back`/`answers` controller pattern). The design is strongly guide-aligned: it explicitly cites the guides, models every menu action as ordinary `StepRun`s through the existing worker pipeline, keeps controllers thin with the uniform `self.call → Result` service interface, owns transactions and does after-commit broadcasts, adds `paused` to the single shared `STATUS_TONES` map using the amber \"attention\" tone the UI guide literally names for \"paused phases,\" reuses `status_badge` with a label (never color alone), uses `aria-live`, and plans Minitest coverage for every new service/controller. I emitted a `needs_work` verdict with three **minor** findings (no blockers/majors): (F1) new menu/\"Done\" buttons use `px-3 py-1.5 font-medium` instead of the guide's and the sibling buttons' `px-3 py-2 font-semibold`; (F2) new submit buttons omit the `data-turbo-submits-with` disable-while-submitting affordance the guide requires and the neighboring \"Send answers\" form already uses; and (F3) `Phases::Convergence` is placed in `app/services/` but is a noun-named read-only predicate with two public boolean methods rather than a verb-first `.call → Result` service, better suited to `app/queries/` or a domain PORO per the backend guide. The verdict is written to `.pipeliner/phases/02-plan/main/guide-alignment-critic/verdict.json`."
+}
