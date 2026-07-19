@@ -5,7 +5,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* Semantic color tokens. Views use the utilities below (bg-app, bg-surface,
-   text-default, border-default, ...) instead of raw gray-*/white so that
+   text-default, border-default, ...) instead of raw gray/white shades so that
    redeclaring these under .dark repaints the whole app with no per-view
    dark: duplication. See guides/ui-style-guide.md#Color. */
 :root {
