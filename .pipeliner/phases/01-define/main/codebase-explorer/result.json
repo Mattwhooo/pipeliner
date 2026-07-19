@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "codebase-explorer",
+  "status": "succeeded",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_personal-macbook-local",
+    "backend": "claude-code"
+  },
+  "summary": "I explored the Pipeliner Rails 8 app to scope the \"Add UI for Dashboard\" ask and wrote factual discovery notes to `.pipeliner/phases/01-define/main/codebase-explorer/output/discovery_notes.md`. The central finding is that the \"Dashboard\" already exists as a placeholder: `root` routes to `HomeController#index`, whose view is titled \"Dashboard\" but only shows a welcome card, and the sidebar already links to it — so the work is additive (fill in content), not a new route or nav entry. I documented the reference \"Pipelines\" view and the shared header→table→empty-state pattern used across Projects/Workers/Pipelines; the data available for at-a-glance metrics (Pipeline/Phase/StepRun/Worker/Project models and their enum states); the existing `status_badge` helper and codified card/table/empty-state styling; and the governing constraints from the mandatory guides — business logic belongs in a `.call → Result` service (not a fat controller), per-user membership scoping (with the note that Workers are currently un-scoped/global), Turbo-Stream live updates, and status-never-by-color-alone. I flagged that no shared \"stat tile\" component exists (guide is silent → would need a proposed guide addition), listed the likely change surface, and captured seven open questions (which metrics, reuse-vs-compose, worker scope, live-update scope, empty state, time window) for the Plan phase to resolve."
+}
