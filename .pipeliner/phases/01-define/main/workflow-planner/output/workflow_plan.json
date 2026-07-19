@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "plan": [
+    { "template": "Design Writer", "route_to": null },
+    { "template": "Design Coverage Critic", "route_to": "Design Writer" },
+    { "template": "Technical Approach Planner", "route_to": null },
+    { "template": "Workflow Composer", "route_to": null }
+  ],
+  "build": [
+    { "template": "Implementer", "route_to": null },
+    { "template": "Test Critic", "route_to": "Implementer" }
+  ],
+  "review": [
+    { "template": "Guide Alignment Critic", "route_to": "Implementer" },
+    { "template": "Code Quality Critic", "route_to": "Implementer" },
+    { "template": "UI Test Critic", "route_to": "Implementer" },
+    { "template": "Requirements Conformance Critic", "route_to": "Implementer" },
+    { "template": "Review Report Writer", "route_to": null }
+  ]
+}
