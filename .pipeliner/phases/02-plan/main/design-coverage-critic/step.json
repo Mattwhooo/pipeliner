@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "slug": "design-coverage-critic",
+  "type": "critic",
+  "role": "review",
+  "prompt": "prompt.md",
+  "inputs": [],
+  "outputs": [],
+  "scope": null,
+  "fan_out": null
+}
