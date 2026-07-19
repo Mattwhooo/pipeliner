@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "step": "requirements-completeness-critic",
+  "verdict": "needs_work",
+  "summary": "The requirements are well-formed and largely complete: every menu item in the ask (Explore, Clarifying Questions, Ask Human, Repeat from the Beginning, Done) is mapped to a concrete behavior, each requirement follows the 'When X, Y should happen' shape, and the safeguard requirements (R18-R21) correctly anticipate the race between the human and the automatic Manager loop. However, several user needs implied by 'pause for human feedback' are missing or under-specified, and two requirements bundle multiple behaviors. The gaps below would each force a downstream design guess, so they should be closed before the phase converges.",
+  "findings": [
+    {
+      "id": "F1",
+      "target_artifact": ".pipeliner/phases/01-define/main/requirements-writer/output/requirements.md",
+      "issue": "The core purpose is 'human feedback,' which requires the person to see the results of a menu action before deciding what to do next — but no requirement states that the freshly produced outputs (discovery notes from Explore, open questions from Clarifying Questions, replaced artifacts after Repeat from the Beginning) are shown to the person in the paused view. R8/R9/R12 say fresh output is 'produced' but never that it is surfaced for review, leaving the feedback loop's central affordance unspecified.",
+      "severity": "major"
+    },
+    {
+      "id": "F2",
+      "target_artifact": ".pipeliner/phases/01-define/main/requirements-writer/output/requirements.md",
+      "issue": "'Repeat from the Beginning' (R12/R13) triggers a multi-step restart of the whole Define workflow, but R15/R16 only define the return-to-paused-menu behavior for a re-run of a single step. It is undefined whether the phase stays paused while the restart runs through its several steps and when control returns to the person — after the first step, or after the whole workflow re-converges. This ambiguity means the interaction between a multi-step action and the 'step through one action at a time' model is unresolved.",
+      "severity": "major"
+    },
+    {
+      "id": "F3",
+      "target_artifact": ".pipeliner/phases/01-define/main/requirements-writer/output/requirements.md",
+      "issue": "No requirement covers the failure path for a menu-triggered re-run. Discovery notes state workers can error or let leases expire, yet the menu actions (R8-R13) assume success. It is unspecified what the person sees if a re-run fails or times out, whether they are returned to the paused menu, and whether the phase remains safely paused rather than proceeding on a failed/partial result.",
+      "severity": "major"
+    },
+    {
+      "id": "F4",
+      "target_artifact": ".pipeliner/phases/01-define/main/requirements-writer/output/requirements.md",
+      "issue": "R14 maps 'Done' to 'the existing approval that ends the Define phase,' but the existing approval is only valid at a settled gate (consensus / awaiting_human per the discovery notes), whereas a pause can be requested mid-loop before convergence. It is unspecified whether Done is available and valid when the phase is paused before it has converged — i.e., whether choosing Done force-approves un-converged work or is gated. Testability of R14 depends on resolving this precondition.",
+      "severity": "minor"
+    },
+    {
+      "id": "F5",
+      "target_artifact": ".pipeliner/phases/01-define/main/requirements-writer/output/requirements.md",
+      "issue": "Atomicity: R13 bundles two distinct, independently testable behaviors — (a) fresh results replace earlier results / latest-only, and (b) the person's previously submitted answers and notes are carried forward as feedback. Similarly R23 bundles three separate regression guarantees (approving, sending back, and answering questions at the settled gate). Each should be split into singular requirements so each can be verified on its own.",
+      "severity": "minor"
+    }
+  ]
+}
