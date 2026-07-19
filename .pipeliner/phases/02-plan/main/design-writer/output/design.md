@@ -97,6 +97,26 @@ way to get correct DAG-ordered re-dispatch (predecessor-must-be-merged, one
    Extending to another phase later is a view + routing change, not a service
    rewrite.
 
+8. **`business_requirements` gets the same net-new inline surfacing as
+   `discovery_notes` (iteration-3 F1).** R19 requires a completed restart's
+   "fresh, replaced results" to be visible before the person picks their next
+   action, and a restart regenerates all three Define artifacts, not just the
+   two this design previously surfaced. Since `business_requirements` (Define's
+   headline deliverable) is rendered nowhere in the UI today, this design adds
+   a third `define_*` helper and inline block, identical in shape to the
+   existing `open_questions` pattern (§6.2, §6.3) — no new mechanism, just the
+   established one applied to the artifact R19 actually depends on.
+
+9. **The "Ask Human" anchor renders even with no open questions (iteration-3
+   F2).** `Phases::AnswerQuestions` has never required `open_questions` to
+   exist — it just attaches whatever free-text it's given as feedback — so a
+   paused Define with no questions yet (e.g. paused right after Explore) can
+   already be answered by the service; the gap was purely that the view's
+   anchor target only rendered when `questions.present?`. The fix widens that
+   one condition to `questions.present? || phase.paused?` (§6.3) with an
+   empty-state message and relabeled field, rather than adding a new action or
+   service.
+
 ## 3. Data model
 
 ### 3.1 Migration
@@ -685,11 +705,20 @@ STATUS_TONES = {
 }.freeze
 ```
 
-### 6.2 `app/helpers/define_helper.rb` — generalized artifact surfacing (R9, R11, R26)
+### 6.2 `app/helpers/define_helper.rb` — generalized artifact surfacing (R9, R11, R19, R26)
 
 Generalizes the existing `define_open_questions` pattern (which already pulls
-the latest succeeded run's named artifact) to `discovery_notes` too, and adds a
-helper for the failure banner:
+the latest succeeded run's named artifact) to `discovery_notes` **and
+`business_requirements`**. The third one is not optional polish: a completed
+**Repeat from the Beginning** regenerates all three of Define's artifacts
+(discovery notes, business requirements, open questions —
+`docs/artifact-schema.md`'s Define step order), and R19 requires the person to
+see the restart's "fresh, replaced results" before choosing their next action.
+`business_requirements` is Define's headline deliverable (produced by
+Requirements Writer) but — per discovery-notes iteration-1 F1 — it is surfaced
+**nowhere in the UI today**; the existing `define_open_questions` pattern is
+the only reusable precedent, so this design applies it a second time rather
+than leaving the restart's main output invisible:
 
 ```ruby
 module DefineHelper
@@ -699,6 +728,13 @@ module DefineHelper
 
   def define_discovery_notes(phase)
     define_artifact(phase, "discovery_notes")
+  end
+
+  # NEW (iteration 3, F1) — Requirements Writer's output. Nothing renders this
+  # today (discovery-notes F1); without it, a completed restart has no inline
+  # evidence of its regenerated headline deliverable, and R19 is unmet.
+  def define_business_requirements(phase)
+    define_artifact(phase, "business_requirements")
   end
 
   # The most recent failed/stuck run across Define's steps — while paused, the
@@ -749,6 +785,7 @@ header and the step-card grid:
     <% at_gate = phase.status.in?(%w[consensus awaiting_human]) && phase.gate_human? %>
     <% questions = define_open_questions(phase) %>
     <% discovery = define_discovery_notes(phase) %>
+    <% requirements = define_business_requirements(phase) %>
     <% steps = phase.workflows.flat_map(&:steps) %>
     <% menu_busy = phase.paused? && phase.any_step_active? %>
     <div class="rounded-lg border bg-white p-6 shadow-sm
@@ -838,9 +875,52 @@ header and the step-card grid:
         </div>
       <% end %>
 
-      <% if questions.present? %>
+      <%# NEW (iteration 3, F1) — Requirements Writer's output. Not gated on
+          phase.paused? at all, same as the discovery/questions blocks: it
+          renders whenever the artifact exists, so a restart's regenerated
+          business_requirements is on the page — before the paused menu, in
+          DOM order — the moment ManagerTick#settle_restart lands back on
+          `paused` and re-renders this partial (R19). %>
+      <% if requirements.present? %>
+        <div class="mt-6 border-t border-gray-100 pt-6">
+          <h3 class="text-sm font-semibold text-gray-900">Requirements</h3>
+          <div class="mt-2 space-y-1 text-sm text-gray-700"><%= simple_format(requirements) %></div>
+        </div>
+      <% end %>
+
+      <%# CHANGED (iteration 3, F2) — was `questions.present?` only, which left
+          Ask Human's button targeting a non-existent anchor whenever Define is
+          paused before Clarifying Questions has ever produced open_questions
+          (e.g. paused right after Explore). AnswerQuestions itself has never
+          required questions to exist — it just attaches whatever free-text
+          `answers` string it's given as feedback (app/services/phases/
+          answer_questions.rb:21, no presence check) — so the fix is a view-only
+          empty state, not a service change. Outside `paused`, behavior is
+          byte-for-byte unchanged (R34): this block still only appears when
+          questions are present, exactly as it does today. %>
+      <% if questions.present? || phase.paused? %>
         <div id="define-ask-human" class="mt-6 border-t border-gray-100 pt-6">
-          <%# ...unchanged "Open questions" + "Send answers" form (R13, R14, R34)... %>
+          <h3 class="text-sm font-semibold text-gray-900">Open questions</h3>
+          <% if questions.present? %>
+            <div class="mt-2 space-y-1 text-sm text-gray-700"><%= simple_format(questions) %></div>
+          <% else %>
+            <p class="mt-2 text-sm text-gray-500">
+              No open questions right now — you can still send notes for the agent to take into account.
+            </p>
+          <% end %>
+          <%= form_with url: answers_phase_path(phase), class: "mt-4 space-y-3" do |f| %>
+            <div>
+              <%= f.label :answers, questions.present? ? "Your answers" : "Notes for the agent",
+                    class: "block text-sm font-medium text-gray-900" %>
+              <%= f.text_area :answers, rows: 4, required: true,
+                    placeholder: questions.present? ? "Answer by number — unanswered questions use their stated defaults" : "Anything you want the agent to take into account",
+                    class: "mt-1 block w-full rounded-md border-0 px-3 py-2 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 bg-white" %>
+              <p class="mt-1 text-xs text-gray-500">Sending re-opens the requirements loop for another pass.</p>
+            </div>
+            <%= f.submit "Send answers",
+                  class: "rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 cursor-pointer",
+                  data: { turbo_submits_with: "Sending…" } %>
+          <% end %>
         </div>
       <% end %>
     </div>
@@ -860,11 +940,15 @@ Notes on this view:
   step ("Re-run" link absent for the run's entire `ready/claimed/running`
   lifetime).
 - **Ask Human is a same-page anchor**, not a new server round-trip — R13's
-  "show them the questions and let them submit answers" is already exactly
+  "show them the questions and let them submit answers" is already close to
   what the existing `questions.present?` block below does today (it isn't
   gated to `at_gate`); the button just scrolls to it. This avoids inventing a
-  redundant reveal/hide action for content that's already always rendered when
-  present.
+  redundant reveal/hide action for content that's already rendered when
+  present. The block's condition is widened to `questions.present? ||
+  phase.paused?` (§6.3, iteration-3 F2) specifically so the anchor always has
+  something to scroll *to* while paused, even before Clarifying Questions has
+  ever run — otherwise Ask Human's button would target a `<div>` that doesn't
+  exist yet and R14 would have no submission path in that state.
 - The **Explore/Clarifying Questions buttons are conditionally rendered** on
   whether a step declaring that output actually exists in this phase's
   workflow — defensive against a project template that composed Define
@@ -887,13 +971,13 @@ Notes on this view:
 | R10 | `Phases::RerunMenuStep` targeting `open_questions` |
 | R11 | Existing `define_open_questions` + inline block (unchanged) |
 | R12 | `menu_busy` (`phase.paused? && any_step_active?`) hides the menu, shows a live `aria-live` message — generalized to any menu-triggered run, matching Repeat-from-Beginning's own treatment |
-| R13 | `Phases::AnswerQuestions`, extended allow-list; existing open-questions/answer UI, reachable while paused |
+| R13 | `Phases::AnswerQuestions`, extended allow-list; existing open-questions/answer UI, reachable while paused; anchor block widened to `questions.present? \|\| phase.paused?` (§6.3, F2) so it's reachable even with no open questions yet |
 | R14 | `AnswerQuestions`'s existing `{"from" => "human", ...}` feedback attach, unchanged |
 | R15 | `Phases::RestartDefine` — new run on the first worker-executed step |
 | R16 | `phase.restart_in_progress?` branch replaces the menu with a "restart in progress" banner |
 | R17 | No new code — artifacts overwrite the same path on re-run (existing workspace contract) |
 | R18 | `RestartDefine#carried_feedback` + `ManagerTick#restart_carry_feedback` propagate prior human-tagged feedback through the whole cascade |
-| R19 | `ManagerTick#settle_restart` — converged restart lands on `paused`, not the gate; fresh output shown via R9/R11's same inline blocks |
+| R19 | `ManagerTick#settle_restart` — converged restart lands on `paused`, not the gate; fresh output shown via R9/R11's inline blocks for `discovery_notes`/`open_questions` **plus the new `define_business_requirements` helper + "Requirements" block (§6.2/§6.3, F1)** for the restart's regenerated `business_requirements` |
 | R20 | `Phases::Approve` accepts `paused` when `Convergence.phase_settled?` is true |
 | R21 | `Approve` returns `:not_settled` when not; `ApprovalsController#approval_alert` gives the plain-language message |
 | R22 | Menu actions never change `phase.status`; the panel always re-renders the paused menu once idle |
