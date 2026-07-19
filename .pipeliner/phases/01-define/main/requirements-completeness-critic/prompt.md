@@ -1,1 +1,0 @@
-Review the business requirements for completeness and atomicity. Are any user needs missed? Is each requirement testable and singular? Emit a structured verdict with findings.
