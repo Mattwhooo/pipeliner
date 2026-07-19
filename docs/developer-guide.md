@@ -155,8 +155,9 @@ From `guides/ui-style-guide.md`:
 - **Tailwind only, on the defined scale**: spacing steps 2/4/6/8/12, the six
   type styles, neutrals + one indigo accent.
 - **Status colors are semantic and reserved** (blue=running, green=success,
-  amber=needs attention, red=stuck/failed, gray=pending) — and status is
-  **never conveyed by color alone**.
+  amber=needs attention, red=stuck/failed/blocked, gray=pending/idle *and a
+  deliberate cancel* — red is reserved for error stops, not for an `aborted`
+  pipeline a person canceled) — and status is **never conveyed by color alone**.
 - **Shared components** (StatusBadge, Card, buttons) have one source of truth —
   don't re-style ad hoc.
 - **Turbo Streams target the smallest DOM unit** (a badge, a card, keyed by
@@ -368,9 +369,20 @@ Three pieces, each landing where the guides put it:
   a pure read reads more honestly as `.for` and won't be mistaken for a mutation.
   It returns a `Summary` value carrying the finished sentence (`text`, never
   blank) plus a **semantic tone** (`:info` / `:success` / `:attention` /
-  `:danger` / `:muted`) drawn from the same `StatusHelper` `STATUS_TONES` /
-  `TONE_CLASSES` vocabulary the badges use, so the summary and the badge can
-  never disagree.
+  `:danger` / `:muted`). The tone is **never a per-branch color literal**: every
+  branch resolves it by looking its governing status string up in
+  `StatusHelper::STATUS_TONES` — the *same* table `status_badge` reads — so the
+  summary dot and the pipeline status badge can never show different colors for
+  the same state. Landing this needed exactly one reconciliation in that shared
+  table: **`STATUS_TONES["aborted"]` moves from `:danger` to `:muted`.** A
+  deliberate cancel is a neutral terminal state, so red stays *reserved for error
+  stops* (`stuck` / `failed` / `blocked`) while a canceled pipeline reads gray on
+  both the badge and the summary — the same red-vs-gray line the summary draws in
+  words between a failure (R9, "Failed in Build: …") and a deliberate cancel
+  (R11, "Canceled"). Because the color table in `guides/ui-style-guide.md` was
+  silent on a deliberately-canceled state, that PR also adds the matching
+  "canceled / aborted → gray (muted)" row to it (guide-silent-then-propose, per
+  `CLAUDE.md`).
 
   `build` is a **total function**: an ordered list of first-match branches,
   most operationally salient first, ending in an **unconditional catch-all** so
