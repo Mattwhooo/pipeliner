@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "slug": "clarifying-questions",
+  "type": "critic",
+  "role": "review",
+  "prompt": "prompt.md",
+  "inputs": [],
+  "outputs": [
+    {
+      "kind": "artifact",
+      "path": "output/open_questions.md",
+      "artifact": "open_questions"
+    },
+    {
+      "kind": "artifact",
+      "path": "output/open_questions.json",
+      "artifact": "open_questions_structured"
+    }
+  ],
+  "scope": null,
+  "fan_out": null
+}

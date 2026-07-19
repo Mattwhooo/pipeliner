@@ -1,0 +1,18 @@
+[
+  {
+    "question": "What should \"top right corner\" actually mean, given there's no viewport-spanning top bar today? (a) Add a new slim top bar across the top of the main content area with the toggle at its far right; (b) keep it in the left sidebar's top-right (roughly where it is now); or (c) place it in each page's existing header row, top-right.",
+    "default": "(a) Add a slim top bar spanning the main content area and pin the toggle to its far right — the most natural reading of \"top right corner of the screen.\""
+  },
+  {
+    "question": "Which layouts should change? The toggle also appears on the sign-in/auth screen (no sidebar), currently centered next to the \"Pipeliner\" heading.",
+    "default": "Change the main app shell only; leave the auth/sign-in screen's toggle where it is."
+  },
+  {
+    "question": "If a new top bar is added, should it hold anything besides the toggle (e.g. breadcrumbs, page title, or the \"Sign out\" control now at the bottom of the sidebar)?",
+    "default": "Toggle only — a minimal bar with just the dark mode toggle at the right; nothing else moves."
+  },
+  {
+    "question": "On pages whose header already has a top-right primary action (New Project, New Pipeline, etc.), is a single shared top bar sitting above those page headers acceptable so the toggle and the primary action don't compete in the same row?",
+    "default": "Yes — the toggle lives in the shared top bar above the page content, so per-page primary actions keep their own top-right slot underneath it."
+  }
+]
