@@ -296,12 +296,15 @@ them (custom steps may add more):
 | Phase       | Canonical artifacts                                             | Kind     |
 |-------------|----------------------------------------------------------------|----------|
 | `01-define` | `discovery_notes`, `open_questions`, `open_questions_structured`, `human_answers`, `business_requirements`, `workflow_plan`, `define_summary`, `documentation` | artifact |
-| `02-plan`   | `technical_approach`, `technical_design`, `build_task_plan`, `documentation` | artifact |
+| `02-plan`   | `technical_approach`, `technical_design`, `documentation` | artifact |
 | `03-build`  | repo changes (git diff); optional `build_notes`                | repo / artifact |
 | `04-review` | `review_report`                                                | artifact |
 
-`build_task_plan` (Plan → Build) carries the scoped, disjoint task partition Build
-fans out over. **[OPEN]** formalize each canonical artifact's own schema.
+The scoped, disjoint task partition Build fans out over is no longer a Plan
+artifact: the Define **Workflow Planner** now emits it directly in `workflow_plan`
+(a split `build` of `{ slug, scope, steps }` workflow objects), and
+`Workflows::MaterializePlan` stamps each workflow's `scope` onto its steps (see
+`workflow_plan` below). **[OPEN]** formalize each canonical artifact's own schema.
 
 `open_questions_structured` (Define, `output/open_questions.json`) is a
 machine-readable sibling of `open_questions`: an array of

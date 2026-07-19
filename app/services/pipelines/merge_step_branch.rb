@@ -81,8 +81,8 @@ module Pipelines
       Result.success(@step_run)
     end
 
-    # A merged Workflow Composer run carries a `workflow_plan` output artifact;
-    # its plan composes the Build/Review steps. MaterializePlan's own failures
+    # A merged Workflow Planner run carries a `workflow_plan` output artifact;
+    # its plan composes the Plan/Build/Review steps. MaterializePlan's own failures
     # are Results (it records a ManagerDecision), so we don't observe them here
     # and the merge's flow stays unchanged.
     def materialize_workflow_plan

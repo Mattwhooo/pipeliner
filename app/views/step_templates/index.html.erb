@@ -20,7 +20,7 @@
       <h2 class="text-lg font-semibold text-default"><%= heading %></h2>
       <% if phase_key == "define" %>
         <p class="mt-1 text-sm text-muted">
-          Define runs the same core for every pipeline; custom Define steps run late in the phase.
+          Define is a fixed decision tree, identical for every pipeline. These templates back its built-in steps; pinning or adding Define steps has no effect.
         </p>
       <% end %>
       <div class="mt-3 overflow-hidden rounded-lg border border-default bg-surface shadow-sm">

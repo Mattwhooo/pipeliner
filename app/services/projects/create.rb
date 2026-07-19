@@ -6,12 +6,12 @@ module Projects
   # runs.
   class Create
     # The default pinned composition, mirroring the software pack's required
-    # steps per phase. Missing templates (bare DBs, tests) are skipped.
+    # steps per phase. Missing templates (bare DBs, tests) are skipped. Define
+    # is intentionally absent: it is a fixed decision tree that ignores pinning
+    # (Pipelines::Create#compose_define_tree), so pinning Define steps is a no-op.
     DEFAULT_PINNED = {
-      "define" => [ "Requirements Writer", "Clarifying Questions Writer",
-                    "Requirements Completeness Critic" ],
-      "plan" => [ "Workflow Composer", "Design Writer", "Guide Alignment Critic",
-                  "Design Coverage Critic" ],
+      "plan" => [ "Technical Approach Planner", "Design Writer",
+                  "Guide Alignment Critic", "Design Coverage Critic" ],
       "build" => [ "Implementer", "Test Critic" ],
       "review" => [ "Requirements Conformance Critic", "Review Report Writer" ]
     }.freeze

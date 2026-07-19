@@ -165,9 +165,6 @@ SOFTWARE_PACK = [
   { name: "Design Writer", phase: "plan", step_type: "builder", role: "code", requirement: "required",
     system_prompt: "Turn the approach into a technical design: components, data model, interfaces, and a file-level plan of the changes. Cite the requirements each part satisfies.",
     default_outputs: [ { "artifact" => "technical_design", "kind" => "artifact", "path" => "output/design.md" } ] },
-  { name: "Work Partitioner", phase: "plan", step_type: "planner", role: "code", requirement: "conditional",
-    system_prompt: "Split the design into build tasks with explicitly DISJOINT file scopes so they can run in parallel safely. Shared files (routes, lockfiles, migrations) go to a single integrator task.",
-    default_outputs: [ { "artifact" => "build_task_plan", "kind" => "artifact", "path" => "output/build_task_plan.md" } ] },
   { name: "Design Coverage Critic", phase: "plan", step_type: "critic", role: "review", requirement: "required",
     system_prompt: "Check the technical design against the business requirements: is every requirement addressed? Anything designed that no requirement asks for? Emit a structured verdict." },
   { name: "Spec Writer", phase: "plan", step_type: "builder", role: "code", requirement: "conditional",
@@ -212,8 +209,10 @@ if Rails.env.development?
   # Prune global templates that the pack no longer defines (e.g. the old
   # "Codebase Explorer" / "Workflow Composer" / "Clarifying Questions Writer" /
   # "Requirements Completeness Critic" that the Define decision-tree redesign
-  # replaced). Only unreferenced templates are removed, so an existing demo
-  # pipeline that still points at one is left intact. Idempotent.
+  # replaced, and the "Work Partitioner" whose Build-scope partitioning moved
+  # into the Define Workflow Planner's workflow_plan). Only unreferenced
+  # templates are removed, so an existing demo pipeline that still points at one
+  # is left intact. Idempotent.
   pack_names = SOFTWARE_PACK.map { |a| a[:name] }
   StepTemplate.global.where.not(name: pack_names).find_each do |template|
     template.destroy if Step.where(step_template_id: template.id).none?

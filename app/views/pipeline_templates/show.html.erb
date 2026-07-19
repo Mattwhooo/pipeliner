@@ -20,9 +20,10 @@
     <div>
       <p class="text-sm font-medium text-default">Manager additions</p>
       <p class="mt-1 text-xs text-muted">
-        When enabled, the Workflow Composer may add steps beyond the pinned set for
+        When enabled, the Workflow Planner may add steps beyond the pinned set for
         tasks that need them (e.g. UI testing). When disabled, pipelines contain
-        exactly the pinned steps.
+        exactly the pinned steps. Define is always the same fixed decision tree
+        and is unaffected either way.
       </p>
     </div>
     <div class="flex shrink-0 items-center gap-3">
@@ -44,7 +45,7 @@
     <section>
       <h2 class="text-lg font-semibold text-default"><%= kind.humanize %></h2>
       <% if kind == "define" %>
-        <p class="mt-1 text-xs text-muted">Define runs the same core for every pipeline; custom Define steps run late in the phase.</p>
+        <p class="mt-1 text-xs text-muted">Define is a fixed decision tree, identical for every pipeline — it ignores pinning, so there is nothing to configure here.</p>
       <% end %>
 
       <div class="mt-3 overflow-hidden rounded-lg border border-default bg-surface shadow-sm">
@@ -81,11 +82,11 @@
           </ul>
         <% else %>
           <p class="px-6 py-6 text-center text-xs text-subtle">
-            No pinned steps — <%= kind == "build" || kind == "review" ? "the Workflow Composer decides this phase entirely." : "this phase starts empty." %>
+            <%= kind == "define" ? "The Define decision tree is fixed — nothing to pin." : "No pinned steps — the Workflow Planner decides this phase entirely." %>
           </p>
         <% end %>
 
-        <% if available.any? %>
+        <% if available.any? && kind != "define" %>
           <div class="border-t border-default bg-app px-6 py-3">
             <%= form_with url: project_pipeline_template_steps_path(@project),
                   scope: :pipeline_template_step, class: "flex items-center gap-3" do |f| %>
