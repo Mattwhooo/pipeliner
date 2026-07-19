@@ -2,10 +2,10 @@
   "schema_version": "1.0",
   "step": "design-coverage-critic",
   "status": "succeeded",
-  "iteration": 2,
+  "iteration": 3,
   "worker": {
     "id": "wk_personal-macbook-local",
     "backend": "claude-code"
   },
-  "summary": "I reviewed the technical design (`design.md`) against the business requirements (`requirements.md`, R1–R18) and against the seven findings from iteration 1. All seven prior findings are resolved: the design now suppresses the iteration number on first attempts (R4), names both steps when two are working (R5), collapses to \"<Phase>: N steps are running\" for three or more (R6), gives a distinct failed-state branch that names where it stopped (R9), adds an aborted→\"Canceled\" / future paused→\"Paused\" branch (R11), makes `build` a total function with an unconditional catch-all (R12), and removes the out-of-scope `as_of` timestamp. My fresh full pass confirms every requirement R1–R18 maps to a concrete component and nothing is designed that no requirement asks for (the extra Blocked/stuck branch is a real state truthfully covered under R12, not scope creep). I emitted a **pass** verdict with an empty findings list to `verdict.json`."
+  "summary": "I reviewed the iteration-3 technical design (`design.md`) against the 18 business requirements (`requirements.md`) for coverage in both directions: every requirement addressed, and nothing designed that no requirement asks for. I traced each of R1–R18 to a concrete design component independently rather than relying on the design's own mapping table — surface placement and load-time truth (R1/R2/R15), the full R3–R13 plain-language state machine in `Pipelines::StatusSummary` (including the iteration-suppression, name-both, N-steps-collapse, failed-with-location, aborted→Canceled, and unconditional catch-all rules), live-push and ordering convergence via `Pipelines::BroadcastStatus` fired from the run transitions plus the essential `ManagerTick` seam (R14/R16), and the words-not-color / compact≡full accessibility guarantees (R17/R18). The only branch beyond the requirement list (Blocked/stuck) is a real reachable state explicitly justified under R12, and the previously over-scoped `as_of` timestamp was removed — so there is no under- or over-coverage. The iteration-3 edits were guide-alignment refinements that don't change coverage. I wrote a **pass** verdict with no findings to `verdict.json`."
 }
