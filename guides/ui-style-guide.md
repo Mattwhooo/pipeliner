@@ -107,6 +107,11 @@ Build as ViewComponents or partials — one source of truth per component.
 - Loading: skeletons (`animate-pulse`) for initial loads; small inline spinners
   for in-flight actions. Buttons disable while submitting
   (`data-turbo-submits-with`).
+- **Cross-pipeline aggregate views** (e.g. the dashboard) use a per-user
+  stream (`turbo_stream_from current_user, :scope`) fanned out from a small
+  `Dashboard::Broadcast`-style service, since no single record owns the view.
+  This is the first view of this shape; future ones should follow the same
+  pattern rather than re-deriving it.
 
 ## Accessibility baseline
 

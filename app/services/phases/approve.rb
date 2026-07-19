@@ -30,6 +30,7 @@ module Phases
         @phase.approvals.create!(user: @user, decision: "approve", note: @note)
         @phase.update!(status: "approved")
       end
+      Dashboard::Broadcast.call(pipeline: @phase.pipeline, activity: true)
       advanced = Advance.call(phase: @phase)
 
       # Advance returns the next phase (or the pipeline when Review completes);

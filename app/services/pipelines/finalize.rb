@@ -70,6 +70,7 @@ module Pipelines
 
       # Broadcast only after the state writes commit (never inside the transaction).
       Phases::BroadcastColumn.call(review_phase)
+      Dashboard::Broadcast.call(pipeline: @pipeline, activity: true)
       Result.success(archive || @pipeline)
     end
 

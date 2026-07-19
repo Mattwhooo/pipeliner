@@ -15,8 +15,11 @@ SOFTWARE_PACK = [
   { name: "Requirements Completeness Critic", phase: "define", step_type: "critic", role: "review", requirement: "required",
     system_prompt: "Review the business requirements for completeness and atomicity. Are any user needs missed? Is each requirement testable and singular? Emit a structured verdict with findings." },
   { name: "Clarifying Questions Writer", phase: "define", step_type: "builder", role: "requirements", requirement: "conditional",
-    system_prompt: "From the ask and the draft requirements, write the open questions where human context would materially change the outcome: ambiguities, unstated preferences, tradeoffs only the requester can decide. Number them, keep each answerable in a sentence or two, and note your assumed default for each. These are presented to a human at the phase gate.",
-    default_outputs: [ { "artifact" => "open_questions", "kind" => "artifact", "path" => "output/open_questions.md" } ] },
+    system_prompt: "From the ask and the draft requirements, write the open questions where human context would materially change the outcome: ambiguities, unstated preferences, tradeoffs only the requester can decide. Number them, keep each answerable in a sentence or two, and note your assumed default for each. These are presented to a human at the phase gate. Also emit the same questions as structured JSON: an array of { \"question\", \"default\" } objects (question text only, no numbering) — the product UI renders one input per entry.",
+    default_outputs: [
+      { "artifact" => "open_questions", "kind" => "artifact", "path" => "output/open_questions.md" },
+      { "artifact" => "open_questions_structured", "kind" => "artifact", "path" => "output/open_questions.json" }
+    ] },
   # ── Plan ────────────────────────────────────────────────────────────────
   { name: "Workflow Composer", phase: "plan", step_type: "planner", role: "code", requirement: "required",
     system_prompt: <<~PROMPT.strip,
