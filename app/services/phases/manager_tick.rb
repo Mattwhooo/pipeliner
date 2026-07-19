@@ -34,6 +34,7 @@ module Phases
       @phase = phase
       @affected_runs = []
       @affected_phases = []
+      @affected_decisions = []
       @pending_rework = nil
     end
 
@@ -265,17 +266,20 @@ module Phases
     end
 
     def record_decision(decision:, iteration:, rationale:, route_to: [])
-      @phase.manager_decisions.create!(
+      created = @phase.manager_decisions.create!(
         decision: decision,
         iteration: iteration,
         route_to: route_to,
         rationale: rationale
       )
+      @affected_decisions << created if decision.in?(%w[consensus escalate])
+      created
     end
 
     def broadcast_affected
       @affected_runs.each { |run| StepRuns::BroadcastCard.call(run) }
       @affected_phases.each { |phase| BroadcastColumn.call(phase) }
+      @affected_decisions.each { Dashboard::Broadcast.call(pipeline: @phase.pipeline, activity: true) }
     end
   end
 end

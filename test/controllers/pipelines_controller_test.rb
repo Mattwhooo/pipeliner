@@ -14,7 +14,7 @@ class PipelinesControllerTest < ActionDispatch::IntegrationTest
     assert_select "h3", { text: /^Define$/, count: 0 } # no Define column
   end
 
-  test "show renders the define Q&A section when open questions are present" do
+  test "show renders the define open questions read-only, pointing to the dashboard to answer" do
     steps(:requirements_writer).step_runs.create!(
       state: "succeeded", iteration: 2, required_role: "requirements",
       result: { "artifacts" => { "open_questions" => "1. Which auth provider?" } }
@@ -23,8 +23,11 @@ class PipelinesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_match "Open questions", @response.body
     assert_match "Which auth provider?", @response.body
-    assert_select "form[action=?]", answers_phase_path(phases(:onboarding_define))
-    assert_select "textarea[name=answers]"
+    assert_match "Answer these from the dashboard.", @response.body
+    # The inline free-text answer form was removed (Q14) in favor of the
+    # dashboard's per-question modal.
+    assert_select "form[action=?]", answers_phase_path(phases(:onboarding_define)), count: 0
+    assert_select "textarea[name=answers]", count: 0
   end
 
   test "show hides the Q&A section when there are no open questions" do

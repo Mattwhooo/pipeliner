@@ -78,6 +78,39 @@ class PhasesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "human", run.feedback.first["from"]
   end
 
+  test "answers as turbo_stream returns 200 with no body on success" do
+    @define.update!(status: "consensus")
+    @pipeline.update!(status: "awaiting_human")
+    step_runs(:requirements_ready).update!(state: "succeeded")
+
+    post answers_phase_url(@define), params: { answers: "1. Use OAuth." },
+      as: :turbo_stream
+
+    assert_response :success
+    assert_equal "running", @define.reload.status
+  end
+
+  test "answers as turbo_stream returns 422 and replaces the error partial on :busy" do
+    @define.update!(status: "consensus")
+    # requirements_ready fixture is in state ready → the loop is busy.
+    post answers_phase_url(@define), params: { answers: "answers" }, as: :turbo_stream
+
+    assert_response :unprocessable_entity
+    assert_match "turbo-stream", @response.media_type
+    assert_match "Define is still running", @response.body
+    assert_equal "consensus", @define.reload.status
+  end
+
+  test "answers as turbo_stream returns 422 on blank answers, preserving the phase state" do
+    @define.update!(status: "running")
+    step_runs(:requirements_ready).update!(state: "succeeded")
+
+    post answers_phase_url(@define), params: { answers: "   " }, as: :turbo_stream
+
+    assert_response :unprocessable_entity
+    assert_match "Add your answers", @response.body
+  end
+
   test "answers is rejected while a define run is in flight" do
     @define.update!(status: "consensus")
     # requirements_ready fixture is in state ready → the loop is busy.

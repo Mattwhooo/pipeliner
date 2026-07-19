@@ -99,6 +99,13 @@ Broadcasts (after business action succeeds, from the service layer)
 - Define a small error taxonomy per domain when needed
   (`Pipelines::Error < StandardError`) for the genuinely exceptional.
 - Never rescue `StandardError` blindly; rescue what you can handle.
+- **Presentation-boundary rescue (sanctioned exception):** a multi-panel
+  aggregate view (e.g. the dashboard) may wrap each independent panel's
+  single read in a narrow `rescue StandardError`, logged and converted to
+  `nil`, so one panel's infrastructure failure doesn't 500 the whole page.
+  Scope it to exactly one call per rescue (never a block of business logic),
+  and only for read-only query objects — a service with side effects must
+  still return a `Result`, never rely on this.
 
 ## Real-time (Turbo) conventions
 
