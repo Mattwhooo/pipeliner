@@ -33,6 +33,7 @@ module Phases
     def initialize(phase:)
       @phase = phase
       @affected_runs = []
+      @affected_columns = []
     end
 
     def call
@@ -119,7 +120,7 @@ module Phases
     def escalate(workflow, critic, critic_run, attempted_iteration)
       @phase.update!(status: "awaiting_human")
       @phase.pipeline.update!(status: "awaiting_human")
-      BroadcastColumn.call(@phase)
+      @affected_columns << @phase
       record_decision(
         decision: "escalate",
         iteration: attempted_iteration,
@@ -176,7 +177,7 @@ module Phases
       else
         # Human gate: park for approval (surfaced by the board's gate banner).
         @phase.pipeline.update!(status: "awaiting_human")
-        BroadcastColumn.call(@phase)
+        @affected_columns << @phase
       end
     end
 
@@ -214,8 +215,14 @@ module Phases
       )
     end
 
+    # Called after the tick transaction commits (persist → broadcast). Column
+    # broadcasts for escalation and the human-gate park are deferred here rather
+    # than fired inside the transaction, so a rolled-back tick never repaints a
+    # phase state that was never persisted. Advance owns its own after-commit
+    # column broadcasts for the auto-gate path.
     def broadcast_affected
       @affected_runs.each { |run| StepRuns::BroadcastCard.call(run) }
+      @affected_columns.each { |phase| BroadcastColumn.call(phase) }
     end
   end
 end

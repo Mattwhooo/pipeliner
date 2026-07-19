@@ -15,19 +15,34 @@ module Phases
       pipeline = @phase.pipeline
 
       if @phase.review_phase?
-        pipeline.update!(status: "completed")
-        BroadcastColumn.call(@phase)
+        ApplicationRecord.transaction do
+          pipeline.update!(status: "completed")
+        end
+        broadcast_columns_after_commit(@phase)
         return Result.success(pipeline)
       end
 
       index = Phase::KINDS_IN_ORDER.index(@phase.kind)
       next_phase = pipeline.phases.find_by!(kind: Phase::KINDS_IN_ORDER[index + 1])
-      next_phase.update!(status: "running")
-      pipeline.update!(current_phase: next_phase.kind, status: "running")
-      BroadcastColumn.call(@phase)
-      BroadcastColumn.call(next_phase)
+      ApplicationRecord.transaction do
+        next_phase.update!(status: "running")
+        pipeline.update!(current_phase: next_phase.kind, status: "running")
+      end
+      broadcast_columns_after_commit(@phase, next_phase)
 
       Result.success(next_phase)
+    end
+
+    private
+
+    # Repaint the affected columns only once the advance is durable. When called
+    # standalone (Phases::Approve) this fires after our own transaction; when
+    # nested inside ManagerTick's tick it fires after that outer transaction —
+    # so a rolled-back advance never leaves a stale column on the board.
+    def broadcast_columns_after_commit(*phases)
+      ActiveRecord.after_all_transactions_commit do
+        phases.each { |phase| BroadcastColumn.call(phase) }
+      end
     end
   end
 end
