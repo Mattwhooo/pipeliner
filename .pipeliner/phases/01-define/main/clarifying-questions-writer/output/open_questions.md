@@ -45,7 +45,32 @@ Each has an assumed default we'll build if you don't weigh in.
    *Assumed default:* You answer the agent's clarifying questions (existing
    behavior); free-form notes from you are folded in as feedback on the re-run.
 
-6. **What does "Repeat from the beginning" do with prior work?**
+6. **Do you need to see the fresh output before deciding what's next?**
+   Nothing in the current app shows you the *result* of a re-run today except
+   open questions — discovery notes and other artifacts aren't displayed
+   anywhere. If pausing is about giving you feedback, do you want each menu
+   action's fresh output (updated discovery notes, updated open questions,
+   replaced requirements after a restart) shown to you right there in the
+   paused view before you pick the next action, or is it enough to know the
+   action finished and look elsewhere if you're curious?
+   *Assumed default:* Show the fresh output inline in the paused view,
+   extending the same display already used for open questions, so you can read
+   it before choosing your next move.
+
+7. **How hands-on is "Repeat from the Beginning"?**
+   Restarting Define means re-running all of its steps in sequence (Explore →
+   Requirements → Clarifying Questions → Critic), which isn't instant — it can
+   take a couple of minutes as each step completes in turn. Once you trigger a
+   restart, should it run through all those steps automatically while you wait
+   and then show you the final fresh results, or should it stop and return you
+   to the menu after *each* of those steps too, so you're approving the restart
+   step-by-step?
+   *Assumed default:* Run automatically through all the restart's steps once
+   triggered; you see a "restart in progress" state and land back on the full
+   menu with fresh results when it's done — you don't have to click through
+   each intermediate step.
+
+8. **What does "Repeat from the beginning" do with prior work?**
    The system keeps only the latest version of each artifact (no per-round
    snapshots). When you restart Define, should earlier discovery notes and
    requirements be *replaced* by the fresh run, or should the new run build on
@@ -54,7 +79,7 @@ Each has an assumed default we'll build if you don't weigh in.
    fresh output, carrying your answers/notes forward as feedback (no snapshot of
    the discarded version).
 
-7. **When you pick a menu action, does the loop keep auto-advancing?**
+9. **When you pick a menu action, does the loop keep auto-advancing?**
    After you trigger, say, a re-run of Clarifying Questions, should the automatic
    Define loop resume and carry on to the next steps, or should it stop again and
    return you to the menu after each action so you drive every step by hand?
@@ -63,23 +88,38 @@ Each has an assumed default we'll build if you don't weigh in.
 
 ## Exit & interaction
 
-8. **What counts as "done"?**
-   Is "done" the same as the existing approval that ends Define and moves to the
-   next phase, or a separate "I'm finished pausing" that then still needs a final
-   approval?
-   *Assumed default:* "Done" = the existing Define approval; choosing it ends the
-   pause and advances the phase.
+10. **Can you choose "Done" before Define has actually settled?**
+    Today, finishing Define requires it to have reached a settled state
+    (consensus, or waiting on you) — the approval action is hard-blocked outside
+    that state. If you pause mid-loop and choose Done before the steps have
+    converged on their own, should that force-finish Define with whatever
+    output currently exists (with a clear warning that it's not fully settled),
+    or should Done simply not be available yet, prompting you to keep working
+    the menu (or wait) until it settles?
+    *Assumed default:* Done requires Define to have reached its normal settled
+    state first; if you choose Done too early, we tell you it's not ready yet
+    rather than force-finishing on unconverged work.
 
-9. **How does pause relate to the automatic "needs more work" loop and the
-   iteration cap?**
-   Define already loops automatically and stops for you when it can't converge or
-   hits its retry cap. Should a manual pause suspend that automatic loop entirely
-   until you resume, and should manual re-runs you trigger count against the
-   retry cap?
-   *Assumed default:* A manual pause suspends the automatic loop until you
-   resume; human-triggered re-runs do **not** count against the automatic cap.
+11. **What should you see if a menu action's re-run fails?**
+    A re-run you trigger (Explore, Clarifying Questions, a restart step) can
+    fail or time out like any other step run. Do you want that called out to
+    you directly — kept on the paused menu with a clear failure message — or is
+    it acceptable to rely on the same status indicator used elsewhere today,
+    which you'd need to notice yourself?
+    *Assumed default:* A failed or timed-out menu re-run keeps the phase paused
+    and shows a clear failure message in the paused view (label, not just a
+    color change) rather than retrying silently or leaving you to spot a badge.
 
-10. **Is pause a Define-only feature, or the start of a general capability?**
+12. **How does pause relate to the automatic "needs more work" loop and the
+    iteration cap?**
+    Define already loops automatically and stops for you when it can't converge
+    or hits its retry cap. Should a manual pause suspend that automatic loop
+    entirely until you resume, and should manual re-runs you trigger count
+    against the retry cap?
+    *Assumed default:* A manual pause suspends the automatic loop until you
+    resume; human-triggered re-runs do **not** count against the automatic cap.
+
+13. **Is pause a Define-only feature, or the start of a general capability?**
     The ask is scoped to Define. Should we build this specifically for Define, or
     design it so the same pause/menu could later apply to Plan/Build/Review?
     *Assumed default:* Build for Define now, but structure it so it can generalize
