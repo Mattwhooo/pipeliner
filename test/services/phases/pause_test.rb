@@ -46,5 +46,16 @@ module Phases
       assert result.failure?
       assert_equal :not_pausable, result.error
     end
+
+    test "refuses to pause a non-Define phase" do
+      plan = phases(:onboarding_plan)
+      plan.update!(status: "running")
+
+      result = Pause.call(phase: plan, user: users(:dev))
+
+      assert result.failure?
+      assert_equal :not_pausable, result.error
+      assert_equal "running", plan.reload.status
+    end
   end
 end
