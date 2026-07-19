@@ -2,10 +2,10 @@
   "schema_version": "1.0",
   "step": "requirements-writer",
   "status": "succeeded",
-  "iteration": 1,
+  "iteration": 2,
   "worker": {
-    "id": "wk_personal-macbook-local",
+    "id": "wk_sonnet",
     "backend": "claude-code"
   },
-  "summary": "I read the ask, the codebase-explorer discovery notes, and the clarifying-questions writer's open questions (there were no resolved inputs in `input.json`), then wrote 23 atomic business requirements to `.pipeliner/phases/01-define/main/requirements-writer/output/requirements.md`. Each is phrased as \"When X happens, Y should happen\" in plain non-technical language and grouped into pausing behavior (R1–R6), the five-item paused menu — Explore, Clarifying Questions, Ask Human, Repeat from the Beginning, Done (R7–R14), manual one-action-at-a-time stepping (R15–R17), safeguards around the automatic loop and retry cap (R18–R21), and non-technical integrity plus preserving existing gate behavior (R22–R23). I closed with a short list of the assumed open-question answers each requirement rests on, so a human can see what would change if they override a default."
+  "summary": "I revised `requirements.md` for iteration 2, addressing all five gaps flagged by the requirements-completeness critic (F1–F5) using the fresh code facts from the iteration-2 discovery notes: added requirements that Explore/Clarifying Questions/Repeat-from-Beginning results are actually shown to the person before they choose their next action (R9, R11, R18), specified that a \"Repeat from the Beginning\" restart runs several steps in sequence with a \"restart in progress\" state before the menu reappears (R15–R18), added a dedicated failure-path section for menu-triggered re-runs (R24–R25), gated \"Done\" on Define having reached its settled state with an explicit not-ready message otherwise (R19–R20), and split the two compound requirements (old R13, R23) into independently testable ones (R16/R17, R31/R32/R33). The result is 33 atomic, non-technical \"When X, Y should happen\" requirements plus an updated assumptions list reflecting the new resolutions."
 }
