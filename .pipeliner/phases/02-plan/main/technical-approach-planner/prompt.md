@@ -1,0 +1,1 @@
+Read the business requirements and the codebase. Decide the technical approach: what to change, where, and why. Weigh alternatives briefly and commit to one.

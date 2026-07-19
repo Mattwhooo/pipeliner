@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "technical-approach-planner",
+  "status": "succeeded",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_sonnet",
+    "backend": "claude-code"
+  },
+  "summary": "I read the current dark-mode toggle implementation (`shared/_theme_toggle.html.erb`, rendered from `_sidebar.html.erb` and `layouts/auth.html.erb`) and cross-checked it against `guides/ui-style-guide.md`, which reserves each page's top-right for a per-page primary action. That ruled out both a per-view placement and a viewport-fixed floating button (risk of overlapping those primary actions). I committed to introducing a single shared `shared/_topbar.html.erb` partial — a slim, full-width bar rendered once in each layout (`application.html.erb` and `auth.html.erb`) above the scrollable content, with the toggle right-aligned inside it, while removing the toggle from the sidebar header. This is a pure layout/markup relocation — no changes needed to the Stimulus controller or theme helper. The approach, alternatives considered, exact file diffs, and test-update notes are written to `.pipeliner/phases/02-plan/main/technical-approach-planner/output/approach.md`."
+}
