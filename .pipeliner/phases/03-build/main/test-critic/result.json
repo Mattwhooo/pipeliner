@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "step": "test-critic",
+  "status": "failed",
+  "iteration": 1,
+  "worker": {
+    "id": "wk_personal-macbook-local",
+    "backend": "claude-code"
+  },
+  "summary": "claude exited 1: All 112 tests error identically in fixture loading / schema cache. Let me see the actual error message."
+}

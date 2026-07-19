@@ -1,0 +1,1 @@
+Run the repository's tests and linters. Verify the implementation builds and passes. If there is nothing runnable, return not_applicable. Emit a structured verdict with failures as findings.
