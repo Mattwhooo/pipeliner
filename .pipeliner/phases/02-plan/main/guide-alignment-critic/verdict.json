@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "step": "guide-alignment-critic",
+  "verdict": "needs_work",
+  "summary": "The design (design-writer/output/design.md) is strongly aligned with both guides: it cites them throughout, models menu actions as ordinary StepRuns through the existing Worker pipeline, keeps controllers thin (auth + params + one service call + respond, PRG-redirect like the existing send_back/answers actions), gives every new service the uniform self.call -> Result interface with service-owned transactions and after-commit broadcasts, adds the 'paused' status to the single shared STATUS_TONES map using the amber 'attention' tone the ui-style-guide explicitly names for 'paused phases', reuses the shared status_badge helper (label always shown, never color alone), uses aria-live for progress, and plans Minitest coverage for every new service/controller. Only three minor deviations remain, all in the exact Tailwind classes and one PORO placement the design pins down; no blockers or majors.",
+  "findings": [
+    {
+      "id": "F1",
+      "target_artifact": ".pipeliner/phases/02-plan/main/design-writer/output/design.md",
+      "issue": "The new paused-menu buttons in §6.3 (_define_panel.html.erb) are specified as `px-3 py-1.5 text-sm font-medium` (secondaries) and the primary 'Done' as `px-3 py-1.5 ... font-semibold`, deviating from ui-style-guide.md 'Core components > Buttons' (Primary: `rounded-md px-3 py-2 text-sm font-semibold`; Secondary shares that padding/weight). The existing sibling submits in the same partial ('Approve Define' / 'Send answers') already use `px-3 py-2 text-sm font-semibold`, so the new buttons are inconsistent with both the guide and adjacent in-file precedent; use `py-2` and `font-semibold` (secondaries: `bg-white ring-1 ring-gray-300 hover:bg-gray-50`).",
+      "severity": "minor"
+    },
+    {
+      "id": "F2",
+      "target_artifact": ".pipeliner/phases/02-plan/main/design-writer/output/design.md",
+      "issue": "The new submit buttons in §6.3 (Explore, Clarifying Questions, Repeat from the Beginning, Done) omit the disable-while-submitting affordance required by ui-style-guide.md 'Real-time behavior > Loading' ('Buttons disable while submitting (data-turbo-submits-with)'). The adjacent 'Send answers' form in the same partial already sets `data: { turbo_submits_with: \"Sending…\" }`, so these menu buttons should carry an equivalent `data: { turbo_submits_with: ... }` to match the guide and existing precedent.",
+      "severity": "minor"
+    },
+    {
+      "id": "F3",
+      "target_artifact": ".pipeliner/phases/02-plan/main/design-writer/output/design.md",
+      "issue": "§4.1 places `Phases::Convergence` under app/services/ but it does not follow backend-guide.md 'Services' conventions: it is a noun (not verb-first), exposes two public boolean class methods (`phase_settled?`, `workflow_converged?`) instead of a single `call` returning a Result, and is a read-only predicate rather than a business action. backend-guide.md routes complex/reporting reads to query objects (`app/queries/`, returning relations/values) and lists domain POROs (values/results/state logic) separately from services. Relocate it to app/queries/ (or app/lib as a domain predicate PORO) or otherwise label it as a read-only domain object so it isn't conflated with the verb-first, Result-returning service layer.",
+      "severity": "minor"
+    }
+  ]
+}
